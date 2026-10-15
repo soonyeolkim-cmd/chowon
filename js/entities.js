@@ -94,7 +94,7 @@ class Player {
     const inp = Input.state;
     for (const k of ['atkCd', 'dashCd', 'invuln', 'hurtT', 'comboT', 'finisherT', 'atkBuffer',
       'specialBuffer', 'skillBuffer', 'dashBuffer', 'postDashT', 'dodgeT', 'counterT', 'leafT', 'specialCd', 'skillCd',
-      'dashGuardT', 'spinGuardT']) this[k] -= dt;
+      'dashGuardT', 'spinGuardT', 'slowT']) this[k] -= dt;
     if (this.dashStock < this.dashMax) {
       this.dashRecharge -= dt;
       if (this.dashRecharge <= 0) { this.dashStock++; this.dashRecharge = this.dashCdBase; }
@@ -129,7 +129,7 @@ class Player {
       this.moving = mag > 0.05;
       if (this.moving) {
         if (!this.act) this.facing = Math.atan2(inp.my, inp.mx);
-        const mul = this.act ? 0.25 : this.charge > 0 ? 0.45 : 1;
+        const mul = (this.act ? 0.25 : this.charge > 0 ? 0.45 : 1) * (this.slowT > 0 ? 0.6 : 1);
         const l = Math.hypot(inp.mx, inp.my), spd = this.speed * mag * mul;
         World.move(this, inp.mx / l * spd * dt, inp.my / l * spd * dt);
         this.walk += dt * mag;
@@ -532,6 +532,7 @@ class SpearShot {
       this.x += nx * step; this.y += ny * step;
       if (d < 16 || this.t > 3) { this.done = true; Sfx.pickup(); return; }
     }
+    clearShotsNear(this.x, this.y, 14);
     for (const t of G.targets()) {
       if (this.hit.has(t) || Math.hypot(t.x - this.x, t.y - this.y) > t.r + 12) continue;
       this.hit.add(t);
@@ -559,6 +560,7 @@ class Wave {
     this.life -= dt;
     if (this.life <= 0) this.done = true;
     FX.onWaveMove(this);
+    clearShotsNear(this.x, this.y, this.size);
     for (const t of G.targets()) {
       if (this.hit.has(t)) continue;
       if (Math.hypot(t.x - this.x, t.y - this.y) < t.r + this.size * 0.8) {
@@ -582,11 +584,24 @@ class Wave {
 const ENEMY_DMG_MULT = 2.6;
 const ENEMY_HP_MULT = 1.15;
 
+// shot: 투사체 피해(배율 전), keep: 유지하려는 거리, rate: 공격 간격(초), wind: 쏘기 전 예고(초)
 const ENEMY = {
-  slime:  { hp: 26, speed: 55, dmg: 8, xp: 4, r: 10, color: '#5ccf6a' },
-  bat:    { hp: 14, speed: 88, dmg: 6, xp: 5, r: 8, color: '#7a5bb5', flying: true },
-  orc:    { hp: 70, speed: 50, dmg: 12, xp: 15, r: 13, color: '#7a8f3a', heavy: true },
-  shield: { hp: 50, speed: 46, dmg: 10, xp: 12, r: 11, color: '#d8d2c0' },
+  // 세계 1 · 슬라임 대왕의 들판
+  slime:    { hp: 26, speed: 55, dmg: 8, xp: 4, r: 10, color: '#5ccf6a' },
+  bat:      { hp: 14, speed: 88, dmg: 6, xp: 5, r: 8, color: '#7a5bb5', flying: true },
+  mushroom: { hp: 22, speed: 32, dmg: 6, xp: 5, r: 10, color: '#c86a8a', ranged: true, shot: 7, keep: 140, rate: 2.6, wind: 0.6 },
+  mole:     { hp: 30, speed: 70, dmg: 9, xp: 6, r: 10, color: '#c0504a' },
+  // 세계 2 · 너구리 패거리
+  racoon:   { hp: 34, speed: 92, dmg: 8, xp: 6, r: 10, color: '#a87a4a' },
+  bear:     { hp: 90, speed: 42, dmg: 13, xp: 15, r: 13, color: '#8a5a3a', heavy: true },
+  snake:    { hp: 26, speed: 48, dmg: 6, xp: 6, r: 9, color: '#6ab04a', ranged: true, shot: 7, keep: 125, rate: 2.2, wind: 0.5 },
+  owl:      { hp: 20, speed: 70, dmg: 6, xp: 6, r: 9, color: '#b89a6a', flying: true, ranged: true, shot: 6, keep: 165, rate: 3.0, wind: 0.7 },
+  // 세계 3 · 봉인의 망령들
+  shield:   { hp: 50, speed: 46, dmg: 10, xp: 12, r: 11, color: '#d8d2c0' },
+  skull:    { hp: 28, speed: 45, dmg: 7, xp: 7, r: 9, color: '#a88ad8', flying: true, ranged: true, shot: 9, keep: 175, rate: 3.2, wind: 0.6 },
+  eye:      { hp: 32, speed: 36, dmg: 6, xp: 8, r: 10, color: '#ff6a5a', ranged: true, shot: 12, keep: 200, rate: 3.6, wind: 1.0 },
+  flam:     { hp: 24, speed: 55, dmg: 8, xp: 7, r: 9, color: '#ff9a3c', ranged: true, shot: 9, keep: 140, rate: 2.4, wind: 0.45 },
+  orc:      { hp: 70, speed: 50, dmg: 12, xp: 15, r: 13, color: '#7a8f3a', heavy: true },
 };
 
 class Enemy {
@@ -603,6 +618,10 @@ class Enemy {
     this.wander = Math.random() * Math.PI * 2;
     this.facing = 0; this.guard = type === 'shield'; this.brokenT = 0;
     this.spawnT = 0.5; this.dead = false;
+    this.def = d; this.ranged = !!d.ranged;
+    this.shotDmg = Math.round((d.shot || 0) * ENEMY_DMG_MULT * (1 + 0.25 * (stage - 1)) * (1 + 0.05 * (lv - 1)));
+    this.cd = rand(1.0, 2.2); this.aimDir = 0; this.strafe = Math.random() < 0.5 ? 1 : -1;
+    if (type === 'mole') { this.state = 'up'; this.st = 0.8; }
   }
 
   update(dt, p) {
@@ -633,6 +652,18 @@ class Enemy {
       mv(Math.cos(a) * s, Math.sin(a) * s);
     } else if (this.type === 'orc') {
       this.lungeAI(dt, p, dx, dy, d, chase, mv, 85, 0.55, 280, 0.28);
+    } else if (this.type === 'racoon') {
+      // 치고 빠지기: 짧게 달려들고, 빈틈 동안 뒤로 물러난다
+      if (this.state === 'recover') mv(-dx / d * this.speed * 0.9, -dy / d * this.speed * 0.9);
+      this.lungeAI(dt, p, dx, dy, d, chase, mv, 70, 0.3, 320, 0.16);
+    } else if (this.type === 'bear') {
+      this.lungeAI(dt, p, dx, dy, d, chase, mv, 90, 0.6, 260, 0.3);
+    } else if (this.type === 'mole') {
+      this.moleAI(dt, p, dx, dy, d, chase, mv);
+    } else if (this.type === 'flam' && this.state !== 'aim' && (this.state === 'rage' || this.state === 'boom' || this.hp < this.maxHp * 0.5)) {
+      this.flamRage(dt, p, dx, dy, d, mv);
+    } else if (this.ranged) {
+      this.rangedAI(dt, p, dx, dy, d, chase, mv);
     } else if (this.type === 'shield') {
       // 방패는 천천히 플레이어 쪽으로 돈다 → 옆이나 뒤로 돌아가면 뚫린다
       const want = Math.atan2(dy, dx), turn = (this.state === 'chase' ? 2.2 : 0.6) * dt;
@@ -640,8 +671,98 @@ class Enemy {
       this.lungeAI(dt, p, dx, dy, d, chase, mv, 50, 0.4, 200, 0.18);
     }
 
-    if (p.alive && this.spawnT <= 0 && d < this.r + p.r - 1) {
+    // 넉백 등으로 숲 · 물 위에 떠 있게 되면 플레이어 쪽으로 천천히 돌아온다
+    if (this.flying && !World.reachable(this.x, this.y)) World.fly(this, dx / d * 70 * dt, dy / d * 70 * dt);
+    if (p.alive && this.spawnT <= 0 && !this.burrowed && d < this.r + p.r - 1) {
       G.hurtPlayer(this.attacking ? Math.round(this.dmg * 1.5) : this.dmg, this);
+    }
+  }
+
+  // 원거리: 일정 거리를 유지하며 맴돌다가, 예고 후 쏜다
+  rangedAI(dt, p, dx, dy, d, chase, mv) {
+    const D = this.def;
+    if (this.state === 'aim') {
+      if (this.st > 0.2) this.aimDir = Math.atan2(dy, dx); // 마지막 순간엔 방향 고정 → 피할 수 있다
+      if (this.st <= 0) {
+        this.fire();
+        if (this.type === 'eye') { this.state = 'beam'; this.st = 0.28; this.beamHit = false; }
+        else { this.state = 'chase'; this.cd = D.rate * rand(0.85, 1.15); }
+      }
+      return;
+    }
+    if (this.state === 'beam') {
+      this.beamCheck(p);
+      if (this.st <= 0) { this.state = 'chase'; this.cd = D.rate * rand(0.85, 1.15); }
+      return;
+    }
+    this.cd -= dt;
+    if (!chase) { mv(Math.cos(this.wander) * 20, Math.sin(this.wander) * 20); return; }
+    const ux = dx / d, uy = dy / d, s = this.speed, ox = this.x, oy = this.y;
+    // 멀면 다가오고, 사거리 안이면 옆으로 맴돈다. 뒤로 도망가지는 않는다 → 다가가면 잡을 수 있다
+    if (d > D.keep + 30) mv(ux * s, uy * s);
+    else mv(-uy * s * 0.5 * this.strafe, ux * s * 0.5 * this.strafe);
+    // 나는 몬스터도 걸어서 갈 수 없는 곳(숲 · 물 위)으로는 물러나지 않는다 → 못 잡는 몹이 생기지 않게
+    if (this.flying && !World.reachable(this.x, this.y) && World.reachable(ox, oy)) { this.x = ox; this.y = oy; this.strafe *= -1; }
+    if (Math.random() < dt * 0.3) this.strafe *= -1;
+    if (this.cd <= 0 && d < D.keep + 140 && this.spawnT <= 0) {
+      this.state = 'aim'; this.st = D.wind; this.aimDir = Math.atan2(dy, dx);
+    }
+  }
+
+  fire() {
+    const a = this.aimDir, x = this.x, y = this.y - (this.flying ? 10 : 4), dmg = this.shotDmg;
+    const shot = (dir, o) => G.eshots.push(new EnemyShot(x, y, dir, Object.assign({ dmg }, o)));
+    if (this.type === 'mushroom') for (const o of [-0.35, 0, 0.35]) shot(a + o, { kind: 'spore', speed: 95, r: 6, life: 3.2 });
+    else if (this.type === 'owl') for (let i = 0; i < 5; i++) shot(a - 0.5 + i * 0.25, { kind: 'feather', speed: 175, r: 4, life: 1.9 });
+    else if (this.type === 'snake') shot(a, { kind: 'dart', speed: 230, r: 4, life: 1.6, slow: 1.0 });
+    else if (this.type === 'skull') shot(a, { kind: 'orb', speed: 105, r: 7, life: 4.5, homing: 1.4, breakable: true });
+    else if (this.type === 'flam') shot(a, { kind: 'fire', speed: 185, r: 6, life: 2.2 });
+    if (this.type !== 'eye') Sfx.wave(false); else Sfx.zap();
+  }
+
+  // 눈알 광선: 직선 위에 있으면 한 번 맞는다 (지형을 뚫는다)
+  beamCheck(p) {
+    if (this.beamHit || !p.alive) return;
+    const c = Math.cos(this.aimDir), s = Math.sin(this.aimDir), dx = p.x - this.x, dy = p.y - this.y;
+    const along = dx * c + dy * s, perp = Math.abs(dx * s - dy * c);
+    if (along > 0 && along < EYE_BEAM_LEN && perp < 9 + p.r) {
+      this.beamHit = true;
+      G.hurtPlayer(this.shotDmg, { x: this.x, y: this.y, attacking: true });
+    }
+  }
+
+  // 두더지: 땅속으로 다가가 발밑에서 튀어나온다 (땅속에선 맞지 않는다)
+  moleAI(dt, p, dx, dy, d, chase, mv) {
+    if (this.state !== 'up' && this.state !== 'under' && this.state !== 'emerge') { this.state = 'up'; this.st = 1.0; }
+    if (this.state === 'up') {
+      this.burrowed = false;
+      if (this.st < 1.6) this.attacking = false;
+      if (chase) mv(dx / d * this.speed * 0.35, dy / d * this.speed * 0.35);
+      if (this.st <= 0) { this.state = 'under'; this.st = 3; this.burrowed = true; G.burst(this.x, this.y + 6, 8, ['#8a6a4a', '#c8a878'], 80); }
+    } else if (this.state === 'under') {
+      this.burrowed = true;
+      if (chase) mv(dx / d * this.speed, dy / d * this.speed); else mv(Math.cos(this.wander) * 25, Math.sin(this.wander) * 25);
+      if (Math.random() < dt * 8) G.particles.push({ x: this.x + rand(-6, 6), y: this.y + 6, vx: rand(-15, 15), vy: rand(-30, -10), life: 0.4, max: 0.4, color: '#a8865a', size: 2.5, grav: 60 });
+      // 가까이 가거나, 3초가 지나면 (물에 막혀 못 다가가도) 그 자리에서 튀어나온다
+      if ((chase && d < 26) || this.st <= 0) { this.state = 'emerge'; this.st = 0.6; }
+    } else if (this.state === 'emerge') {
+      if (this.st <= 0) {
+        this.state = 'up'; this.st = 1.8; this.burrowed = false; this.attacking = true;
+        G.burst(this.x, this.y + 4, 14, ['#8a6a4a', '#c8a878', '#fff'], 150); G.shake = Math.max(G.shake, 3);
+        if (p.alive && d < MOLE_POP_R + p.r) G.hurtPlayer(Math.round(this.dmg * 1.3), { x: this.x, y: this.y, attacking: true });      }
+    }
+  }
+
+  // 도깨비불: 약해지면 달려와서 터진다
+  flamRage(dt, p, dx, dy, d, mv) {
+    if (this.state !== 'rage' && this.state !== 'boom') { this.state = 'rage'; this.st = 2.2; G.text(this.x, this.y - 18, '!', '#ff5a3c', 14, 0.6); }
+    if (this.state === 'rage') {
+      mv(dx / d * 150, dy / d * 150);
+      if (d < 34 || this.st <= 0) { this.state = 'boom'; this.st = 0.4; }
+    } else if (this.st <= 0) {
+      G.burst(this.x, this.y, 22, ['#ff9a3c', '#ffd24a', '#fff'], 220); G.fxRing(this.x, this.y, '#ff7a3c', FLAM_BOOM_R); G.shake = Math.max(G.shake, 6); Sfx.boom();
+      if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < FLAM_BOOM_R + p.r) G.hurtPlayer(Math.round(this.shotDmg * 1.6), { x: this.x, y: this.y, attacking: true });
+      this.hp = 0; G.killEnemy(this);
     }
   }
 
@@ -673,8 +794,26 @@ class Enemy {
   }
 
   drawTelegraph(g) {
+    const blink = 0.15 + Math.sin(this.t * 30) * 0.08;
+    if (this.type === 'eye' && (this.state === 'aim' || this.state === 'beam')) {
+      const c = Math.cos(this.aimDir), s = Math.sin(this.aimDir), beam = this.state === 'beam';
+      g.strokeStyle = beam ? 'rgba(255,90,70,0.9)' : `rgba(255,60,40,${0.35 + blink})`; g.lineWidth = beam ? 10 : 1.5;
+      g.beginPath(); g.moveTo(this.x, this.y - 4); g.lineTo(this.x + c * EYE_BEAM_LEN, this.y - 4 + s * EYE_BEAM_LEN); g.stroke();
+      if (beam) { g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke(); }
+      return;
+    }
+    if (this.type === 'mole' && this.state === 'emerge') {
+      g.fillStyle = `rgba(255,60,40,${blink + 0.1})`;
+      g.beginPath(); g.ellipse(this.x, this.y + 6, MOLE_POP_R, MOLE_POP_R * 0.6, 0, 0, Math.PI * 2); g.fill();
+      return;
+    }
+    if (this.type === 'flam' && this.state === 'boom') {
+      g.fillStyle = `rgba(255,80,30,${blink + 0.15})`;
+      g.beginPath(); g.ellipse(this.x, this.y + 4, FLAM_BOOM_R, FLAM_BOOM_R * 0.7, 0, 0, Math.PI * 2); g.fill();
+      return;
+    }
     if (this.state !== 'windup') return;
-    const len = this.type === 'orc' ? 80 : 45, w = this.r;
+    const len = this.type === 'orc' || this.type === 'bear' ? 80 : 45, w = this.r;
     const c = Math.cos(this.lungeDir), s = Math.sin(this.lungeDir);
     g.fillStyle = `rgba(255,60,40,${0.15 + Math.sin(this.t * 30) * 0.08})`;
     g.beginPath();
@@ -710,6 +849,8 @@ class Enemy {
       const red = wind ? (((this.t * 16) | 0) % 2 ? 0.6 : 0.2) : this.state === 'lunge' ? 0.35 : 0;
       drawCell(g, 'cyclope', dir, this.state === 'chase' ? Math.floor(this.t * 7) % 4 : 0, x + shake, y + 14, { white, red, scale: 2.3 });
       if (wind) this.bang(g, x, y - this.r - 6);
+    } else if (MONSTER_ART[this.type]) {
+      this.drawMonster(g, white, look);
     } else if (this.type === 'shield') {
       const x = this.x, y = this.y, fx = Math.cos(this.facing), fy = Math.sin(this.facing);
       g.fillStyle = 'rgba(0,0,0,0.28)';
@@ -739,10 +880,95 @@ class Enemy {
     g.globalAlpha = 1;
   }
 
+  // 새 몬스터 공용 그리기 (4방향 × 4프레임 시트)
+  drawMonster(g, white, look) {
+    const A = MONSTER_ART[this.type], x = this.x;
+    if (this.burrowed) { // 땅속: 흙 둔덕만 보인다
+      g.fillStyle = '#7a5a3a'; g.beginPath(); g.ellipse(x, this.y + 6, 9, 4, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#a8865a'; g.beginPath(); g.ellipse(x, this.y + 5, 6, 2.5, 0, 0, Math.PI * 2); g.fill();
+      return;
+    }
+    const fly = this.flying ? 10 + Math.sin(this.t * 5) * 2 : 0, y = this.y - fly;
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.beginPath(); g.ellipse(x, this.y + 8, this.r * 0.9, this.r * 0.4, 0, 0, Math.PI * 2); g.fill();
+    const busy = this.state === 'aim' || this.state === 'windup' || this.state === 'boom' || this.state === 'beam';
+    const dir = busy || this.state === 'lunge' ? dirCol(this.state === 'aim' || this.state === 'beam' ? this.aimDir : this.lungeDir) : dirCol(look);
+    const row = busy ? 0 : Math.floor(this.t * (this.type === 'racoon' ? 10 : 7)) % 4;
+    const red = this.state === 'aim' || this.state === 'windup' ? (((this.t * 16) | 0) % 2 ? 0.55 : 0.2)
+      : this.state === 'rage' || this.state === 'boom' ? (((this.t * 20) | 0) % 2 ? 0.7 : 0.25) : 0;
+    const puff = this.type === 'mushroom' && this.state === 'aim' ? 1 + (1 - this.st / this.def.wind) * 0.25 : 1;
+    drawCell(g, this.type, dir, row, x, y + 12, { white, red, scale: A.scale, sx: puff, sy: puff });
+    if (this.state === 'windup' || this.state === 'boom') this.bang(g, x, y - this.r - 10);
+  }
+
   bang(g, x, y) {
     g.fillStyle = '#ff5a3c'; g.font = 'bold 16px sans-serif'; g.textAlign = 'center';
     g.fillText('!', x, y);
   }
+}
+
+// 새 몬스터 그림 크기
+const MONSTER_ART = {
+  mushroom: { scale: 2 }, mole: { scale: 2 }, racoon: { scale: 2 }, bear: { scale: 2.4 }, snake: { scale: 2 },
+  owl: { scale: 2 }, skull: { scale: 2 }, eye: { scale: 2 }, flam: { scale: 2 },
+};
+const EYE_BEAM_LEN = 340;  // 눈알 광선 길이
+const MOLE_POP_R = 28;     // 두더지가 튀어나올 때 범위
+const FLAM_BOOM_R = 48;    // 도깨비불 자폭 범위
+
+// 몬스터가 쏘는 투사체. 지형에 막히고, 검기 · 던진 창에 지워진다. 해골 구슬은 공격으로 부술 수 있다.
+class EnemyShot {
+  constructor(x, y, dir, o) {
+    Object.assign(this, { x, y, dir, t: 0, done: false }, o);
+    this.max = this.life;
+  }
+  update(dt) {
+    const p = G.player;
+    this.t += dt; this.life -= dt;
+    if (this.homing && p.alive) {
+      const want = Math.atan2(p.y - this.y, p.x - this.x);
+      this.dir += clamp(angDiff(want, this.dir), -this.homing * dt, this.homing * dt);
+    }
+    this.x += Math.cos(this.dir) * this.speed * dt;
+    this.y += Math.sin(this.dir) * this.speed * dt;
+    if (this.life <= 0 || World.solidAt(this.x, this.y + 6)) { this.pop(); return; }
+    if (p.alive && Math.hypot(p.x - this.x, p.y - 4 - this.y) < this.r + p.r) {
+      const before = p.hp;
+      G.hurtPlayer(this.dmg, { x: this.x, y: this.y, attacking: true });
+      if (this.slow && p.hp < before) p.slowT = this.slow;
+      this.pop();
+    }
+  }
+  pop() {
+    this.done = true;
+    G.burst(this.x, this.y, 5, [SHOT_COLOR[this.kind], '#fff'], 80);
+  }
+  draw(g) {
+    const a = clamp(this.life / 0.3, 0, 1), c = Math.cos(this.dir), s = Math.sin(this.dir);
+    g.globalAlpha = a;
+    if (this.kind === 'feather' || this.kind === 'dart') {
+      g.save(); g.translate(this.x, this.y); g.rotate(this.dir);
+      g.fillStyle = this.kind === 'dart' ? '#7ad84a' : '#e8dcc0';
+      g.fillRect(-7, -1.5, 12, 3);
+      g.fillStyle = this.kind === 'dart' ? '#c8ff8a' : '#8a6a4a'; g.fillRect(3, -2, 4, 4);
+      g.restore();
+    } else {
+      const col = SHOT_COLOR[this.kind], pulse = 1 + Math.sin(this.t * 14) * 0.12;
+      g.fillStyle = col; g.globalAlpha = a * 0.35;
+      g.beginPath(); g.arc(this.x, this.y, this.r * 1.9 * pulse, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = a;
+      g.beginPath(); g.arc(this.x, this.y, this.r * pulse, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(this.x - c, this.y - s, this.r * 0.4, 0, Math.PI * 2); g.fill();
+      if (Math.random() < 0.4) G.particles.push({ x: this.x, y: this.y, vx: -c * 20, vy: -s * 20, life: 0.3, max: 0.3, color: col, size: 2, grav: 0 });
+    }
+    g.globalAlpha = 1;
+  }
+}
+const SHOT_COLOR = { spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c' };
+
+// 플레이어의 검기 · 던진 창이 지나가며 적 투사체를 지운다
+function clearShotsNear(x, y, r) {
+  for (const s of G.eshots) if (!s.done && Math.hypot(s.x - x, s.y - y) < r + s.r) s.pop();
 }
 
 // 봉인석 모양·색: 세계마다 다르다 (돌 색, 빛 색, 룬 모양)
@@ -881,7 +1107,7 @@ class Boss {
         break;
       case 'summon':
         if (this.st <= 0) {
-          for (let i = 0; i < 3; i++) G.spawnNear(this.x, this.y, 40, 80, 'slime');
+          for (let i = 0; i < 3; i++) G.spawnNear(this.x, this.y, 40, 80, BOSS_MINION[(G.stage || 1) - 1] || 'slime');
           Sfx.roar(); this.state = 'recover'; this.st = 0.5;
         }
         break;

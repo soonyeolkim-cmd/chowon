@@ -7,9 +7,9 @@ const FONT = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,san
 const FINAL_STAGE = 3;            // 마지막 세계
 const STAGES_PER_WORLD = 5;
 const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
-const ENEMY_COST = { slime: 1, bat: 1, shield: 2, orc: 3 }; // 웨이브 구성 점수
+const ENEMY_COST = { slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
-const WAVE_SIZE_MULT = 1.9;            // 웨이브 규모 (마물 수) 배율
+const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
 const HEART_DROP = 0.035;              // 처치 시 하트 확률
 const STAGE_DIFF_STEP = 0.2;      // 스테이지마다 적이 강해지는 정도
 const stageLabel = idx => `${Math.ceil(idx / STAGES_PER_WORLD)}-${(idx - 1) % STAGES_PER_WORLD + 1}`;
@@ -65,17 +65,30 @@ const store = {
   set(k, v) { try { localStorage.setItem('swordsman.' + k, JSON.stringify(v)); } catch (_) {} },
 };
 
+// 세계마다 다른 세력. 원거리(투사체) 몬스터 비중이 높다.
 const ENEMY_POOLS = [
-  [['slime', 60], ['bat', 25], ['shield', 15]],
-  [['slime', 35], ['bat', 25], ['orc', 20], ['shield', 20]],
-  [['slime', 20], ['bat', 25], ['orc', 30], ['shield', 25]],
+  [['slime', 30], ['bat', 10], ['mole', 15], ['mushroom', 45]],            // 세계 1 · 슬라임 대왕의 들판
+  [['racoon', 25], ['bear', 15], ['snake', 30], ['owl', 30]],              // 세계 2 · 너구리 패거리
+  [['shield', 20], ['skull', 25], ['eye', 25], ['flam', 30]],              // 세계 3 · 봉인의 망령들
 ];
+const BOSS_MINION = ['slime', 'racoon', 'flam']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
+const MONSTER_HINTS = {
+  mushroom: '버섯이 몸을 부풀리면 곧 포자를 뿜어요! 포자 사이로 비켜서 다가가요. 검기나 던진 창은 날아오는 투사체를 지워요.',
+  mole: '흙이 들썩이는 건 땅속 두더지예요. 빨간 표시가 보이면 그 자리를 벗어나요!',
+  racoon: '너구리는 치고 빠져요. 물러날 때가 공격할 기회예요!',
+  bear: "곰은 '!' 표시 뒤에 크게 돌진해요. 옆으로 피해요!",
+  snake: '뱀의 독침에 맞으면 잠깐 느려져요. 정면에 서지 마요!',
+  owl: '부엉이는 깃털을 넓게 흩뿌려요. 가까이 붙으면 피하기 쉬워요!',
+  skull: '해골의 저주 구슬은 천천히 따라와요. 공격으로 부술 수 있어요!',
+  eye: '눈알이 붉은 선을 그으면 곧 광선이 나가요. 선 밖으로 비켜요!',
+  flam: '도깨비불은 약해지면 달려와서 터져요. 붉게 깜빡이면 떨어져요!',
+};
 
 // ── 게임 상태 ────────────────────────────────────────────
 const G = {
   state: 'title', time: 0, overT: 0, clearT: 0,
   stage: 1, sub: 1, diff: 1, waves: [], waveIdx: -1, waveT: 0, phase: 'totems', stageStats: null, stageTime: 0, stageKills: 0, clearEl: null,
-  player: null, enemies: [], totems: [], boss: null, projectiles: [], rings: [],
+  player: null, enemies: [], totems: [], boss: null, projectiles: [], eshots: [], rings: [],
   pickups: [], particles: [], texts: [], fxRings: [],
   cam: { x: 0, y: 0 }, view: { x: 0, y: 0, w: 1, h: 1 },
   shake: 0, hitstop: 0, slowT: 0, hurtFlash: 0, clearDelay: 0,
@@ -235,7 +248,7 @@ const G = {
     World.generate((Math.random() * 1e9) | 0, world - 1, { boss: sub === STAGES_PER_WORLD });
     this.player = new Player(World.startPos.x, World.startPos.y, stats);
     this.enemies = []; this.pickups = []; this.particles = []; this.texts = [];
-    this.projectiles = []; this.rings = []; this.fxRings = [];
+    this.projectiles = []; this.eshots = []; this.rings = []; this.fxRings = [];
     const isBoss = sub === STAGES_PER_WORLD;
     this.totems = isBoss ? [] : World.totemSpots.map(s => new Totem(s.x, s.y, this.diff));
     this.setupWaves(isBoss ? 0 : WAVES_PER_STAGE[sub - 1]);
@@ -265,7 +278,7 @@ const G = {
   },
 
   targets() {
-    const list = this.enemies.filter(e => !e.dead);
+    const list = this.enemies.filter(e => !e.dead && !e.burrowed);
     for (const t of this.totems) if (!t.dead && !t.shielded) list.push(t);
     if (this.boss && !this.boss.dead && this.boss.state !== 'intro') list.push(this.boss);
     return list;
@@ -497,7 +510,7 @@ const G = {
       const list = [];
       while (budget > 0) {
         let t = this.pickType();
-        if (ENEMY_COST[t] > budget) t = 'slime';
+        if (ENEMY_COST[t] > budget) t = BOSS_MINION[Math.min(this.stage, BOSS_MINION.length) - 1]; // 남은 점수가 적으면 그 세계의 1점짜리
         list.push(t); budget -= ENEMY_COST[t];
       }
       this.waves.push(list);
@@ -549,6 +562,7 @@ const G = {
       if (Math.hypot(e.x - p.x, e.y - p.y) > 240) continue;
       if (e.type === 'shield') this.hint('shield', this.player.weapon.shieldHint);
       if (e.type === 'orc') this.hint('orc', "외눈이는 '!' 표시 뒤에 돌진해요. 부딪히기 직전에 대시해서 피해요!");
+      if (MONSTER_HINTS[e.type]) this.hint(e.type, MONSTER_HINTS[e.type]);
     }
     for (const t of this.totems) {
       if (!t.dead && Math.hypot(t.x - p.x, t.y - p.y) < 360) this.hint('totem', '봉인석의 보호막은 불려 나온 마물을 모두 쓰러뜨리면 깨져요. 그다음에 봉인석을 부숴요!');
@@ -567,6 +581,16 @@ const G = {
     FX.updateZones(dt);
     for (const w of this.projectiles) w.update(dt);
     this.projectiles = this.projectiles.filter(w => !w.done);
+    for (const s of this.eshots) s.update(dt);
+    if (p.act && MOVES[p.act.kind]) {
+      const fx = Math.cos(p.facing), fy = Math.sin(p.facing), reach = p.act.len || 50;
+      for (const s of this.eshots) {
+        if (!s.breakable || s.done) continue;
+        const dx = s.x - p.x, dy = s.y - p.y, along = dx * fx + dy * fy;
+        if (Math.hypot(dx, dy) < 22 || (along > 0 && along < reach && Math.abs(dx * fy - dy * fx) < 24)) { s.pop(); this.text(s.x, s.y - 8, '파괴!', '#c8a0ff', 10, 0.5); }
+      }
+    }
+    this.eshots = this.eshots.filter(s => !s.done);
     for (const r of this.rings) {
       r.r += 230 * dt;
       const d = Math.hypot(p.x - r.x, p.y - r.y);
@@ -578,7 +602,7 @@ const G = {
     const es = this.enemies;
     for (let i = 0; i < es.length; i++) for (let j = i + 1; j < es.length; j++) {
       const a = es[i], b = es[j];
-      if (a.flying !== b.flying) continue;
+      if (a.flying !== b.flying || a.burrowed || b.burrowed) continue;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = a.r + b.r;
       if (d > 0 && d < m) {
         const push = (m - d) / 2, nx = dx / d * push, ny = dy / d * push;
@@ -765,6 +789,7 @@ function drawWorld() {
   list.sort((a, b) => a.y - b.y);
   for (const e of list) e.draw(ctx);
   for (const wv of G.projectiles) wv.draw(ctx);
+  for (const s of G.eshots) s.draw(ctx);
   G.lumi.draw(ctx);
   for (const q of G.particles) {
     ctx.globalAlpha = clamp(q.life / q.max, 0, 1);

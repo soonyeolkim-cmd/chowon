@@ -18,7 +18,11 @@ const BASE_ATK = 14;
 
 // 정령의 조각 보상 — 강화 전체(1,385)를 모으려면 조각 수집가를 포함해도 10번 이상 완주하도록 맞춘 값
 // 적 처치: 종류별 확률로 1개
-const SHARD_DROP = { slime: 0.055, bat: 0.055, shield: 0.11, orc: 0.18 }; // 마물이 많은 만큼 확률은 낮게
+const SHARD_DROP = { // 마물이 많은 만큼 확률은 낮게
+  slime: 0.055, bat: 0.055, mushroom: 0.06, mole: 0.06,
+  racoon: 0.06, bear: 0.16, snake: 0.06, owl: 0.06,
+  shield: 0.11, skull: 0.07, eye: 0.1, flam: 0.07, orc: 0.18,
+};
 const SHARD_TOTEM = 2;        // 봉인석 하나
 const SHARD_BOSS = 4;         // × 세계 번호
 const SHARD_ALL_CLEAR = 15;   // 세계 3까지 완주

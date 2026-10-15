@@ -13,6 +13,15 @@ const ART_FILES = {
   bat:       'Actor/Monster/BlueBat/SpriteSheet.png',
   cyclope:   'Actor/Monster/Cyclope/SpriteSheet.png',
   skeleton:  'Actor/Character/Skeleton/SpriteSheet.png',
+  mushroom:  'Actor/Monster/Mushroom/mushroom.png',
+  mole:      'Actor/Monster/Mole/Mole.png',
+  racoon:    'Actor/Monster/Racoon/SpriteSheet.png',
+  bear:      'Actor/Monster/Bear/SpriteSheet.png',
+  snake:     'Actor/Monster/Snake/Snake.png',
+  owl:       'Actor/Monster/Owl/Owl.png',
+  skull:     'Actor/Monster/Skull/SpriteSheet.png',
+  eye:       'Actor/Monster/Eye/Eye.png',
+  flam:      'Actor/Monster/Flam/SpriteSheet.png',
   boss1Idle: 'Actor/Boss/GiantSlime/Idle.png',
   boss1Jump: 'Actor/Boss/GiantSlime/Jump.png',
   boss1Hit:  'Actor/Boss/GiantSlime/Hit.png',
@@ -38,6 +47,7 @@ const ART_FILES = {
 };
 // 피격 시 하얗게, 공격 예고 시 빨갛게 번쩍일 그림들
 const ART_FLASH = ['hero', 'spirit', 'slime', 'bat', 'cyclope', 'skeleton',
+  'mushroom', 'mole', 'racoon', 'bear', 'snake', 'owl', 'skull', 'eye', 'flam',
   'boss1Idle', 'boss1Jump', 'boss1Hit', 'boss2Idle', 'boss2Attack', 'boss2Charge', 'boss2Jump',
   'boss3Idle', 'boss3Walk', 'boss3Attack', 'boss3Charge', 'boss3Hit'];
 
