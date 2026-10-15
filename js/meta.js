@@ -1,0 +1,103 @@
+'use strict';
+// 로그라이트 영구 진행: 정령의 조각(재화), 마을 강화, 본 스토리 기록
+// 이 기기(브라우저)에 저장된다.
+
+const UPGRADES = [
+  { id: 'hp',     name: '생명력',        max: 5, cost: [20, 35, 55, 80, 110], desc: lv => `최대 체력 +${15 * lv}` },
+  { id: 'atk',    name: '공격력',         max: 5, cost: [25, 40, 60, 90, 130], desc: lv => `공격력 +${2 * lv}` },
+  { id: 'agi',    name: '날렵한 발',      max: 3, cost: [30, 60, 100],         desc: lv => `대시 쿨타임 -${8 * lv}%` },
+  { id: 'bond',   name: '루미와의 유대',  max: 2, cost: [40, 90],              desc: lv => `위기 때 루미의 회복 +${lv}회 (세계마다)` },
+  { id: 'choice', name: '정령의 호감',    max: 5, cost: [40, 60, 90, 130, 180], desc: lv => `축복 다시 뽑기 ${lv}회 (런마다)` },
+  { id: 'luck',   name: '조각 수집가',    max: 3, cost: [30, 60, 100],         desc: lv => `정령의 조각 획득 +${20 * lv}%` },
+  { id: 'revive', name: '불굴의 의지',    max: 1, cost: [150],                 desc: () => '런마다 한 번, 쓰러져도 체력 40%로 다시 일어난다' },
+];
+
+// 런 시작 기본 능력치 (레벨이 없으니 처음부터 이만큼)
+const BASE_HP = 100;
+const BASE_ATK = 14;
+
+// 정령의 조각 보상 — 강화 전체(1,385)를 모으려면 조각 수집가를 포함해도 10번 이상 완주하도록 맞춘 값
+// 적 처치: 종류별 확률로 1개
+const SHARD_DROP = { slime: 0.055, bat: 0.055, shield: 0.11, orc: 0.18 }; // 마물이 많은 만큼 확률은 낮게
+const SHARD_TOTEM = 2;        // 봉인석 하나
+const SHARD_BOSS = 4;         // × 세계 번호
+const SHARD_ALL_CLEAR = 15;   // 세계 3까지 완주
+
+// 영웅의 증표: 최종 보스(세계 3)를 쓰러뜨릴 때마다 1개. 새 무기를 해금하는 데 쓴다.
+const EMBLEM_PER_CLEAR = 1;
+// 무기의 정수: 모든 무기의 숙련 강화에 쓰는 공통 재화 (어떤 무기로 플레이해도 모인다)
+const ESSENCE_STAGE = 1;            // 스테이지 클리어
+const ESSENCE_BOSS = [3, 5, 8];     // 세계 1 · 2 · 3 보스
+const ESSENCE_ALL_CLEAR = 5;        // 완주 보너스
+
+// 테스트 모드: 내 컴퓨터(로컬 서버, 같은 와이파이)에서 실행할 때만 켜진다. 배포된 링크에는 적용되지 않는다.
+//   'all'   — 강화·숙련 최대, 무기 전부 해금, 재화 넉넉히
+//   'spear' — 처음 상태 그대로, 창만 해금 (창으로 장착해서 시작)
+//   null    — 끄기
+const DEV_LOCAL = /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(location.hostname);
+const DEV_MODE = DEV_LOCAL ? 'spear' : null;
+
+const Meta = {
+  data: null,
+  load() {
+    let d = store.get('meta') || {};
+    // 전체 해금 모드로 쓰던 저장은 다른 모드에서 처음 상태로 되돌린다
+    if (DEV_LOCAL && DEV_MODE !== 'all' && (d.devAll || d.shards >= 9999)) d = {};
+    this.data = {
+      shards: d.shards || 0, up: d.up || {}, seen: d.seen || {},
+      runs: d.runs || 0, best: d.best || 0, clears: d.clears || 0,
+      emblems: d.emblems || 0,
+      weapon: d.weapon || 'sword', unlocked: d.unlocked || ['sword'],
+      wup: d.wup || {},          // 무기별 숙련: { sword: { combo: 2, ... } }
+      // 무기의 정수 (예전 저장의 무기별 정수 { sword: 12, spear: 3 } 은 합쳐서 옮긴다)
+      essence: typeof d.essence === 'number' ? d.essence : Object.values(d.essence || {}).reduce((a, b) => a + b, 0),
+    };
+    if (DEV_MODE === 'all') this.unlockAll();
+    if (DEV_MODE === 'spear' && !this.data.unlocked.includes('spear')) {
+      this.data.unlocked.push('spear'); this.data.weapon = 'spear';
+    }
+  },
+  // 테스트용: 강화·숙련 최대, 무기 전부 해금, 재화 넉넉히
+  unlockAll() {
+    const d = this.data;
+    for (const u of UPGRADES) d.up[u.id] = u.max;
+    for (const id of WEAPON_ORDER) {
+      if (!d.unlocked.includes(id)) d.unlocked.push(id);
+      const w = d.wup[id] || (d.wup[id] = {});
+      for (const m of WEAPONS[id].mastery) w[m.id] = m.max;
+
+    }
+    d.shards = Math.max(d.shards, 9999);
+    d.emblems = Math.max(d.emblems, 99);
+    d.essence = Math.max(d.essence, 999);
+    d.devAll = true;
+  },
+  // 무기 숙련 단계
+  wlv(weapon, id) { return (this.data.wup[weapon] && this.data.wup[weapon][id]) || 0; },
+  wNextCost(weapon, m) { const lv = this.wlv(weapon, m.id); return lv >= m.max ? null : m.cost[lv]; },
+  ess() { return this.data.essence; },
+  buyMastery(weapon, m) {
+    const c = this.wNextCost(weapon, m);
+    if (c === null || this.ess(weapon) < c) return false;
+    this.data.essence -= c;
+    const w = this.data.wup[weapon] || (this.data.wup[weapon] = {});
+    w[m.id] = (w[m.id] || 0) + 1;
+    this.save();
+    return true;
+  },
+  save() { store.set('meta', this.data); },
+  lv(id) { return this.data.up[id] || 0; },
+  nextCost(u) { const lv = this.lv(u.id); return lv >= u.max ? null : u.cost[lv]; },
+  buy(u) {
+    const c = this.nextCost(u);
+    if (c === null || this.data.shards < c) return false;
+    this.data.shards -= c;
+    this.data.up[u.id] = this.lv(u.id) + 1;
+    this.save();
+    return true;
+  },
+  // 런 시작 능력치
+  startStats() {
+    return { lv: 1, xp: 0, maxHp: BASE_HP + 15 * this.lv('hp'), atk: BASE_ATK + 2 * this.lv('atk'), boons: {} };
+  },
+};
