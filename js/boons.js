@@ -179,7 +179,7 @@ for (const b of BOONS) if (b.needs) b.req = () => !!G.boons[b.needs];
 const BOON_BY_ID = Object.fromEntries(BOONS.map(b => [b.id, b]));
 const boonColor = b => (b.duo ? '#ffb8f0' : ELEMENTS[b.el].color);
 const boonIcon = b => (b.duo ? b.duo.map(e => ELEMENTS[e].icon).join('') : ELEMENTS[b.el].icon);
-const boonMaxLv = b => b.maxLv || 3;
+const boonMaxLv = b => b.maxLv || (b.duo ? 1 : 3); // 듀오는 레벨 효과가 없어서 한 번만
 
 // ── 축복이 쏘는 발사체 (화염구 · 얼음 파편) ─────────────────────
 class FxShot {

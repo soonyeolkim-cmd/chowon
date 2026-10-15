@@ -143,8 +143,11 @@ const G = {
     return el;
   },
   makeOffer(el) {
+    // 기본공격 슬롯은 최대 강화되면 잠긴다 → 다른 원소로 바꾸는 카드가 안 나온다 (강화 기본기도 지켜진다)
+    const basicLocked = BOONS.some(b => b.slot === 'basic' && (this.boons[b.id] || 0) >= boonMaxLv(b));
     const ok = b => {
       if ((this.boons[b.id] || 0) >= boonMaxLv(b)) return false;
+      if (basicLocked && b.slot === 'basic') return false;
       if (b.duo) return b.duo.every(e => FX.hasEl(e)) && (!el || b.duo.includes(el));
       return !b.req || b.req();
     };
