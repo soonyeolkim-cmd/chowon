@@ -9,6 +9,7 @@ const STAGES_PER_WORLD = 5;
 const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
 const ENEMY_COST = { slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
+const EASY_DMG_TAKEN = 0.5;          // 쉬움 모드: 받는 피해 배율
 const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
 const HEART_DROP = 0.035;              // 처치 시 하트 확률
 const STAGE_DIFF_STEP = 0.2;      // 스테이지마다 적이 강해지는 정도
@@ -243,7 +244,10 @@ const G = {
     const n = world;
     this.stage = world; this.sub = sub;
     this.diff = world + (sub - 1) * STAGE_DIFF_STEP;
-    Meta.data.best = Math.max(Meta.data.best, (world - 1) * STAGES_PER_WORLD + sub); Meta.save();
+    const reached = (world - 1) * STAGES_PER_WORLD + sub;
+    if (Meta.data.mode === 'easy') Meta.data.bestEasy = Math.max(Meta.data.bestEasy, reached);
+    else Meta.data.best = Math.max(Meta.data.best, reached);
+    Meta.save();
     this.boons = stats && stats.boons ? { ...stats.boons } : {};
     this.zones = []; this.bolts = []; this.offer = null;
     if (sub === 1) this.lumiHeals = 1 + Meta.lv('bond'); // 루미의 위기 회복은 세계마다
@@ -429,6 +433,7 @@ const G = {
       return;
     }
     dmg = FX.playerHurt(dmg, src);
+    if (dmg && Meta.data.mode === 'easy') dmg = Math.max(1, Math.round(dmg * EASY_DMG_TAKEN));
     if (!dmg) return;
     p.hp -= dmg; p.invuln = p.hurtT = 0.8;
     const dx = p.x - src.x, dy = p.y - src.y, d = Math.hypot(dx, dy) || 1;
@@ -851,6 +856,7 @@ function drawHud() {
   bar(bx, y, bw, 13, p.hp / p.maxHp, p.hp / p.maxHp < 0.3 ? '#ff5a5a' : '#e04848');
   label(`${Math.ceil(p.hp)} / ${p.maxHp}`, bx + bw / 2, y + 7, 10, '#fff', 'center');
   drawCooldowns(p, bx, y + 19, bw);
+  if (Meta.data.mode === 'easy') label('쉬움', bx + bw + 8, y + 7, 10, '#8ff0b0', 'left', '800');
   drawBoonIcons(x, y + 42);
 
   // 목표
@@ -1303,7 +1309,8 @@ function villageLayout() {
   const tw = rw / 2;
   const tabs = [0, 1].map(i => ({ x: x0 + i * tw, y: inset.t + 58, w: tw - 4, h: 28 }));
   const start = { x: W / 2 - 110, y: H - inset.b - 48, w: 220, h: 38 };
-  return { rows, tabs, start, items, view, maxScroll: Math.max(0, contentH - view.h) };
+  const mode = { x: start.x - 132, y: start.y, w: 120, h: 38 };
+  return { rows, tabs, start, mode, items, view, maxScroll: Math.max(0, contentH - view.h) };
 }
 
 function drawVillage(blink) {
@@ -1311,7 +1318,7 @@ function drawVillage(blink) {
   overlay(0.7);
   label('숲 마을 · 정령의 제단', W / 2, inset.t + 20, 22, '#ffe08a', 'center', '900');
   label(`◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}`, W / 2, inset.t + 43, 13, '#c8a0ff', 'center', '800');
-  label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
+  label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
   drawPortrait(ctx, 'lumi', inset.l + 34, inset.t + 32, 40);
   ['공통 강화', '무기 해금 · 선택'].forEach((name, i) => {
     const t = L.tabs[i], on = v.tab === i;
@@ -1372,6 +1379,12 @@ function drawVillage(blink) {
   ctx.fillStyle = ssel ? '#3f8a3b' : '#2f6b2f'; ctx.fillRect(st.x, st.y, st.w, st.h);
   ctx.strokeStyle = ssel && blink ? '#ffd24a' : 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.strokeRect(st.x + 1, st.y + 1, st.w - 2, st.h - 2);
   label('모험 떠나기 ▶', st.x + st.w / 2, st.y + st.h / 2, 16, '#fff', 'center', '900');
+  // 난이도 버튼
+  const mb = L.mode, msel = v.sel === L.items.length + 1, easy = md.mode === 'easy';
+  ctx.fillStyle = easy ? 'rgba(40,110,70,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(mb.x, mb.y, mb.w, mb.h);
+  ctx.strokeStyle = msel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(mb.x + 1, mb.y + 1, mb.w - 2, mb.h - 2);
+  label(`난이도: ${easy ? '쉬움' : '일반'}`, mb.x + mb.w / 2, mb.y + mb.h / 2 - 6, 13, easy ? '#8ff0b0' : '#fff', 'center', '800');
+  label(easy ? '받는 피해 절반' : '눌러서 바꾸기', mb.x + mb.w / 2, mb.y + mb.h / 2 + 9, 9, '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화'
     : d === 'gamepad' ? '←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발' : '←→ 탭 전환 · ↑↓ 고르고 Z로 강화 / 장착 / 출발 · 휠로 스크롤';
@@ -1381,6 +1394,11 @@ function drawVillage(blink) {
 function villageAct(i) {
   const v = G.village, items = villageItems(v.tab);
   if (i === items.length) { G.startRun(); return; }
+  if (i === items.length + 1) { // 난이도 바꾸기
+    Meta.data.mode = Meta.data.mode === 'easy' ? 'normal' : 'easy'; Meta.save();
+    v.msg = Meta.data.mode === 'easy' ? '쉬움 모드: 받는 피해가 절반이에요 (보상은 같아요)' : '일반 모드로 바꿨어요';
+    Sfx.pickup(); return;
+  }
   const it = items[i];
   if (!it || it.header) return;
   if (it.locked) { v.msg = '아직 준비 중인 무기예요'; Sfx.block(); return; }
@@ -1422,7 +1440,7 @@ function handleVillageInput(dt, inp) {
   let L = villageLayout();
   const n = L.items.length;
   const inRect = (pt, r) => pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
-  const selectable = i => i === n || (L.items[i] && !L.items[i].header);
+  const selectable = i => i === n || i === n + 1 || (L.items[i] && !L.items[i].header);
   const setTab = t => { if (t !== v.tab) { v.tab = t; v.sel = villageItems(t).length; v.scroll = 0; v.msg = null; Sfx.pickup(); } };
 
   // 휠 스크롤
@@ -1449,6 +1467,7 @@ function handleVillageInput(dt, inp) {
     const ti = L.tabs.findIndex(r => inRect(inp.tap, r));
     if (ti >= 0) { setTab(ti); return; }
     if (inRect(inp.tap, L.start)) { villageAct(n); return; }
+    if (inRect(inp.tap, L.mode)) { v.sel = n + 1; villageAct(n + 1); return; }
     if (inRect(inp.tap, L.view)) {
       let id = null;
       for (const [pid, pt] of Input.pointers) if (Math.abs(pt.x - inp.tap.x) < 1 && Math.abs(pt.y - inp.tap.y) < 1) id = pid;
@@ -1462,7 +1481,7 @@ function handleVillageInput(dt, inp) {
   const dir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0;
   if (dir && dir !== v.axis) {
     let i = v.sel;
-    do { i = (i + dir + n + 1) % (n + 1); } while (!selectable(i));
+    do { i = (i + dir + n + 2) % (n + 2); } while (!selectable(i));
     v.sel = i; v.msg = null; Sfx.pickup();
     if (i < n) villageScrollTo(i);
   }
@@ -1527,7 +1546,8 @@ function render() {
     const story = '마물에게 습격당한 숲 마을. 견습 검사 리안은 숲의 정령 루미와 함께 봉인석의 비밀을 쫓는다.';
     wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, H * 0.2 + big * 0.9 + i * 20, 14, '#d8e8d0', 'center', '500'));
     const md = Meta.data;
-    label(`로그라이트 · 쓰러지면 처음부터 · 정령의 조각으로 영구 강화${md.best ? `   (최고 기록: ${stageLabel(md.best)})` : ''}`, W / 2, H * 0.45, 12, '#c8b8ff', 'center', '600');
+    label(`로그라이트 · 쓰러지면 처음부터 · 정령의 조각으로 영구 강화${md.best ? `   (최고 기록: ${stageLabel(md.best)})` : ''}${md.bestEasy ? `  (쉬움: ${stageLabel(md.bestEasy)})` : ''}`, W / 2, H * 0.45, 12, '#c8b8ff', 'center', '600');
+    label(`난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 절반)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
     const { move, A, P, D } = keyNames();
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
     if (Input.state.device === 'keyboard') label('Ctrl 공격 · Space 대시 · Alt 특수도 쓸 수 있어요', W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');

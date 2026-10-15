@@ -50,6 +50,8 @@ const Meta = {
     this.data = {
       shards: d.shards || 0, up: d.up || {}, seen: d.seen || {},
       runs: d.runs || 0, best: d.best || 0, clears: d.clears || 0,
+      mode: d.mode === 'easy' ? 'easy' : 'normal', // 난이도: 쉬움은 받는 피해 절반 (보상은 같다)
+      bestEasy: d.bestEasy || 0,                   // 쉬움 모드 최고 기록 (일반과 따로)
       emblems: d.emblems || 0,
       weapon: d.weapon || 'sword', unlocked: d.unlocked || ['sword'],
       wup: d.wup || {},          // 무기별 숙련: { sword: { combo: 2, ... } }
