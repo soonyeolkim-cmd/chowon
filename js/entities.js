@@ -243,6 +243,7 @@ class Player {
     this.comboT = this.atkCd + 0.3;
     this.atkBuffer = 0;
     Sfx.thrust();
+    if (fin) this.finisherT = 0.6; // 이 안에 특수공격 → 삼연 투척
     FX.onPoke(this, fin);
   }
 
@@ -258,13 +259,20 @@ class Player {
   }
 
   // 창 투척: 갔다가 자동으로 돌아온다. 돌아올 때까지 공격할 수 없다
+  // 2타째 직후에 던지면 정령의 힘으로 만든 창 두 자루가 함께 날아간다 (삼연 투척)
   throwSpear(mag) {
     this.aim(mag);
     this.spearShot = new SpearShot(this, this.facing);
     G.projectiles.push(this.spearShot);
+    const triple = this.finisherT > 0 && G.has('triple');
+    if (triple) {
+      for (const o of [-0.32, 0.32]) G.projectiles.push(new SpearShot(this, this.facing + o, true));
+      G.text(this.x, this.y - 24, '삼연 투척!', '#7fe0ff', 13, 0.7);
+    }
+    this.finisherT = 0;
     this.act = { kind: 'cast', t: 0, dur: 0.14, hit: new Set() };
     this.charge = 0; this.holdT = 0; this.combo = 0; this.comboT = 0;
-    Sfx.wave(false);
+    Sfx.wave(triple);
   }
 
   // 후려치기 (대시 직후 공격): 창 자루로 앞쪽 120도를 휩쓴다. 바깥쪽(창끝)일수록 아프고, 옆으로 쳐낸다
@@ -510,8 +518,9 @@ function spearSprite(g, x, y, a, ext) {
 
 // 던진 창: 정해진 거리까지 날아갔다가 플레이어에게 돌아온다. 가는 길 · 오는 길 모두 관통
 class SpearShot {
-  constructor(p, dir) {
+  constructor(p, dir, phantom) {
     const k = 1 + 0.2 * FX.lv('atk_wave');
+    this.phantom = !!phantom; // 삼연 투척의 정령 창: 돌아오면 사라진다 (손이 비는 건 진짜 창만)
     this.x = p.x; this.y = p.y - 2; this.dir = dir;
     this.range = SPEAR_THROW_RANGE * k; this.speed = 520 * k; this.backSpeed = 640 * k;
     this.dist = 0; this.back = false; this.hit = new Set(); this.done = false; this.t = 0;
@@ -530,7 +539,7 @@ class SpearShot {
       nx = dx / d; ny = dy / d;
       const step = Math.min(d, this.backSpeed * dt);
       this.x += nx * step; this.y += ny * step;
-      if (d < 16 || this.t > 3) { this.done = true; Sfx.pickup(); return; }
+      if (d < 16 || this.t > 3) { this.done = true; if (!this.phantom) Sfx.pickup(); else G.burst(this.x, this.y, 5, ['#7fe0ff', '#fff'], 60); return; }
     }
     clearShotsNear(this.x, this.y, 14);
     for (const t of G.targets()) {
@@ -541,9 +550,12 @@ class SpearShot {
   }
   draw(g) {
     const c = Math.cos(this.dir), s = Math.sin(this.dir);
-    g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 3;
+    const a = g.globalAlpha;
+    if (this.phantom) g.globalAlpha = a * 0.6;
+    g.strokeStyle = this.phantom ? 'rgba(127,224,255,0.6)' : 'rgba(255,255,255,0.35)'; g.lineWidth = 3;
     g.beginPath(); g.moveTo(this.x - c * 30, this.y - s * 30); g.lineTo(this.x + c * 10, this.y + s * 10); g.stroke();
     spearSprite(g, this.x, this.y, this.dir, -14);
+    g.globalAlpha = a;
   }
 }
 
