@@ -594,7 +594,10 @@ class Wave {
 
 // 적 피해 배율: 높을수록 어렵다. 플레이어 레벨이 오르면 적 피해도 레벨당 5%씩 오른다.
 const ENEMY_DMG_MULT = 2.6;
-const ENEMY_HP_MULT = 1.15;
+// 몬스터 체력: 처음부터 단단하게(기본 배율 ↑), 뒤로 갈수록 덜 오르게(상승폭 ↓)
+// → 초반엔 어렵고, 축복이 잘 붙을수록 후반이 쉬워진다고 느껴지게. 세계 3 후반 체력은 예전과 비슷.
+const ENEMY_HP_MULT = 1.5;
+const ENEMY_HP_STEP = 0.10;   // 난이도 1 오를 때마다 체력 +10% (예전 +25%)
 
 // shot: 투사체 피해(배율 전), keep: 유지하려는 거리, rate: 공격 간격(초), wind: 쏘기 전 예고(초)
 const ENEMY = {
@@ -623,7 +626,7 @@ class Enemy {
     this.r = d.r; this.speed = d.speed; this.xp = d.xp;
     this.dmg = Math.round(d.dmg * ENEMY_DMG_MULT * (1 + 0.25 * (stage - 1)) * (1 + 0.05 * (lv - 1)));
     this.color = d.color; this.flying = !!d.flying; this.heavy = !!d.heavy;
-    this.maxHp = this.hp = Math.round(d.hp * ENEMY_HP_MULT * (1 + 0.25 * (stage - 1)) * (1 + 0.08 * (lv - 1)));
+    this.maxHp = this.hp = Math.round(d.hp * ENEMY_HP_MULT * (1 + ENEMY_HP_STEP * (stage - 1)) * (1 + 0.08 * (lv - 1)));
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
     this.t = Math.random() * 10; this.hop = 0;
     this.state = 'chase'; this.st = 0; this.lungeDir = 0; this.attacking = false;
