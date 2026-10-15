@@ -639,7 +639,7 @@ const G = {
 };
 
 // ── 화면 크기 / 레이아웃 ────────────────────────────────────
-let W = 0, H = 0, DPR = 1, SCALE = 2;
+let W = 0, H = 0, DPR = 1, SCALE = 2, statusBand = 0;
 const inset = { t: 0, r: 0, b: 0, l: 0 };
 
 // 터치 기기를 세로로 들고 있으면 게임을 시계 방향으로 90도 돌려 그린다.
@@ -671,6 +671,8 @@ function resize() {
   // 돌려 그릴 땐 화면 가장자리 여백도 돌아간다 (게임의 위 = 휴대폰의 오른쪽)
   if (ROTATED) { inset.t = phys.r; inset.r = phys.b; inset.b = phys.l; inset.l = phys.t; }
   else Object.assign(inset, phys);
+  // 아이폰 홈 화면 앱은 세로일 때 시계(상태바)를 숨길 수 없다 → 그 줄을 어두운 테두리로 칠한다
+  statusBand = phys.t > 20 ? phys.t : 0;
 }
 
 // 안드로이드: 첫 터치 때 전체화면 + 가로 고정을 요청한다 (지원 안 되면 조용히 넘어감)
@@ -1550,6 +1552,18 @@ function render() {
     label(G.toast.s, W / 2, H - inset.b - 24, 15, '#fff', 'center', '600');
     ctx.globalAlpha = 1;
   }
+  drawStatusBand();
+}
+
+// 휴대폰 상태바(시계) 자리: 게임 화면을 그 안쪽에만 보이게 테두리를 칠한다
+function drawStatusBand() {
+  if (!statusBand) return;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const s = statusBand;
+  ctx.fillStyle = '#0b120b';
+  if (ROTATED) ctx.fillRect(0, 0, s, H); else ctx.fillRect(0, 0, W, s);
+  ctx.fillStyle = 'rgba(160,200,120,0.18)'; // 안쪽 경계선
+  if (ROTATED) ctx.fillRect(s - 1, 0, 1, H); else ctx.fillRect(0, s - 1, W, 1);
 }
 
 // ── 메인 루프 ────────────────────────────────────────────
