@@ -648,8 +648,15 @@ const TOUCH_DEVICE = !!(window.matchMedia && matchMedia('(pointer: coarse)').mat
 let ROTATED = false;
 
 function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  const pw = innerWidth, ph = innerHeight;
+  // 아이폰은 화면 밀도가 3배라서 3까지 써야 도트가 흐려지지 않는다
+  DPR = Math.min(window.devicePixelRatio || 1, 3);
+  let pw = innerWidth, ph = innerHeight;
+  // 아이폰 홈 화면 앱: innerHeight 가 아래 홈 바 영역만큼 짧게 나오는 경우가 있어 화면 크기로 채운다
+  if (navigator.standalone && screen.width && screen.height) {
+    const portrait = ph >= pw;
+    pw = portrait ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+    ph = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+  }
   ROTATED = TOUCH_DEVICE && ph > pw;
   W = ROTATED ? ph : pw; H = ROTATED ? pw : ph;
   canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
@@ -1601,6 +1608,9 @@ function frame(now) {
 }
 
 resize();
+// 아이폰은 첫 화면 크기·여백을 늦게 알려주는 경우가 있어서 한 번 더 맞춘다
+setTimeout(resize, 300);
+addEventListener('pageshow', () => setTimeout(resize, 100));
 Input.init(canvas);
 // 그림 파일을 모두 불러온 뒤 시작한다
 ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
