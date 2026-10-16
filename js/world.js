@@ -27,6 +27,10 @@ const PALETTES = [
     tree: ['#8a4a2a', '#7a3e22', '#9a5632'], treeHi: '#b86a3a', trunk: '#4a2a18',
     dirt: '#c08a5a', dirtDk: '#a87648', water: '#3a6a9a', waterHi: '#5a8ab8', sand: '#e0b880',
     flowers: ['#f0d8a0', '#ffffff', '#e8a060'], rocks: 0.05 },   // 바위가 많다 (우마왕 돌진 → 바위에 뿔이 박힌다)
+  { name: '봉인의 근원', bg: '#150f20', trees: [[4, 0], [2, 0]], tint: 'rgba(120,80,200,0.5)', grass: ['#5a5468', '#544e62', '#605a70'], blade: '#48425a',
+    tree: ['#2a2040', '#241c3a', '#30264a'], treeHi: '#40345e', trunk: '#20182a',
+    dirt: '#7a6a8a', dirtDk: '#6a5a7a', water: '#3a2a7a', waterHi: '#5a4aa0', sand: '#9a8aa8',
+    flowers: ['#ffd24a', '#ff6a5a', '#b48cff'], rocks: 0.025 },
 ];
 
 function mulberry32(a) {

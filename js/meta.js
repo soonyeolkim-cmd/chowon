@@ -24,6 +24,7 @@ const SHARD_DROP = { // 마물이 많은 만큼 확률은 낮게
   shield: 0.11, skull: 0.07, eye: 0.1, flam: 0.07, orc: 0.18,
   kappa: 0.07, axolot: 0.07, spider: 0.07, mollusc: 0.14, tadpole: 0.02, bigslime: 0.1,
   lion: 0.08, trex: 0.14, cyclops2: 0.12, lizard: 0.07,
+  demon: 0.12, lantern: 0.08, statue: 0.14, babydragon: 0.08, dragon: 1,
 };
 const SHARD_TOTEM = 2;        // 봉인석 하나
 const SHARD_BOSS = 4;         // × 세계 번호

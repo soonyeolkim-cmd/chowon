@@ -10,6 +10,7 @@ const SPEAKERS = {
   boss3: { name: '숲의 군주', color: '#b8f08a' },
   boss4: { name: '늪의 왕 개굴대왕', color: '#8af0c8' },
   boss5: { name: '도끼황소 우마왕', color: '#ff9a6a' },
+  boss6: { name: '삼룡', color: '#ff8ad0' },
   system: { name: '', color: '#ffd24a' },
 };
 
@@ -152,6 +153,36 @@ STORY[5] = {
   ],
 };
 
+STORY[6] = {
+  start: [
+    ['lumi', '여기가… 봉인의 근원. 숲의 모든 봉인이 시작된 곳이에요.'],
+    ['rian', '오래된 유적이야. 벽마다 용 그림이 새겨져 있어.'],
+    ['lumi', '수호자들이 아직 이곳을 지키고 있어요. 등 뒤를 조심해요, 리안!'],
+  ],
+  totem1: [
+    ['lumi', '봉인석에서 세 가지 기운이 느껴져요. 불, 얼음, 그리고… 독.'],
+  ],
+  totem2: [
+    ['rian', '봉인을 하나씩 풀 때마다 땅이 울려. 뭔가 깨어나고 있어.'],
+    ['lumi', '리안… 지금이라도 돌아갈 수 있어요. 하지만… 저는 당신을 믿어요.'],
+    ['rian', '여기까지 왔잖아. 끝까지 가자, 루미.'],
+  ],
+  bossIntro: [
+    ['boss6', '…천 년의 잠을 깨운 자가 누구냐.'],
+    ['boss6', '불의 숨결, 얼음의 숨결, 독의 숨결. 우리 셋이 이 숲의 근원이다.'],
+    ['rian', '숲의 마물들이 날뛴 건 너희가 깨어나려 했기 때문이었구나!'],
+    ['boss6', '작은 검사여. 숲을 지키고 싶다면… 우리 셋을 모두 이겨 보아라!'],
+    ['lumi', '한 마리씩 와요! 브레스를 피하고, 머리를 숙일 때 공격해요!'],
+  ],
+  bossDown: [
+    ['boss6', '…훌륭하다. 이 숲에 이런 검사가 있을 줄이야.'],
+    ['boss6', '우리는 다시 잠들겠다. 숲과 마을을… 네게 맡기마.'],
+    ['lumi', '리안! 해냈어요! 숲의 모든 봉인이 제자리를 찾았어요!'],
+    ['rian', '루미, 고마워. 네가 없었으면 여기까지 못 왔을 거야.'],
+    ['lumi', '헤헤… 이제 마을로 돌아가요. 다들 기다리고 있을 거예요!'],
+  ],
+};
+
 const RETRY_LINES = [
   '괜찮아요, 다시 해 봐요! 빨간 표시가 보이면 일단 피하는 게 먼저예요.',
   '포기하지 마요! 방패병은 뒤로 돌아가거나 가드 브레이크 기술로 깨면 돼요.',
@@ -160,11 +191,11 @@ const RETRY_LINES = [
 ];
 
 // 대화창 초상화 (에셋의 얼굴 그림)
-const FACES = { rian: 'heroFace', lumi: 'spiritFace', boss1: 'boss1Face', boss2: 'boss2Face', boss3: 'boss3Face', boss4: 'boss4Face', boss5: 'beastFace' };
+const FACES = { rian: 'heroFace', lumi: 'spiritFace', boss1: 'boss1Face', boss2: 'boss2Face', boss3: 'boss3Face', boss4: 'boss4Face', boss5: 'beastFace', boss6: 'dragonFace' };
 function drawPortrait(g, who, cx, cy, s) {
   g.save();
   g.beginPath(); g.arc(cx, cy, s / 2, 0, Math.PI * 2); g.clip();
-  g.fillStyle = { lumi: '#1f3d2c', rian: '#1d2a40', boss1: '#1d3340', boss2: '#3d2a16', boss3: '#22361c', boss4: '#16362e', boss5: '#3a1a10' }[who] || '#222';
+  g.fillStyle = { lumi: '#1f3d2c', rian: '#1d2a40', boss1: '#1d3340', boss2: '#3d2a16', boss3: '#22361c', boss4: '#16362e', boss5: '#3a1a10', boss6: '#2a1030' }[who] || '#222';
   g.fillRect(cx - s / 2, cy - s / 2, s, s);
   const face = FACES[who] && ART.img[FACES[who]];
   if (face) { g.imageSmoothingEnabled = false; g.drawImage(face, cx - s * 0.48, cy - s * 0.48, s * 0.96, s * 0.96); }

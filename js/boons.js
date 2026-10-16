@@ -236,7 +236,7 @@ const FX = {
   damage(t, dmg, color, size = 11) {
     if (t.dead) return;
     dmg = Math.max(1, Math.round(dmg));
-    if (t.type === 'boss' && t.vulnerable) dmg = Math.round(dmg * 1.5);
+    if (t.vulnerable) dmg = Math.round(dmg * 1.5);
     t.hp -= dmg; t.flash = Math.max(t.flash, 0.06);
     G.text(t.x + rand(-6, 6), t.y - t.r - 4, String(dmg), color, size, 0.55);
     G.checkDeath(t);

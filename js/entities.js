@@ -630,6 +630,11 @@ const ENEMY = {
   trex:     { hp: 64, speed: 52, dmg: 13, xp: 12, r: 12, color: '#7ab04a', heavy: true },
   cyclops2: { hp: 52, speed: 34, dmg: 10, xp: 10, r: 12, color: '#8a6ad8', ranged: true, shot: 13, keep: 190, rate: 3.2, wind: 0.8 },
   lizard:   { hp: 26, speed: 50, dmg: 6, xp: 7, r: 9, color: '#6ad8a0', ranged: true, shot: 6, keep: 145, rate: 2.6, wind: 0.45 },
+  // 세계 6 · 봉인의 수호자들
+  demon:      { hp: 44, speed: 58, dmg: 13, xp: 10, r: 10, color: '#e04848' },
+  lantern:    { hp: 30, speed: 48, dmg: 6, xp: 8, r: 9, color: '#ff8a3c', flying: true, ranged: true, shot: 7, keep: 150, rate: 3.0, wind: 0.8 },
+  statue:     { hp: 95, speed: 0, dmg: 8, xp: 12, r: 12, color: '#a8a8b8', heavy: true, turret: true, ranged: true, shot: 11, keep: 160, rate: 2.8, wind: 0.9 },
+  babydragon: { hp: 30, speed: 64, dmg: 7, xp: 8, r: 9, color: '#ffd24a', flying: true, ranged: true, shot: 7, keep: 95, rate: 2.4, wind: 0.55 },
 };
 
 class Enemy {
@@ -651,6 +656,7 @@ class Enemy {
     this.shotDmg = Math.round((d.shot || 0) * ENEMY_DMG_MULT * (1 + 0.25 * (stage - 1)) * (1 + 0.05 * (lv - 1)) * (curse('dmg') ? 1.15 : 1));
     this.cd = rand(1.0, 2.2); this.aimDir = 0; this.strafe = Math.random() < 0.5 ? 1 : -1;
     if (type === 'mole') { this.state = 'up'; this.st = 0.8; }
+    if (d.turret) this.superArmor = true; // 석상: 밀리지 않는다
   }
 
   update(dt, p) {
@@ -699,6 +705,8 @@ class Enemy {
     } else if (this.type === 'tadpole') {
       const a = chase ? Math.atan2(dy, dx) + Math.sin(this.t * 10) * 0.6 : this.wander;
       mv(Math.cos(a) * this.speed, Math.sin(a) * this.speed);
+    } else if (this.type === 'demon') {
+      this.demonAI(dt, p, dx, dy, d, chase, mv);
     } else if (this.type === 'lion') {
       this.lionAI(dt, p, dx, dy, d, chase, mv);
     } else if (this.type === 'trex') {
@@ -744,17 +752,18 @@ class Enemy {
   rangedAI(dt, p, dx, dy, d, chase, mv) {
     const D = this.def;
     if (this.state === 'aim') {
-      if (this.st > 0.2) this.aimDir = Math.atan2(dy, dx); // 마지막 순간엔 방향 고정 → 피할 수 있다
+      if (this.type === 'statue') { if (!this.beamAngles) this.beamAngles = (this.cross = !this.cross) ? [0, 1, 2, 3].map(k => k * Math.PI / 2) : [0, 1, 2, 3].map(k => Math.PI / 4 + k * Math.PI / 2); }
+      else if (this.st > 0.2) this.aimDir = Math.atan2(dy, dx); // 마지막 순간엔 방향 고정 → 피할 수 있다
       if (this.st <= 0) {
         this.fire();
-        if (this.type === 'eye') { this.state = 'beam'; this.st = 0.28; this.beamHit = false; }
+        if (this.type === 'eye' || this.type === 'statue') { this.state = 'beam'; this.st = 0.28; this.beamHit = false; }
         else { this.state = 'chase'; this.cd = D.rate * rand(0.85, 1.15) * (curse('swift') ? 0.8 : 1); }
       }
       return;
     }
     if (this.state === 'beam') {
       this.beamCheck(p);
-      if (this.st <= 0) { this.state = 'chase'; this.cd = D.rate * rand(0.85, 1.15) * (curse('swift') ? 0.8 : 1); }
+      if (this.st <= 0) { this.state = 'chase'; this.beamAngles = null; this.cd = D.rate * rand(0.85, 1.15) * (curse('swift') ? 0.8 : 1); }
       return;
     }
     this.cd -= dt;
@@ -783,17 +792,22 @@ class Enemy {
     else if (this.type === 'spider') shot(a, { kind: 'web', speed: 150, r: 6, life: 1.4, web: true });
     else if (this.type === 'cyclops2') { const p = G.player; G.eshots.push(new EnemyShot(x, y, a, { kind: 'boulder', r: BOULDER_R, dmg, life: 1.1, lob: { x0: x, y0: y, tx: p.x, ty: p.y, dur: 1.1 } })); }
     else if (this.type === 'lizard') for (const sp of [210, 175, 140]) shot(a, { kind: 'rock', speed: sp, r: 5, life: 1.8 });
+    else if (this.type === 'lantern') for (let i = 0; i < 8; i++) shot(i / 8 * Math.PI * 2 + this.t, { kind: 'fire', speed: 115, r: 6, life: 2.4 });
+    else if (this.type === 'babydragon') for (let i = 0; i < 5; i++) shot(a - 0.35 + i * 0.175, { kind: 'fire', speed: rand(150, 190), r: 5, life: 0.55 });
     if (this.type !== 'eye') Sfx.wave(false); else Sfx.zap();
   }
 
   // 눈알 광선: 직선 위에 있으면 한 번 맞는다 (지형을 뚫는다)
   beamCheck(p) {
     if (this.beamHit || !p.alive) return;
-    const c = Math.cos(this.aimDir), s = Math.sin(this.aimDir), dx = p.x - this.x, dy = p.y - this.y;
-    const along = dx * c + dy * s, perp = Math.abs(dx * s - dy * c);
-    if (along > 0 && along < EYE_BEAM_LEN && perp < 9 + p.r) {
-      this.beamHit = true;
-      G.hurtPlayer(this.shotDmg, { x: this.x, y: this.y, attacking: true });
+    const dx = p.x - this.x, dy = p.y - this.y, len = this.type === 'statue' ? STATUE_BEAM_LEN : EYE_BEAM_LEN;
+    for (const a of this.beamAngles || [this.aimDir]) {
+      const c = Math.cos(a), s = Math.sin(a), along = dx * c + dy * s, perp = Math.abs(dx * s - dy * c);
+      if (along > 0 && along < len && perp < 9 + p.r) {
+        this.beamHit = true;
+        G.hurtPlayer(this.shotDmg, { x: this.x, y: this.y, attacking: true });
+        return;
+      }
     }
   }
 
@@ -830,6 +844,32 @@ class Enemy {
       if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < FLAM_BOOM_R + p.r) G.hurtPlayer(Math.round(this.shotDmg * 1.6), { x: this.x, y: this.y, attacking: true });
       this.hp = 0; G.killEnemy(this);
     }
+  }
+
+  // 붉은 도깨비: 사라졌다가 등 뒤에 나타나 벤다 (나타날 자리에 그림자 예고)
+  demonAI(dt, p, dx, dy, d, chase, mv) {
+    if (this.state === 'vanish') {
+      this.burrowed = true;
+      if (this.st <= 0) {
+        const bx = p.x - Math.cos(p.facing) * 38, by = p.y - Math.sin(p.facing) * 38;
+        if (World.reachable(bx, by) && !World.blocked(bx, by, this.r)) { this.x = bx; this.y = by; }
+        this.state = 'mark'; this.st = 0.6;
+      }
+      return;
+    }
+    if (this.state === 'mark') {
+      if (this.st <= 0) {
+        this.state = 'slash'; this.st = 0.25; this.burrowed = false; this.attacking = true;
+        G.burst(this.x, this.y, 12, ['#ff5a5a', '#2a0a0a'], 160); Sfx.swing(true);
+        if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < DEMON_SLASH_R + p.r) G.hurtPlayer(Math.round(this.dmg * 1.2), { x: this.x, y: this.y, attacking: true });
+      }
+      return;
+    }
+    if (this.state === 'slash') { if (this.st <= 0) { this.attacking = false; this.state = 'recover'; this.st = 0.7; this.cd = rand(3, 4); } return; }
+    if (this.state === 'recover') { if (this.st <= 0) this.state = 'chase'; return; }
+    this.cd -= dt;
+    if (chase) mv(dx / d * this.speed, dy / d * this.speed); else mv(Math.cos(this.wander) * 20, Math.sin(this.wander) * 20);
+    if (chase && this.cd <= 0 && d < 240 && this.spawnT <= 0) { this.state = 'vanish'; this.st = 0.4; G.burst(this.x, this.y, 14, ['#3a1a2a', '#ff5a5a'], 140); }
   }
 
   // 동굴사자: 웅크렸다가 멀리서 덮친다 (착지 지점 예고)
@@ -899,6 +939,21 @@ class Enemy {
 
   drawTelegraph(g) {
     const blink = 0.15 + Math.sin(this.t * 30) * 0.08;
+    if (this.type === 'statue' && (this.state === 'aim' || this.state === 'beam') && this.beamAngles) {
+      const beam = this.state === 'beam';
+      for (const a of this.beamAngles) {
+        const c = Math.cos(a), s = Math.sin(a);
+        g.strokeStyle = beam ? 'rgba(255,220,120,0.9)' : `rgba(255,200,80,${0.3 + blink})`; g.lineWidth = beam ? 10 : 1.5;
+        g.beginPath(); g.moveTo(this.x, this.y - 6); g.lineTo(this.x + c * STATUE_BEAM_LEN, this.y - 6 + s * STATUE_BEAM_LEN); g.stroke();
+        if (beam) { g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke(); }
+      }
+      return;
+    }
+    if (this.type === 'demon' && this.state === 'mark') {
+      g.fillStyle = `rgba(120,0,30,${0.35 + blink})`;
+      g.beginPath(); g.ellipse(this.x, this.y + 6, DEMON_SLASH_R, DEMON_SLASH_R * 0.6, 0, 0, Math.PI * 2); g.fill();
+      return;
+    }
     if (this.type === 'eye' && (this.state === 'aim' || this.state === 'beam')) {
       const c = Math.cos(this.aimDir), s = Math.sin(this.aimDir), beam = this.state === 'beam';
       g.strokeStyle = beam ? 'rgba(255,90,70,0.9)' : `rgba(255,60,40,${0.35 + blink})`; g.lineWidth = beam ? 10 : 1.5;
@@ -1009,6 +1064,7 @@ class Enemy {
   // 새 몬스터 공용 그리기 (4방향 × 4프레임 시트)
   drawMonster(g, white, look) {
     const A = MONSTER_ART[this.type], x = this.x;
+    if (this.burrowed && this.type === 'demon') return; // 사라짐
     if (this.burrowed && this.type === 'kappa') { // 물속: 머리 접시와 물결만 보인다
       g.strokeStyle = 'rgba(200,240,255,0.6)'; g.lineWidth = 1.5;
       g.beginPath(); g.ellipse(x, this.y + 4, 10 + Math.sin(this.t * 6) * 2, 4, 0, 0, Math.PI * 2); g.stroke();
@@ -1024,7 +1080,7 @@ class Enemy {
     const fly = (this.flying ? 10 + Math.sin(this.t * 5) * 2 : 0) + (this.air || 0), y = this.y - fly;
     g.fillStyle = 'rgba(0,0,0,0.25)';
     g.beginPath(); g.ellipse(x, this.y + 8, this.r * 0.9, this.r * 0.4, 0, 0, Math.PI * 2); g.fill();
-    const busy = this.state === 'aim' || this.state === 'windup' || this.state === 'boom' || this.state === 'beam' || this.state === 'crouch' || this.state === 'tail';
+    const busy = this.state === 'aim' || this.state === 'windup' || this.state === 'boom' || this.state === 'beam' || this.state === 'crouch' || this.state === 'tail' || this.state === 'slash';
     const dir = busy || this.state === 'lunge' ? dirCol(this.state === 'aim' || this.state === 'beam' ? this.aimDir : this.lungeDir) : dirCol(look);
     const row = busy ? 0 : Math.floor(this.t * (this.type === 'racoon' ? 10 : 7)) % 4;
     const red = this.state === 'aim' || this.state === 'windup' || this.state === 'crouch' || this.state === 'tail' ? (((this.t * 16) | 0) % 2 ? 0.55 : 0.2)
@@ -1046,7 +1102,10 @@ const MONSTER_ART = {
   owl: { scale: 2 }, skull: { scale: 2 }, eye: { scale: 2 }, flam: { scale: 2 },
   kappa: { scale: 2 }, axolot: { scale: 2 }, spider: { scale: 2 }, mollusc: { scale: 2.2 },
   lion: { scale: 2.2 }, trex: { scale: 2.4 }, cyclops2: { scale: 2.4 }, lizard: { scale: 2 },
+  demon: { scale: 2.2 }, lantern: { scale: 2 }, statue: { scale: 2.5 }, babydragon: { scale: 2 },
 };
+const DEMON_SLASH_R = 36;     // 도깨비 기습 범위
+const STATUE_BEAM_LEN = 300;  // 석상 광선 길이
 const LION_POUNCE_R = 32;  // 사자 덮치기 범위
 const TREX_TAIL_R = 46;    // 티렉스 꼬리 범위
 const BOULDER_R = 30;      // 외눈 거인 바위 범위
@@ -1091,6 +1150,7 @@ class EnemyShot {
   pop() {
     this.done = true;
     if (this.web) G.slows.push({ x: this.x, y: this.y + 4, r: 34, life: 5, max: 5, kind: 'web', mul: 0.45 });
+    if (this.puddle) G.slows.push({ x: this.x, y: this.y + 4, r: 26, life: 4, max: 4, kind: 'venom', mul: 0.6 });
     G.burst(this.x, this.y, 5, [SHOT_COLOR[this.kind], '#fff'], 80);
   }
   draw(g) {
@@ -1130,7 +1190,7 @@ class EnemyShot {
     g.globalAlpha = 1;
   }
 }
-const SHOT_COLOR = { spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c', leaf: '#8ad84a', spit: '#ff9ad0', web: '#e8e8f0', rock: '#b8a890', boulder: '#8a6a4a' };
+const SHOT_COLOR = { spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c', leaf: '#8ad84a', spit: '#ff9ad0', web: '#e8e8f0', rock: '#b8a890', boulder: '#8a6a4a', venom: '#9be15d' };
 
 // 플레이어의 검기 · 던진 창이 지나가며 적 투사체를 지운다
 function clearShotsNear(x, y, r) {
@@ -1144,6 +1204,7 @@ const SEAL_THEMES = [
   { name: '핏빛 봉인석', stone: '#1e1a24', lit: '#3a3244', glow: [255, 70, 90],   hex: '#ff4a5a', rune: 'eye' },     // 어둠의 숲
   { name: '이끼 봉인석', stone: '#34463c', lit: '#4e6656', glow: [120, 240, 190], hex: '#78f0be', rune: 'diamond' }, // 안개 늪
   { name: '불꽃 봉인석', stone: '#5a2a1a', lit: '#7a3e26', glow: [255, 150, 60],  hex: '#ff963c', rune: 'cross' },   // 바위 협곡
+  { name: '용의 봉인석', stone: '#2a1a3a', lit: '#46305e', glow: [255, 90, 210],  hex: '#ff5ad2', rune: 'eye' },     // 봉인의 근원
 ];
 const sealTheme = () => SEAL_THEMES[((G.stage || 1) - 1) % SEAL_THEMES.length];
 
@@ -1204,8 +1265,8 @@ class Totem {
   }
 }
 
-const BOSS_NAMES = ['슬라임 대왕 말랑', '숲지기 너구리 바루', '숲의 군주', '늪의 왕 개굴대왕', '도끼황소 우마왕'];
-const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b', '#6d4a92'], ['#2a6a5a', '#4a9a7a'], ['#8a2a1a', '#c84a2a']];
+const BOSS_NAMES = ['슬라임 대왕 말랑', '숲지기 너구리 바루', '숲의 군주', '늪의 왕 개굴대왕', '도끼황소 우마왕', '삼룡'];
+const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b', '#6d4a92'], ['#2a6a5a', '#4a9a7a'], ['#8a2a1a', '#c84a2a'], ['#5a1a4a', '#a84a8a']];
 
 // 보스: 세계마다 고유 패턴. 공통으로 체력 절반 이하에서 격노, 벽에 부딪히는 돌진은 기절(반격 기회).
 //  말랑(슬라임): 통통 점프 연타 · 내려찍기 · 슬라임 소환 / 격노 시 분열(큰 슬라임 둘)
@@ -1226,6 +1287,9 @@ class Boss {
     this.hz = [];            // 예고 후 터지는 공격들 (원 · 직선)
     this.decoys = [];        // 바루의 가짜 그루터기
     this.disguiseCd = 0;
+    if (i === 5) { // 삼룡: 용 셋이 체력을 나눠 가진다. 보스 자신은 맞지 않는다
+      this.untargetable = true; this.each = Math.round(this.maxHp * 0.42); this.maxHp = this.hp = this.each * 3;
+    }
     if (curse('hp')) this.maxHp = this.hp = Math.round(this.hp * 1.2);
     if (curse('dmg')) this.dmg = Math.round(this.dmg * 1.15);
     if (curse('rage')) { this.enraged = true; this.speed *= 1.3; } // 분노한 주인: 처음부터 격노
@@ -1314,6 +1378,7 @@ class Boss {
   }
 
   update(dt, p) {
+    if (this.kind === 5) { this.updateTrio(dt, p); return; }
     this.t += dt; this.flash -= dt; this.st -= dt; this.disguiseCd -= dt;
     const dx = p.x - this.x, dy = p.y - this.y, d = Math.hypot(dx, dy) || 1;
     const fast = this.fast;
@@ -1562,6 +1627,11 @@ class Boss {
         g.fillStyle = '#6ab040'; g.fillRect(h.x - 2, h.y - 22, 4, 24); g.fillStyle = '#c8f08a'; g.fillRect(h.x - 2, h.y - 26, 4, 5);
         g.fillStyle = '#3a6a20'; g.fillRect(h.x - 2, h.y - 12, 4, 1);
         g.globalAlpha = 1;
+      } else if (h.look === 'icicle') { // 꽂힌 고드름
+        g.globalAlpha = clamp(h.life / 0.4, 0, 1);
+        g.fillStyle = '#bfefff'; g.beginPath(); g.moveTo(h.x - 6, h.y); g.lineTo(h.x, h.y - 30); g.lineTo(h.x + 6, h.y); g.fill();
+        g.fillStyle = '#ffffff'; g.fillRect(h.x - 1, h.y - 22, 2, 12);
+        g.globalAlpha = 1;
       } else if (h.look === 'split') { // 갈라진 땅
         g.globalAlpha = clamp(h.life / 0.5, 0, 1);
         const c = Math.cos(h.a), s = Math.sin(h.a);
@@ -1613,6 +1683,7 @@ class Boss {
   }
 
   draw(g) {
+    if (this.kind === 5) return; // 삼룡: 용 셋(Dragon)이 따로 그려진다
     const x = this.x, y = this.y, white = this.flash > 0 && this.state !== 'hidden';
     if (this.state === 'hidden') { drawStump(g, x, y, this.t); FX.drawStatus(g, this); return; }
     const winds = ['slamWind', 'chargeWind', 'summon', 'hopWind', 'drumWind', 'leafWind', 'rootWind', 'cast', 'tongueWind', 'axeWind', 'splitWind'];
@@ -1625,6 +1696,7 @@ class Boss {
     g.beginPath(); g.ellipse(x, y + 20, 24 * this.scale * sh, 8 * this.scale * sh, 0, 0, Math.PI * 2); g.fill();
     const bx = x + shake, by = y - lift;
     const art = BOSS_ART[this.kind];
+    if (art.custom === 'trio') { g.globalAlpha = 1; return; }
     if (art.custom === 'bull') { this.drawBull(g, bx, by, white, wind, x, y); FX.drawStatus(g, this); g.globalAlpha = 1; return; }
     let key = art.idle, fr = Math.floor(this.t * 8);
     if (this.state === 'chase') key = art.move;
@@ -1701,6 +1773,235 @@ const BOSS_SUMMON = [['slime'], ['racoon'], ['skull', 'eye'], ['tadpole'], ['lio
 const TONGUE_LEN = 250; // 개굴대왕 혀 길이
 
 Boss.prototype.steer = Enemy.prototype.steer;
+
+// ───────── 최종 보스: 삼룡 ─────────
+// 세 마리의 긴 용(화룡 · 빙룡 · 독룡). 각자 체력이 따로이고, 셋을 모두 쓰러뜨리면 끝난다.
+// 처음엔 화룡만 싸우고, 앞의 용이 지치면(체력 55% 이하) 다음 용이 합류한다.
+// 머리만 맞는다. 브레스를 다 뿜은 뒤 머리를 숙이는 '빈틈'에 1.5배 피해.
+const DRAGON_ELEMS = {
+  fire:   { name: '화룡', key: 'dragonRed',   color: '#ff6a3c' },
+  ice:    { name: '빙룡', key: 'dragonBlue',  color: '#7fd8ff' },
+  poison: { name: '독룡', key: 'dragonGreen', color: '#9be15d' },
+};
+const DRAGON_SEG = 22;       // 몸통 마디 간격
+const DRAGON_SEGS = 6;       // 몸통 마디 수
+const FIRE_CONE_R = 175, FIRE_CONE_HALF = 0.5;
+const ICE_BEAM_LEN = 380;
+
+class Dragon {
+  constructor(el, x, y, hp, dmg, owner) {
+    this.type = 'dragon'; this.el = el; this.E = DRAGON_ELEMS[el]; this.owner = owner;
+    this.x = x; this.y = y; this.r = 20; this.hp = this.maxHp = hp; this.dmg = dmg;
+    this.def = {}; this.color = this.E.color; this.flying = true; this.superArmor = true; this.noPush = true; this.keep = true;
+    this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0; this.spawnT = 0; this.dead = false;
+    this.t = Math.random() * 5; this.trail = [{ x, y }]; this.state = 'lurk'; this.st = 0; this.active = false; this.burrowed = true;
+    this.dir = Math.PI / 2; this.orbit = Math.random() * Math.PI * 2;
+  }
+  get vulnerable() { return this.state === 'rest'; }
+  get fast() { return this.owner.enraged ? 0.75 : 1; }
+
+  activate() {
+    this.active = true; this.burrowed = false; this.state = 'roam'; this.st = 1.2;
+    G.text(this.x, this.y - 40, this.E.name + ' 합류!', this.E.color, 18, 1.4); G.shake = 10; Sfx.roar();
+  }
+
+  update(dt, p) {
+    this.t += dt; this.flash -= dt; this.st -= dt;
+    const cx = World.pw / 2, cy = World.ph / 2;
+    if (!this.active) { // 아레나 가장자리를 맴돈다 (아직 싸우지 않음)
+      this.orbit += dt * 0.5;
+      this.moveTo(cx + Math.cos(this.orbit) * World.pw * 0.42, cy + Math.sin(this.orbit) * World.ph * 0.4, 140, dt);
+      this.pushTrail();
+      return;
+    }
+    const dx = p.x - this.x, dy = p.y - this.y, d = Math.hypot(dx, dy) || 1;
+    switch (this.state) {
+      case 'roam': {
+        if (!this.wp || Math.hypot(this.wp.x - this.x, this.wp.y - this.y) < 20) {
+          const a = Math.random() * Math.PI * 2, r = rand(110, 200);
+          this.wp = { x: clamp(p.x + Math.cos(a) * r, 90, World.pw - 90), y: clamp(p.y + Math.sin(a) * r, 90, World.ph - 90) };
+        }
+        this.moveTo(this.wp.x, this.wp.y, 150 / this.fast, dt);
+        if (this.st <= 0) { this.state = 'aim'; this.st = 0.9 * this.fast; }
+        break;
+      }
+      case 'aim':
+        if (this.st > 0.2) this.dir = Math.atan2(dy, dx);
+        if (this.st <= 0) this.breathe(p);
+        break;
+      case 'breath':
+        if (this.el === 'ice') this.beamCheck(p);
+        if (this.st <= 0) { this.state = 'rest'; this.st = 1.1; }
+        break;
+      case 'rest':
+        if (this.st <= 0) { this.state = 'roam'; this.st = rand(1.4, 2.4) * this.fast; this.wp = null; }
+        break;
+    }
+    this.pushTrail();
+    // 머리 · 몸통에 부딪히면 아프다
+    if (p.alive) {
+      const segs = this.segments();
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i];
+        if (Math.hypot(p.x - s.x, p.y - s.y) < (i ? 13 : 18) + p.r) { G.hurtPlayer(Math.round(this.dmg * 0.5), { x: s.x, y: s.y }); break; }
+      }
+    }
+  }
+
+  moveTo(tx, ty, speed, dt) {
+    const dx = tx - this.x, dy = ty - this.y, d = Math.hypot(dx, dy);
+    if (d < 1) return;
+    // S자로 꿈틀거리며 간다
+    const a = Math.atan2(dy, dx) + Math.sin(this.t * 3) * 0.5, step = Math.min(d, speed * dt);
+    this.x += Math.cos(a) * step; this.y += Math.sin(a) * step;
+    this.x = clamp(this.x, 60, World.pw - 60); this.y = clamp(this.y, 60, World.ph - 60);
+  }
+  pushTrail() {
+    const last = this.trail[0];
+    if (!last || Math.hypot(last.x - this.x, last.y - this.y) > 3) this.trail.unshift({ x: this.x, y: this.y });
+    if (this.trail.length > 120) this.trail.length = 120;
+  }
+  // 머리가 지나간 길을 따라 놓인 몸통 마디들 (0 = 머리)
+  segments() {
+    const out = [{ x: this.x, y: this.y }];
+    let need = DRAGON_SEG, acc = 0;
+    for (let i = 1; i < this.trail.length && out.length <= DRAGON_SEGS; i++) {
+      const a = this.trail[i - 1], b = this.trail[i], l = Math.hypot(b.x - a.x, b.y - a.y);
+      acc += l;
+      if (acc >= need) { out.push({ x: b.x, y: b.y }); need += DRAGON_SEG; }
+    }
+    while (out.length <= DRAGON_SEGS) { const l = out[out.length - 1]; out.push({ x: l.x, y: l.y - 4 }); }
+    return out;
+  }
+
+  breathe(p) {
+    this.state = 'breath'; this.st = 0.7; Sfx.roar();
+    const c = Math.cos(this.dir), s = Math.sin(this.dir);
+    if (this.el === 'fire') { // 부채꼴 불길
+      for (let i = 0; i < 40; i++) {
+        const a = this.dir + rand(-FIRE_CONE_HALF, FIRE_CONE_HALF), sp = rand(150, 320);
+        G.particles.push({ x: this.x + c * 20, y: this.y + s * 20, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.55, max: 0.55, color: Math.random() < 0.5 ? '#ff7a3c' : '#ffd24a', size: 4, grav: 0 });
+      }
+      const dx = p.x - this.x, dy = p.y - this.y, d = Math.hypot(dx, dy);
+      if (p.alive && d < FIRE_CONE_R && Math.abs(angDiff(Math.atan2(dy, dx), this.dir)) < FIRE_CONE_HALF) {
+        G.hurtPlayer(Math.round(this.dmg * 1.1), { x: this.x, y: this.y, attacking: true });
+      }
+      G.shake = Math.max(G.shake, 6);
+    } else if (this.el === 'ice') { // 냉기 광선 + 고드름
+      this.beamHit = false;
+      for (let i = 0; i < 4; i++) {
+        const a = Math.random() * Math.PI * 2, r = rand(20, 110);
+        this.owner.hzCircle(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 24, 0.9 + i * 0.12, Math.round(this.dmg * 0.8), 'icicle');
+      }
+    } else { // 따라오는 독 거품
+      for (let i = 0; i < 5; i++) G.eshots.push(new EnemyShot(this.x + c * 16, this.y + s * 16, this.dir - 0.6 + i * 0.3, { kind: 'venom', speed: 95, r: 7, life: 4, homing: 0.9, breakable: true, dmg: Math.round(this.dmg * 0.6), puddle: true }));
+    }
+  }
+  beamCheck(p) {
+    if (this.beamHit || !p.alive) return;
+    const c = Math.cos(this.dir), s = Math.sin(this.dir), dx = p.x - this.x, dy = p.y - this.y;
+    const along = dx * c + dy * s;
+    if (along > 0 && along < ICE_BEAM_LEN && Math.abs(dx * s - dy * c) < 14 + p.r) {
+      this.beamHit = true; G.hurtPlayer(Math.round(this.dmg * 1.0), { x: this.x, y: this.y, attacking: true });
+      p.slowT = 1.5; G.text(p.x, p.y - 30, '꽁꽁!', '#bfefff', 13, 0.8);
+    }
+  }
+
+  drawTelegraph(g) {
+    if (!this.active || (this.state !== 'aim' && this.state !== 'breath')) return;
+    const pulse = 0.18 + Math.sin(this.t * 25) * 0.07, c = Math.cos(this.dir), s = Math.sin(this.dir);
+    if (this.el === 'fire' && this.state === 'aim') {
+      g.fillStyle = `rgba(255,60,30,${pulse + 0.05})`;
+      g.beginPath(); g.moveTo(this.x, this.y); g.arc(this.x, this.y, FIRE_CONE_R, this.dir - FIRE_CONE_HALF, this.dir + FIRE_CONE_HALF); g.closePath(); g.fill();
+    } else if (this.el === 'ice') {
+      const beam = this.state === 'breath';
+      g.strokeStyle = beam ? 'rgba(170,230,255,0.9)' : `rgba(120,200,255,${0.3 + pulse})`; g.lineWidth = beam ? 16 : 2;
+      g.beginPath(); g.moveTo(this.x, this.y); g.lineTo(this.x + c * ICE_BEAM_LEN, this.y + s * ICE_BEAM_LEN); g.stroke();
+      if (beam) { g.strokeStyle = '#fff'; g.lineWidth = 4; g.stroke(); }
+    }
+  }
+
+  draw(g) {
+    const segs = this.segments(), key = this.E.key, white = this.flash > 0;
+    const img = k => (white && ART.white[key + k]) ? ART.white[key + k] : ART.img[key + k];
+    g.globalAlpha = this.active ? 1 : 0.55;
+    const put = (k, x, y, sx = 1) => {
+      const im = img(k), w = im.width * PIX, h = im.height * PIX;
+      g.save(); g.translate(x, y); g.scale(sx, 1); g.drawImage(im, -w / 2, -h / 2, w, h); g.restore();
+    };
+    // 그림자
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    for (const s of segs) { g.beginPath(); g.ellipse(s.x, s.y + 30, 16, 6, 0, 0, Math.PI * 2); g.fill(); }
+    // 꼬리 → 몸통 → 날개 → 머리 순서로 (머리가 맨 위)
+    for (let i = segs.length - 1; i >= 1; i--) {
+      const s = segs[i];
+      if (i === segs.length - 1) put('End', s.x, s.y);
+      else put(i % 2 ? 'Body1' : 'Body2', s.x, s.y);
+      if (i === 1) { // 날개
+        const flap = 1 + Math.sin(this.t * 8) * 0.12;
+        put('Wing', s.x - 34, s.y - 18, -flap); put('Wing', s.x + 34, s.y - 18, flap);
+      }
+    }
+    const hy = this.y + (this.state === 'rest' ? 10 : 0);
+    put('Head', this.x, hy);
+    if (this.state === 'rest') { // 빈틈: 반짝임
+      g.fillStyle = '#ffd24a';
+      for (let i = 0; i < 3; i++) { const a = this.t * 5 + i * 2.1; g.fillRect(this.x + Math.cos(a) * 26 - 2, hy - 40 + Math.sin(a) * 6 - 2, 4, 4); }
+    }
+    if (this.state === 'aim') { g.fillStyle = '#ff5a3c'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.fillText('!', this.x, hy - 52); }
+    g.globalAlpha = 1;
+    if (this.active) {
+      FX.drawStatus(g, this);
+      // 머리 위 작은 체력바
+      const w = 44, bx = this.x - w / 2, by = hy - 62;
+      g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(bx - 1, by - 1, w + 2, 6);
+      g.fillStyle = this.E.color; g.fillRect(bx, by, w * Math.max(0, this.hp) / this.maxHp, 4);
+    }
+  }
+}
+
+// 삼룡 지휘: 보스 막대는 셋의 체력 합. 보스 자체는 맞지 않는다.
+Boss.prototype.updateTrio = function (dt, p) {
+  this.t += dt; this.st -= dt;
+  this.updateHazards(dt, p);
+  if (this.state === 'intro') {
+    if (this.st <= 0) {
+      const W2 = World.pw, H2 = World.ph;
+      this.dragons = [
+        new Dragon('fire', W2 / 2, 80, this.each, this.dmg, this),
+        new Dragon('ice', 80, H2 / 2, this.each, this.dmg, this),
+        new Dragon('poison', W2 - 80, H2 / 2, this.each, this.dmg, this),
+      ];
+      for (const d of this.dragons) G.enemies.push(d);
+      this.dragons[0].activate();
+      this.state = 'fight'; this.triT = 8;
+      G.lumi.say('화룡부터 와요! 브레스 뒤에 머리를 숙일 때가 기회예요!');
+    }
+    return;
+  }
+  const ds = this.dragons;
+  for (let i = 1; i < ds.length; i++) {
+    const prev = ds[i - 1];
+    if (!ds[i].active && !ds[i].dead && (prev.dead || prev.hp < prev.maxHp * 0.55)) ds[i].activate();
+  }
+  this.hp = ds.reduce((s, d) => s + Math.max(0, d.dead ? 0 : d.hp), 0);
+  if (!this.enraged && this.hp < this.maxHp * 0.4) {
+    this.enraged = true; G.shake = 12; Sfx.roar();
+    G.text(p.x, p.y - 50, '삼룡이 분노했다!', '#ff5a3c', 20, 1.4);
+    G.lumi.say('세 마리가 한꺼번에 브레스를 뿜어요! 빨간 표시 사이로 피해요!');
+    for (const d of ds) if (!d.active && !d.dead) d.activate();
+  }
+  if (this.enraged) { // 삼룡 브레스: 살아 있는 용이 동시에 겨눈다
+    this.triT -= dt;
+    if (this.triT <= 0) {
+      this.triT = 8;
+      G.banner = { title: '삼룡 브레스!', sub: '세 방향을 피해라', t: 1.5 };
+      for (const d of ds) if (d.active && !d.dead) { d.state = 'aim'; d.st = 1.1; }
+    }
+  }
+  if (this.hp <= 0 && !this.dead) { this.hp = 0; G.checkDeath(this); }
+};
+
 
 class Pickup {
   constructor(kind, x, y, value) {

@@ -7,7 +7,7 @@ const FONT = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,san
 const FINAL_STAGE = 3;            // 마지막 세계
 const STAGES_PER_WORLD = 5;
 const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
-const ENEMY_COST = { lion: 1, trex: 2, cyclops2: 2, lizard: 1, kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
+const ENEMY_COST = { demon: 2, lantern: 1, statue: 2, babydragon: 1, lion: 1, trex: 2, cyclops2: 2, lizard: 1, kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
 const DEEP_SHARD_MULT = 0.6;          // 깊은 숲: 정령의 조각은 덜
 const DEEP_ESSENCE_MULT = 2;          // 깊은 숲: 무기의 정수는 두 배
@@ -75,8 +75,9 @@ const ENEMY_POOLS = [
   [['shield', 20], ['skull', 25], ['eye', 25], ['flam', 30]],              // 세계 3 · 봉인의 망령들
   [['kappa', 25], ['axolot', 30], ['spider', 30], ['mollusc', 15]],         // 세계 4 · 늪의 주민들
   [['lion', 25], ['trex', 15], ['cyclops2', 30], ['lizard', 30]],          // 세계 5 · 우마왕의 투사들
+  [['demon', 25], ['lantern', 25], ['statue', 20], ['babydragon', 30]],    // 세계 6 · 봉인의 수호자들
 ];
-const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
+const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard', 'babydragon']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
 const MONSTER_HINTS = {
   mushroom: '버섯이 몸을 부풀리면 곧 포자를 뿜어요! 포자 사이로 비켜서 다가가요. 검기나 던진 창은 날아오는 투사체를 지워요.',
   mole: '흙이 들썩이는 건 땅속 두더지예요. 빨간 표시가 보이면 그 자리를 벗어나요!',
@@ -95,6 +96,11 @@ const MONSTER_HINTS = {
   trex: "티렉스는 '!' 뒤에 길게 돌진하고, 멈추면 꼬리를 휘둘러요!",
   cyclops2: '외눈 거인이 바위를 던지면 떨어질 자리에 그림자가 생겨요. 바위 뒤에 숨어도 넘어와요!',
   lizard: '도마뱀은 돌을 세 번 연달아 던져요. 옆으로 크게 피해요!',
+  demon: '붉은 도깨비가 사라지면 곧 등 뒤에 나타나요! 바닥의 붉은 그림자에서 벗어나요!',
+  lantern: '등불 정령은 불덩이를 사방으로 흩뿌려요. 불덩이 사이 틈을 노려요!',
+  statue: '수호 석상은 십자(+)와 대각선(×)으로 번갈아 광선을 쏴요. 선 사이에 서요!',
+  babydragon: '꼬마 용의 불 브레스는 짧아요. 거리를 두면 안 닿아요!',
+  dragon: '용은 머리만 맞아요! 브레스를 피하고, 머리를 숙일 때(반짝일 때) 공격해요!',
 };
 
 // ── 게임 상태 ────────────────────────────────────────────
@@ -307,7 +313,7 @@ const G = {
   targets() {
     const list = this.enemies.filter(e => !e.dead && !e.burrowed);
     for (const t of this.totems) if (!t.dead && !t.shielded) list.push(t);
-    if (this.boss && !this.boss.dead && this.boss.state !== 'intro') list.push(this.boss);
+    if (this.boss && !this.boss.dead && this.boss.state !== 'intro' && !this.boss.untargetable) list.push(this.boss);
     return list;
   },
 
@@ -374,7 +380,7 @@ const G = {
     }
     let dmg = info.dmg;
     t.struck = true;
-    if (t.type === 'boss' && t.vulnerable) dmg = Math.round(dmg * 1.5);
+    if (t.vulnerable) dmg = Math.round(dmg * 1.5);
     t.hp -= dmg; t.flash = 0.1;
     const armored = t.superArmor || (t.heavy && (t.state === 'windup' || t.state === 'lunge'));
     if (!armored) {
@@ -640,7 +646,7 @@ const G = {
     const es = this.enemies;
     for (let i = 0; i < es.length; i++) for (let j = i + 1; j < es.length; j++) {
       const a = es[i], b = es[j];
-      if (a.flying !== b.flying || a.burrowed || b.burrowed) continue;
+      if (a.flying !== b.flying || a.burrowed || b.burrowed || a.noPush || b.noPush) continue;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy), m = a.r + b.r;
       if (d > 0 && d < m) {
         const push = (m - d) / 2, nx = dx / d * push, ny = dy / d * push;
@@ -648,7 +654,7 @@ const G = {
         else { World.move(a, -nx, -ny); World.move(b, nx, ny); }
       }
     }
-    this.enemies = es.filter(e => !e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 900);
+    this.enemies = es.filter(e => !e.dead && (e.keep || Math.hypot(e.x - p.x, e.y - p.y) < 900));
     this.chainT -= dt;
     if (this.chainT <= 0) this.chain = 0;
     this.updateWaves(dt);
