@@ -50,7 +50,7 @@ const Meta = {
     this.data = {
       shards: d.shards || 0, up: d.up || {}, seen: d.seen || {},
       runs: d.runs || 0, best: d.best || 0, clears: d.clears || 0,
-      mode: d.mode === 'easy' ? 'easy' : 'normal', // 난이도: 쉬움은 받는 피해 절반 (보상은 같다)
+      mode: d.mode === 'easy' ? 'easy' : 'normal', // 난이도: 쉬움은 받는 피해 1/3 (보상은 같다)
       bestEasy: d.bestEasy || 0,                   // 쉬움 모드 최고 기록 (일반과 따로)
       tier: d.tier || 1,                           // 고른 봉인 등급
       // 처음 깬 봉인 등급들 { 1: true, ... } (예전 저장: 한 번이라도 완주했으면 등급 1을 깬 것으로)

@@ -9,7 +9,7 @@ const STAGES_PER_WORLD = 5;
 const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
 const ENEMY_COST = { slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
-const EASY_DMG_TAKEN = 0.5;          // 쉬움 모드: 받는 피해 배율
+const EASY_DMG_TAKEN = 1 / 3;        // 쉬움 모드: 받는 피해 배율 (1/3)
 const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
 const HEART_DROP = 0.035;              // 처치 시 하트 확률
 const STAGE_DIFF_STEP = 0.2;      // 스테이지마다 적이 강해지는 정도
@@ -1400,7 +1400,7 @@ function drawVillage(blink) {
   drawModeIcon(easy ? 'easy' : 'normal', mb.x + 4, mb.y + 2, 34);
   const mtx = mb.x + 40 + (mb.w - 40) / 2;
   label(`난이도: ${easy ? '쉬움' : '일반'}`, mtx, mb.y + mb.h / 2 - 6, 13, easy ? '#8ff0b0' : '#ffb07a', 'center', '800');
-  label(easy ? '받는 피해 절반' : '눌러서 바꾸기', mtx, mb.y + mb.h / 2 + 9, 9, '#aab', 'center', '600');
+  label(easy ? '받는 피해 1/3' : '눌러서 바꾸기', mtx, mb.y + mb.h / 2 + 9, 9, '#aab', 'center', '600');
   // 봉인 등급 버튼
   const tb = L.tier, tsel = v.sel === L.items.length + 2, ti = tierInfo(md.tier);
   ctx.fillStyle = ti.curses.length ? 'rgba(110,40,60,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
@@ -1426,7 +1426,7 @@ function villageAct(i) {
   }
   if (i === items.length + 1) { // 난이도 바꾸기
     Meta.data.mode = Meta.data.mode === 'easy' ? 'normal' : 'easy'; Meta.save();
-    v.msg = Meta.data.mode === 'easy' ? '쉬움 모드: 받는 피해가 절반이에요 (보상은 같아요)' : '일반 모드로 바꿨어요';
+    v.msg = Meta.data.mode === 'easy' ? '쉬움 모드: 받는 피해가 1/3이에요 (보상은 같아요)' : '일반 모드로 바꿨어요';
     Sfx.pickup(); return;
   }
   const it = items[i];
@@ -1520,60 +1520,91 @@ function handleVillageInput(dt, inp) {
   if (inp.attack) villageAct(v.sel);
 }
 
-// 난이도 아이콘 — 쉬움: 낄낄거리는 킹받는 꼬마 / 일반: 활활 타는 지옥불
-const MODE_ICON = (() => { const c = document.createElement('canvas'); c.width = c.height = 20; return { c, g: c.getContext('2d') }; })();
+// 난이도 아이콘 — 쉬움: 윙크하며 메롱하는 킹받는 꼬마 / 일반: 백열하는 지옥불
+// 작은 캔버스(24x24)에 그린 뒤 픽셀 그대로 키워서 도트 느낌을 낸다
+const MODE_ICON = (() => { const c = document.createElement('canvas'); c.width = c.height = 24; return { c, g: c.getContext('2d') }; })();
 function drawModeIcon(kind, x, y, size) {
   const { c, g } = MODE_ICON, t = G.time;
-  g.clearRect(0, 0, 20, 20);
+  g.clearRect(0, 0, 24, 24);
   g.lineWidth = 1;
   if (kind === 'easy') {
-    const bob = Math.round(Math.abs(Math.sin(t * 9)) * 1); // 낄낄 들썩
-    const cy = 10 - bob;
+    const bob = Math.round(Math.abs(Math.sin(t * 10)) * 1.5);   // 낄낄 들썩
+    const tilt = Math.sin(t * 5) * 0.12;                         // 고개 까딱
+    g.save(); g.translate(12, 13 - bob); g.rotate(tilt); g.translate(-12, -13);
     // 얼굴
-    g.fillStyle = '#ffd36a'; g.beginPath(); g.arc(10, cy + 1, 7.5, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ffd36a'; g.beginPath(); g.arc(12, 13, 8.5, 0, Math.PI * 2); g.fill();
     g.strokeStyle = '#5a3418'; g.stroke();
-    // 삐죽 머리 + 거꾸로 쓴 모자
-    g.fillStyle = '#e04848'; g.fillRect(3, cy - 6, 14, 3); g.fillRect(14, cy - 4, 5, 2);
-    g.fillStyle = '#5a3418'; g.fillRect(4, cy - 4, 2, 2); g.fillRect(8, cy - 4, 1, 2);
-    // 실눈 (^ ^) + 한쪽 눈썹 치켜올림
+    // 거꾸로 쓴 빨간 모자 (챙이 뒤로)
+    g.fillStyle = '#e83a3a'; g.beginPath(); g.arc(12, 9, 7.5, Math.PI, 0); g.fill();
+    g.fillRect(3, 7, 4, 2);
+    g.fillStyle = '#fff'; g.fillRect(11, 3, 2, 2);
+    // 윙크: 왼쪽은 꽉 감은 >, 오른쪽은 반짝이는 눈
     g.strokeStyle = '#3a2010';
-    g.beginPath(); g.moveTo(5, cy); g.lineTo(6.5, cy - 1.5); g.lineTo(8, cy); g.stroke();
-    g.beginPath(); g.moveTo(12, cy); g.lineTo(13.5, cy - 1.5); g.lineTo(15, cy); g.stroke();
-    g.beginPath(); g.moveTo(12, cy - 3.5); g.lineTo(15.5, cy - 4.5); g.stroke();
+    g.beginPath(); g.moveTo(6, 10); g.lineTo(9, 11.5); g.lineTo(6, 13); g.stroke();
+    g.fillStyle = '#3a2010'; g.fillRect(14, 10, 3, 3);
+    g.fillStyle = '#fff'; g.fillRect(15, 10, 1, 1);
+    // 비웃는 눈썹 (오른쪽만 높이)
+    g.beginPath(); g.moveTo(13, 8); g.lineTo(18, 6.5); g.stroke();
     // 볼 터치
-    g.fillStyle = '#ff8a8a'; g.fillRect(4, cy + 2, 2, 1); g.fillRect(14, cy + 2, 2, 1);
-    // 씨익 웃는 입 + 메롱
-    g.fillStyle = '#7a1a1a'; g.beginPath(); g.moveTo(6, cy + 3); g.quadraticCurveTo(10, cy + 8, 14, cy + 3); g.closePath(); g.fill();
-    g.fillStyle = '#ff7a9a'; g.fillRect(10, cy + 5, 3, 3);
-    g.fillStyle = '#fff'; g.fillRect(7, cy + 3, 6, 1);
-    // 입을 가린 손 (킥킥)
-    g.fillStyle = '#ffd36a'; g.fillRect(2, cy + 4, 4, 4); g.strokeStyle = '#5a3418'; g.strokeRect(2.5, cy + 4.5, 3, 3);
+    g.fillStyle = '#ff7a8a'; g.fillRect(5, 14, 2, 1); g.fillRect(17, 14, 2, 1);
+    // 한쪽으로 쭉 찢어진 썩소 + 이빨 + 흔들리는 메롱
+    g.fillStyle = '#6a1010';
+    g.beginPath(); g.moveTo(8, 15); g.quadraticCurveTo(13, 20, 19, 14); g.lineTo(18, 16); g.quadraticCurveTo(13, 22, 8, 15); g.fill();
+    g.fillStyle = '#fff'; g.fillRect(10, 15, 7, 1);
+    const wag = Math.round(Math.sin(t * 14) * 1.5);
+    g.fillStyle = '#ff6a8a'; g.fillRect(13 + wag, 17, 3, 4); g.fillStyle = '#d84a6a'; g.fillRect(14 + wag, 18, 1, 2);
+    g.restore();
+    // 화면을 가리키는 손가락 (너 말이야 ㅋ)
+    const poke = Math.round(Math.sin(t * 8) * 1);
+    g.fillStyle = '#ffd36a'; g.strokeStyle = '#5a3418';
+    g.fillRect(1, 18 + poke, 5, 4); g.strokeRect(1.5, 18.5 + poke, 4, 3);
+    g.fillRect(5, 19 + poke, 4, 2); g.strokeRect(5.5, 19.5 + poke, 3, 1);
   } else {
-    // 지옥불: 바깥 검붉은 불 → 주황 → 노란 속불, 일렁인다
-    const flame = (w, h, col, ph) => {
-      g.fillStyle = col; g.beginPath(); g.moveTo(10 - w, 19);
-      for (let i = 0; i <= 4; i++) {
-        const fx = 10 - w + (2 * w) * i / 4, tip = 19 - h * (i % 2 ? 0.75 : 1) - Math.sin(t * 12 + i * 1.7 + ph) * 1.5;
-        g.quadraticCurveTo(fx - w / 4, 19 - h * 0.4, fx, tip);
+    // 지옥불: 검붉은 겉불 → 빨강 → 주황 → 노랑 → 백열(하양) 속불. 크게 일렁이고 불똥이 튄다
+    const flame = (w, h, col, ph, base = 23) => {
+      g.fillStyle = col; g.beginPath(); g.moveTo(12 - w, base);
+      for (let i = 0; i <= 5; i++) {
+        const fx = 12 - w + (2 * w) * i / 5;
+        const tip = base - h * (i % 2 ? 0.7 : 1) - Math.sin(t * 15 + i * 1.9 + ph) * 2.2 - Math.sin(t * 7 + i) * 1;
+        g.quadraticCurveTo(fx - w / 5, base - h * 0.35, fx, tip);
       }
-      g.lineTo(10 + w, 19); g.closePath(); g.fill();
+      g.lineTo(12 + w, base); g.closePath(); g.fill();
     };
-    flame(9, 17, '#7a0a0a', 0);
-    flame(7.5, 14, '#e0301a', 1);
-    flame(5.5, 10, '#ff8a1a', 2);
-    flame(3, 6, '#ffe04a', 3);
+    flame(11, 22, '#4a0000', 0);
+    flame(10, 19, '#a80a0a', 1);
+    flame(8.5, 16, '#ff3010', 2);
+    flame(6.5, 12, '#ff8a10', 3);
+    flame(4.5, 8, '#ffe03a', 4);
+    flame(2.5, 5, '#ffffff', 5);
+    // 불길 속 해골 그림자
+    const sk = 0.35 + Math.sin(t * 3) * 0.15;
+    g.globalAlpha = sk; g.fillStyle = '#3a0000';
+    g.fillRect(9, 12, 6, 4); g.fillRect(10, 16, 4, 2);
+    g.fillStyle = '#ffe03a'; g.fillRect(10, 13, 1, 1); g.fillRect(13, 13, 1, 1);
+    g.globalAlpha = 1;
     // 불똥
-    g.fillStyle = '#ffd04a';
-    for (let i = 0; i < 3; i++) { const k = (t * 1.6 + i / 3) % 1; g.fillRect(4 + i * 5 + Math.sin(t * 5 + i) * 1.5, 16 - k * 15, 1, 1); }
+    for (let i = 0; i < 6; i++) {
+      const k = (t * 1.8 + i / 6) % 1;
+      g.fillStyle = k < 0.5 ? '#ffffff' : k < 0.8 ? '#ffd04a' : '#ff5a1a';
+      g.fillRect(3 + (i * 7) % 18 + Math.sin(t * 6 + i) * 2, 21 - k * 21, 1, 1);
+    }
   }
   const prev = ctx.imageSmoothingEnabled;
+  if (kind === 'normal') { // 뜨거운 빛 번짐
+    const gr = ctx.createRadialGradient(x + size / 2, y + size * 0.65, 0, x + size / 2, y + size * 0.65, size * 0.7);
+    gr.addColorStop(0, `rgba(255,120,30,${0.45 + Math.sin(t * 9) * 0.1})`); gr.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = gr; ctx.fillRect(x - size * 0.2, y - size * 0.2, size * 1.4, size * 1.4);
+  }
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(c, x, y, size, size);
+  const sx = kind === 'normal' ? Math.sin(t * 40) * size * 0.015 : 0; // 열기로 흔들림
+  ctx.drawImage(c, x + sx, y, size, size);
   ctx.imageSmoothingEnabled = prev;
-  if (kind === 'easy' && size >= 30) { // 킹받는 ㅋㅋ
-    const k = (t * 1.5) % 1;
-    ctx.globalAlpha = 1 - k;
-    label('ㅋㅋ', x + size - 2, y + 6 - k * 8, 10, '#ffe08a', 'left', '900');
+  if (kind === 'easy' && size >= 30) { // 킹받는 ㅋㅋㅋ
+    for (let i = 0; i < 2; i++) {
+      const k = (t * 1.3 + i * 0.5) % 1;
+      ctx.globalAlpha = 1 - k;
+      label(i ? 'ㅋㅋㅋ' : 'ㅋㅋ', x + size - 4 + i * 6, y + 8 - k * 12, 10 + i * 2, i ? '#ff9ad0' : '#ffe08a', 'left', '900');
+    }
     ctx.globalAlpha = 1;
   }
 }
@@ -1636,7 +1667,7 @@ function render() {
     wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, H * 0.2 + big * 0.9 + i * 20, 14, '#d8e8d0', 'center', '500'));
     const md = Meta.data;
     label(`로그라이트 · 쓰러지면 처음부터 · 정령의 조각으로 영구 강화${md.best ? `   (최고 기록: ${stageLabel(md.best)})` : ''}${md.bestEasy ? `  (쉬움: ${stageLabel(md.bestEasy)})` : ''}`, W / 2, H * 0.45, 12, '#c8b8ff', 'center', '600');
-    label(`봉인 등급 ${md.tier} · ${ROUTES[tierInfo(md.tier).route].name}   ·   난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 절반)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
+    label(`봉인 등급 ${md.tier} · ${ROUTES[tierInfo(md.tier).route].name}   ·   난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 1/3)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
     const { move, A, P, D } = keyNames();
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
     if (Input.state.device === 'keyboard') label('Ctrl 공격 · Space 대시 · Alt 특수도 쓸 수 있어요', W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
