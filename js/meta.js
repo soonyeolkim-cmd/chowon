@@ -43,7 +43,7 @@ const ESSENCE_ALL_CLEAR = 5;        // 완주 보너스
 //   'spear' — 처음 상태 그대로, 창만 해금 (창으로 장착해서 시작)
 //   null    — 끄기
 const DEV_LOCAL = /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(location.hostname);
-const DEV_MODE = DEV_LOCAL ? 'spear' : null;
+const DEV_MODE = null; // 테스트 끝: 로컬도 일반 모드 (다시 켜려면 DEV_LOCAL ? 'spear' : null)
 // 시험 빌드: 로컬에서 주소 뒤에 ?build=spin 을 붙이면 런을 그 축복들을 가진 채로 시작한다
 const TEST_BUILDS = {
   // 회전베기 최강: 회전 연참 · 일섬 회전 · 빙결 회오리 · 파쇄 · 수호의 회전 · 날카로운 검 · 급소 · 연속 타격 (+ 회전베기 숙련 3)
@@ -61,6 +61,9 @@ const Meta = {
     let d = store.get('meta') || {};
     // 전체 해금 모드로 쓰던 저장은 다른 모드에서 처음 상태로 되돌린다
     if (DEV_LOCAL && DEV_MODE !== 'all' && (d.devAll || d.shards >= 9999)) d = {};
+    // 로컬 테스트(창 해금 · 시험 빌드 숙련)로 쓰던 저장은 일반 모드로 돌아올 때 한 번 처음 상태로 (배포된 게임 저장은 건드리지 않는다)
+    if (DEV_LOCAL && !DEV_MODE && !DEV_BUILD && !d.normal1) d = {};
+    if (DEV_BUILD) d.normal1 = false;
     this.data = {
       shards: d.shards || 0, up: d.up || {}, seen: d.seen || {},
       runs: d.runs || 0, best: d.best || 0, clears: d.clears || 0,
@@ -73,6 +76,7 @@ const Meta = {
       weapon: d.weapon || 'sword', unlocked: d.unlocked || ['sword'],
       wup: d.wup || {},          // 무기별 숙련: { sword: { combo: 2, ... } }
       // 무기의 정수 (예전 저장의 무기별 정수 { sword: 12, spear: 3 } 은 합쳐서 옮긴다)
+      normal1: d.normal1 !== false && !DEV_BUILD, // 로컬 일반 모드로 시작한 저장 표시
       essence: typeof d.essence === 'number' ? d.essence : Object.values(d.essence || {}).reduce((a, b) => a + b, 0),
     };
     if (DEV_MODE === 'all') this.unlockAll();
