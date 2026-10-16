@@ -130,6 +130,14 @@ const Music = (() => {
     pauseAll() { for (const k in els) els[k].pause(); },
   };
 })();
+// 적이 바라보는 방향: 방패병은 방패 방향, 나머지는 실제로 움직이는 방향 (가만히 있으면 마지막 방향 유지)
+function trackHeading(e, x0, y0, dt) {
+  if (e.type === 'shield') { e.heading = e.facing; return; }
+  const dx = e.x - x0, dy = e.y - y0;
+  if (dx * dx + dy * dy > Math.pow(12 * dt, 2)) e.heading = Math.atan2(dy, dx);
+  else if (e.heading === undefined) e.heading = Math.atan2(G.player.y - e.y, G.player.x - e.x);
+}
+
 // 지금 들려줄 곡
 function musicTarget() {
   const st = G.state;
@@ -451,7 +459,7 @@ const G = {
     if (pos) this.enemies.push(new Enemy(type || this.pickType(), pos.x, pos.y, this.diff, this.player.lv));
   },
 
-  chainBonus() { return Math.min(FX.chainCap(), this.chain * 0.02); },
+  chainBonus() { return 0; }, // HIT 수에 따른 피해 증가는 없앴다 (2026-10-17). HIT는 세기만 한다
 
   hint(key, text) {
     if (this.seen[key]) return;
@@ -729,9 +737,9 @@ const G = {
     this.stageTime += dt;
     p.update(dt);
     this.lumi.update(dt, p);
-    for (const e of this.enemies) e.update(dt, p);
+    for (const e of this.enemies) { const x0 = e.x, y0 = e.y; e.update(dt, p); trackHeading(e, x0, y0, dt); }
     for (const t of this.totems) if (!t.dead) t.update(dt, p);
-    if (this.boss && !this.boss.dead) this.boss.update(dt, p);
+    if (this.boss && !this.boss.dead) { const b = this.boss, x0 = b.x, y0 = b.y; b.update(dt, p); trackHeading(b, x0, y0, dt); }
     for (const t of this.targets()) FX.updateStatus(t, dt);
     FX.updateZones(dt);
     for (const w of this.projectiles) w.update(dt);
@@ -1057,7 +1065,6 @@ function drawHud() {
     const s = 1 + Math.max(0, G.chainPulse) * 2;
     const lx = inset.l + 16, ly = inset.t + 84;
     label(`${G.chain} HIT`, lx, ly, 22 * s, '#ffd24a', 'left', '900');
-    label(`피해 +${Math.round(G.chainBonus() * 100)}%`, lx, ly + 20, 11, '#fff', 'left', '600');
   }
   { // 이번 런에서 모은 조각 (끝나야 받는다)과 지금 받을 배율
     const rp = G.rewardParts(false);

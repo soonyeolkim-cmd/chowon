@@ -109,7 +109,7 @@ const BOONS = [
   { id: 'atk_thrust', el: 'might', name: '돌진 강화', desc: lv => `대시 찌르기 피해 +${40 * lv}%, 돌진 거리 +${15 * lv}%.` },
   { id: 'sharp', el: 'might', name: '날카로운 검', desc: lv => `모든 피해 +${10 * lv}%.` },
   { id: 'vital', el: 'might', name: '급소 찌르기', desc: lv => `치명타 확률 +${8 * lv}%, 치명타 피해 +${20 * lv}%.` },
-  { id: 'momentum', el: 'might', name: '연속 타격', desc: lv => `HIT 보너스 최대치 +${25 * lv}% (기본 +50%).` },
+  { id: 'ambush', el: 'might', name: '기습', desc: lv => `적의 옆이나 등 뒤에서 때리면 피해 +${10 + 20 * lv}%. 기절 · 빙결된 적도 무방비로 친다.` },
 
   // ── 🛡 방어: 누적 패시브 (생존) ──
   { id: 'lifesteal', el: 'guard', name: '흡혈 칼날', desc: lv => `적을 쓰러뜨릴 때마다 체력 ${2 * lv} 회복.` },
@@ -289,6 +289,15 @@ const ElFx = {
     return cv;
   },
 };
+
+// 기습 판정: 적이 바라보는(움직이는) 방향에서 AMBUSH_ANGLE 이상 벗어난 쪽에서 때리면 옆 · 뒤. 기절 · 빙결이면 무방비.
+const AMBUSH_ANGLE = 70 * Math.PI / 180;
+function offGuard(t, p) {
+  if (t.stun > 0 || t.frozenT > 0) return true;
+  if (t.heading === undefined) return false;
+  const from = Math.atan2(p.y - t.y, p.x - t.x); // 적이 보기에 플레이어가 있는 방향
+  return Math.abs(angDiff(from, t.heading)) > AMBUSH_ANGLE;
+}
 
 // ── 효과 처리 ─────────────────────────────────────────────
 const FX = {
@@ -709,11 +718,12 @@ const FX = {
     if (kind === 'finisher' || kind === 'pokeFin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
     if (kind === 'thrust' || kind === 'sweep') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
+    const am = this.lv('ambush');
+    if (am && t && offGuard(t, p)) { m *= 1 + 0.1 + 0.2 * am; t.ambushHit = true; } // 기습: 옆 · 뒤에서, 또는 무방비
     return m * this.shockMult(t);
   },
   critChance() { return 0.1 + 0.08 * this.lv('vital'); },
   critMult() { return 1.8 + 0.2 * this.lv('vital'); },
-  chainCap() { return 0.5 + 0.25 * this.lv('momentum'); },
 
   updateZones(dt) {
     for (const z of G.zones) {

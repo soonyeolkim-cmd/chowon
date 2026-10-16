@@ -455,6 +455,7 @@ class Player {
     if (crit) dmg *= FX.critMult();
     if (counter) dmg *= 1.3;
     G.hit(t, { dmg: Math.round(dmg), nx, ny, kb, guardBreak: m.guardBreak, crit, counter, kind, tip: o.tip, back: o.back });
+    if (t.ambushHit) { t.ambushHit = false; if (!(t.ambushTextT > G.time)) { t.ambushTextT = G.time + 0.6; G.text(t.x, t.y - t.r - 18, '기습!', '#ff9a6a', 11, 0.5); } }
   }
 
   draw(g) {
