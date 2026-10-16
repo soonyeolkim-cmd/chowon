@@ -588,8 +588,21 @@ const G = {
     if (p.hp <= 0 && this.reviveLeft > 0) {
       this.reviveLeft--;
       p.hp = Math.round(p.maxHp * 0.4); p.invuln = p.hurtT = 2;
-      this.text(p.x, p.y - 30, '불굴의 의지!', '#ffd24a', 16, 1.4);
-      this.fxRing(p.x, p.y, '#ffd24a', 80); this.slowT = 0.8; Sfx.level();
+      // 루미가 날아와 빛으로 감싸 일으켜 세운다
+      const L = this.lumi;
+      L.seek(p.x, p.y + 10, 1.0); L.say('리안, 일어나요! 제 빛을 전부 줄게요!', 2.2);
+      for (let i = 0; i < 18; i++) { // 루미에게서 플레이어 쪽으로 흘러드는 빛
+        const k = i / 18, x = L.x + (p.x - L.x) * k, y = L.y + (p.y - 8 - L.y) * k;
+        this.particles.push({ x: x + rand(-4, 4), y: y + rand(-4, 4), vx: (p.x - L.x) * 0.6, vy: (p.y - L.y) * 0.6, life: 0.4 + k * 0.3, max: 0.7, color: i % 2 ? '#e8ff9c' : '#fffbe0', size: 2.5, grav: 0 });
+      }
+      for (let i = 0; i < 30; i++) { // 몸에서 위로 피어오르는 치유의 빛
+        const a = rand(0, Math.PI * 2), r = rand(4, 18);
+        this.particles.push({ x: p.x + Math.cos(a) * r, y: p.y + 4 + Math.sin(a) * r * 0.5, vx: rand(-10, 10), vy: rand(-70, -30), life: rand(0.7, 1.2), max: 1.2, color: i % 3 ? '#e8ff9c' : '#ffffff', size: rand(2, 3.5), grav: 0 });
+      }
+      this.fxRing(p.x, p.y, '#e8ff9c', 50); this.fxRing(p.x, p.y, '#fffbe0', 90);
+      this.text(p.x, p.y - 30, '불굴의 의지!', '#e8ff9c', 16, 1.4);
+      this.text(p.x, p.y - 46, '+' + p.hp, '#e8ff9c', 14, 1.2);
+      this.slowT = 0.8; Sfx.heal(); Sfx.level();
     }
     if (p.hp <= 0) {
       p.hp = 0; p.alive = false; this.commitRun();
