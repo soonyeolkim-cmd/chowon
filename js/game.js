@@ -1312,6 +1312,12 @@ function drawSettings(blink) {
   const how = s.msg || (s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
     : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 바꾸기 · B 돌아가기' : s.tab === 0 ? '마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 (커서 쪽으로) · WASD 이동도 돼요' : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
   label(how, W / 2, H - inset.b - 18, 12, s.msg ? '#ffe08a' : '#aab', 'center', '600');
+  if (s.tab === 1) { // 패드 입력 확인: 스틱 · 십자키 · 버튼이 제대로 들어오는지
+    const pi = Input.padInfo;
+    const arrow = pi ? (pi.ay < -0.5 ? '↑' : pi.ay > 0.5 ? '↓' : '') + (pi.ax < -0.5 ? '←' : pi.ax > 0.5 ? '→' : '') : '';
+    label(pi ? `입력 확인 · 방향 ${arrow || '·'}  ·  누른 버튼 ${pi.pressed.length ? pi.pressed.map(padName).join(' ') : '없음'}${pi.mapping === 'standard' ? '' : '  (비표준 배치)'}`
+      : '패드가 연결되지 않았어요 · 아무 버튼이나 눌러 보세요', W / 2, H - inset.b - 36, 11, pi ? '#8ff0b0' : '#ff9a7a', 'center', '600');
+  }
 }
 
 // 마을의 설정 버튼 (톱니)

@@ -176,7 +176,7 @@ const Input = (() => {
     let gp = null;
     for (const p of pads) if (p && p.connected) { gp = p; break; }
     lastPad = gp;
-    if (!gp) return null;
+    if (!gp) { api.padInfo = null; return null; }
 
     const down = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
     const edge = [];
@@ -191,8 +191,20 @@ const Input = (() => {
     let ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
     const l = Math.hypot(ax, ay), DZ = 0.22;
     if (l < DZ) { ax = 0; ay = 0; } else { const m = Math.min(1, (l - DZ) / (1 - DZ)); ax = ax / l * m; ay = ay / l * m; }
-    if (down(14)) ax = -1; if (down(15)) ax = 1;   // 십자키
-    if (down(12)) ay = -1; if (down(13)) ay = 1;
+    // 십자키: 표준 배치(버튼 12~15). 표준이 아닌 패드는 축으로 오기도 한다 (6·7번 축, 또는 한 축에 8방향을 담은 '햇')
+    let dx = (down(15) ? 1 : 0) - (down(14) ? 1 : 0), dy = (down(13) ? 1 : 0) - (down(12) ? 1 : 0);
+    if (!dx && !dy && gp.mapping !== 'standard') {
+      const hat = gp.axes.length > 9 ? gp.axes[9] : null;
+      if (hat !== null && hat >= -1.05 && hat <= 1.05) {
+        const i = Math.round((hat + 1) * 3.5) % 8; // 0 위 · 1 오른쪽 위 · 2 오른쪽 … 7 왼쪽 위
+        dx = [0, 1, 1, 1, 0, -1, -1, -1][i]; dy = [-1, -1, 0, 1, 1, 1, 0, -1][i];
+      } else if (gp.axes.length >= 8) {
+        const h = gp.axes[6] || 0, v = gp.axes[7] || 0;
+        dx = h > 0.5 ? 1 : h < -0.5 ? -1 : 0; dy = v > 0.5 ? 1 : v < -0.5 ? -1 : 0;
+      }
+    }
+    if (dx || dy) { const l = Math.hypot(dx, dy); ax = dx / l; ay = dy / l; } // 십자키가 스틱보다 우선
+    api.padInfo = { id: gp.id, mapping: gp.mapping || '비표준', ax, ay, pressed: edge.map((_, i) => i).filter(down) };
 
     if (ax || ay || anyButton) { state.device = 'gamepad'; state.mouseAim = false; }
     // 키 설정 중: 처음 누른 버튼을 넘긴다
@@ -273,6 +285,6 @@ const Input = (() => {
 
   const api = { init, update, state, joy, buttons, pointers, setButton, rumble, onUi: null, onPadConnect: null,
     rot: false, physW: innerWidth, viewW: innerWidth, wheel: 0,
-    binds, settings, bind, resetBinds, saveSettings, capture: null, clearKeys: () => keys.clear() };
+    binds, settings, bind, resetBinds, saveSettings, capture: null, clearKeys: () => keys.clear(), padInfo: null };
   return api;
 })();
