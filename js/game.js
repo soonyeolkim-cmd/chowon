@@ -1153,7 +1153,7 @@ function quitLayout() {
 const inRectPt = (pt, r) => pt && pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
 // 위아래 / 좌우 입력을 한 번씩만 받는다
 // 위아래를 길게 누르면 반복: 0.35초 뒤부터, 점점 빨라진다 (0.13초 → 0.04초 간격)
-// 반복 중(rep)에는 목록 끝에서 멈춘다 (한 번 누를 때만 반대쪽 끝으로 넘어간다)
+// 반복 중에도 다른 영역으로 넘어가고, 맨 위 ↔ 맨 아래로 돈다
 const REPEAT_DELAY = 0.35, REPEAT_GAP = 0.13, REPEAT_MIN = 0.04, REPEAT_ACCEL = 0.82;
 function axisRepeat(o, v, dt) {
   if (!v) { o.rpRep = false; return 0; }
@@ -1169,8 +1169,8 @@ function menuAxis(o, inp, dt = 0) {
   o.axis = v; o.axisX = h;
   return { dy, dx, rep: !!(dy && o.rpRep) };
 }
-// 목록 이동: 한 번 누르면 끝에서 반대쪽 끝으로, 길게 누르는 중엔 끝에서 멈춤
-const stepSel = (sel, dy, len, rep) => (rep ? clamp(sel + dy, 0, len - 1) : (sel + dy + len) % len);
+// 목록 이동: 끝에서 반대쪽 끝으로
+const stepSel = (sel, dy, len) => (sel + dy + len) % len;
 
 function handlePauseInput(dt, inp) {
   const m = G.pm || (G.pm = { sel: 0, view: 'menu', axis: 0, t: 0, qsel: 1 });
@@ -1854,15 +1854,12 @@ function handleVillageInput(dt, inp) {
   if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else tabTo(nextTab(hx)); }
   v.axisX = hx;
   // ↑↓: 목록 줄 이동. 아래 버튼 줄은 한 줄로 본다 (맨 아래 → 모험 떠나기, 버튼 줄에서 ↑ → 목록 마지막)
-  const vdir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0, dir = axisRepeat(v, vdir, dt), rep = v.rpRep;
+  // 순서: ⚙ → 목록 → 아래 버튼 줄 → 다시 ⚙ (길게 누르면 가속, 영역도 계속 넘어간다)
+  const vdir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0, dir = axisRepeat(v, vdir, dt);
   if (dir) {
     const rows = []; for (let k = 0; k < n; k++) if (selectable(k)) rows.push(k);
     let i;
-    if (rep && !inBar && v.sel !== -1) { // 길게 누르는 중: 목록 안에서만 움직이고 끝에서 멈춘다
-      const k = clamp(rows.indexOf(v.sel) + dir, 0, rows.length - 1);
-      i = rows[k];
-    } else if (rep) i = v.sel;
-    else if (v.sel === -1) i = dir > 0 ? (rows.length ? rows[0] : n) : n;
+    if (v.sel === -1) i = dir > 0 ? (rows.length ? rows[0] : n) : n;
     else if (inBar) i = dir < 0 ? (rows.length ? rows[rows.length - 1] : -1) : -1;
     else {
       const k = rows.indexOf(v.sel) + dir;
