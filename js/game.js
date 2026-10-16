@@ -1178,7 +1178,7 @@ function handlePauseInput(dt, inp) {
   let pick = null;
   if (inp.tap) { const i = pauseLayout().findIndex(r => inRectPt(inp.tap, r)); if (i >= 0) { m.sel = i; pick = i; } }
   else if (inp.confirm) pick = m.sel;
-  if (inp.back && pick === null) { G.state = 'play'; return; }
+  if ((inp.back || inp.pause) && pick === null) { G.state = 'play'; return; }
   if (pick === null) return;
   const id = PAUSE_ITEMS[pick].id;
   Sfx.pickup();
@@ -1259,6 +1259,7 @@ function settingsAct(row) {
   Input.captureDev = row.dev;
   Input.capture = (kind, code) => {
     s.waiting = null; Input.clearKeys(); Input.captureDev = null;
+    if (kind === 'cancel') { s.msg = '취소했어요'; s.t = 0; return; }
     if (kind === 'kb' && code === 'Escape') { s.msg = '취소했어요'; return; }
     if (kind !== row.dev) { s.msg = row.dev === 'kb' ? '키보드 키를 눌러야 해요' : '게임패드 버튼을 눌러야 해요'; return; }
     if (kind === 'pad' && code >= 12 && code <= 15) { s.msg = '십자키는 이동 전용이에요'; return; }
@@ -1307,12 +1308,12 @@ function drawSettings(blink) {
     ctx.fillStyle = waiting ? 'rgba(120,90,20,0.95)' : sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.88)'; ctx.fillRect(row.x, row.y, row.w, row.h);
     if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(row.x + 1, row.y + 1, row.w - 2, row.h - 2); }
     label(r.name, row.x + 14, row.y + row.h / 2, 13, r.kind === 'reset' ? '#ffb0a0' : '#fff', 'left', '700');
-    const val = waiting ? (blink ? (r.dev === 'kb' ? '새 키를 누르세요… (Esc 취소)' : '새 버튼을 누르세요… (화면 탭 취소)') : '') : r.value;
+    const val = waiting ? (blink ? (r.dev === 'kb' ? '새 키를 누르세요… (Esc 취소)' : '새 버튼을 누르세요… (B 취소)') : '') : r.value;
     label(val, row.x + row.w - 14, row.y + row.h / 2, 13, waiting ? '#ffe08a' : r.kind === 'toggle' ? (r.value === '켜짐' ? '#8ff0b0' : '#ff9a7a') : '#c8d8ff', 'right', '800');
   });
   const d = Input.state.device;
   const how = s.msg || (s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
-    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 바꾸기 · B 돌아가기' : s.tab === 0 ? '마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 (커서 쪽으로) · WASD 이동도 돼요' : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
+    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 선택 → 바꿀 버튼 누르기 · B 취소/돌아가기 (B는 지정할 수 없어요)' : s.tab === 0 ? '마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 (커서 쪽으로) · WASD 이동도 돼요' : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
   label(how, W / 2, H - inset.b - 18, 12, s.msg ? '#ffe08a' : '#aab', 'center', '600');
   if (s.tab === 1) { // 패드 입력 확인: 스틱 · 십자키 · 버튼이 제대로 들어오는지
     const pi = Input.padInfo;
@@ -1528,7 +1529,7 @@ function handleBoonInput(dt, inp) {
   if (dir && dir !== o.axis) { o.sel = (o.sel + dir + o.cards.length) % o.cards.length; o.hold = 0; Sfx.pickup(); }
   o.axis = dir;
 
-  let holding = inp.attackHeld;
+  let holding = inp.attackHeld || inp.padA; // 패드는 A를 길게 눌러도 선택
   for (const pt of Input.pointers.values()) if (cardAt(pt) === o.sel) holding = true;
   if (holding) {
     o.hold += dt;
@@ -1810,7 +1811,7 @@ function handleVillageInput(dt, inp) {
     if (i < n) villageScrollTo(i);
   }
   v.axis = dir;
-  if (inp.attack || inp.confirm) villageAct(v.sel);
+  if (inp.confirm || (inp.attack && Input.state.device !== 'gamepad')) villageAct(v.sel); // 패드는 A로만 선택
 }
 
 // 난이도 아이콘 — 쉬움: 윙크하며 메롱하는 킹받는 꼬마 / 일반: 백열하는 지옥불

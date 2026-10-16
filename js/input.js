@@ -19,7 +19,7 @@ const Input = (() => {
   const buttons = {};        // id -> { x, y, r, visible, pointer, held }
   const pointers = new Map(); // 지금 눌려 있는 손가락·마우스: id -> { x, y }
   const padPrev = [];
-  let padHeldAttack = false;
+  let padHeldAttack = false, padHeldA = false;
   let lastPad = null;
 
   // 조작 설정 (설정 화면에서 바꿀 수 있고, 이 기기에 저장된다)
@@ -174,7 +174,7 @@ const Input = (() => {
   }
 
   function pollPad() {
-    padHeldAttack = false;
+    padHeldAttack = padHeldA = false;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     let gp = null;
     for (const p of pads) if (p && p.connected) { gp = p; break; }
@@ -210,10 +210,10 @@ const Input = (() => {
     api.padInfo = { id: gp.id, mapping: gp.mapping || '비표준', ax, ay, pressed: edge.map((_, i) => i).filter(down) };
 
     if (ax || ay || anyButton) { state.device = 'gamepad'; state.mouseAim = false; }
-    // 키 설정 중: 처음 누른 버튼을 넘긴다
+    // 키 설정 중: 처음 누른 버튼을 넘긴다. B는 언제나 취소.
     if (api.capture) {
       const i = edge.findIndex(Boolean);
-      if (i >= 0) { const f = api.capture; api.capture = null; f('pad', i); }
+      if (i >= 0) { const f = api.capture; api.capture = null; f(i === 1 ? 'cancel' : 'pad', i); }
       return { ax: 0, ay: 0 };
     }
     const any = list => list.some(i => edge[i]);
@@ -221,11 +221,13 @@ const Input = (() => {
     if (any(binds.pad.special)) queued.special = true;
     if (any(binds.pad.dash)) queued.dash = true;
     if (any(binds.pad.pause)) queued.pause = true;
-    if (edge[0] || any(binds.pad.attack)) queued.confirm = true;   // 메뉴 결정: A
-    if (edge[1] || any(binds.pad.pause)) queued.back = true;       // 메뉴 뒤로: B
+    // 메뉴 규칙 (키 설정과 상관없이 고정): A = 선택 · B = 취소/뒤로
+    if (edge[0]) queued.confirm = true;
+    if (edge[1]) queued.back = true;
     if (edge[3]) queued.reroll = true;                             // 축복 다시 뽑기: Y
     if (anyButton && edge.some(Boolean)) queued.start = true;
     padHeldAttack = binds.pad.attack.some(i => down(i));
+    padHeldA = down(0);
     return { ax, ay };
   }
 
@@ -255,6 +257,7 @@ const Input = (() => {
     state.tap = queued.tap;
     state.confirm = queued.confirm; state.back = queued.back; state.reroll = queued.reroll;
     queued.tap = null;
+    state.padA = padHeldA;
     state.attackHeld = binds.kb.attack.some(has) || !!(mouseBtns & 1) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
     queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = queued.reroll = false;
   }
