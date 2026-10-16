@@ -70,7 +70,7 @@ const BOONS = [
 
   // ── ⚡ 전기: 추가 대미지 (감전: 4초간 받는 피해 +20%) ──
   { id: 'elec_basic', el: 'thunder', slot: 'basic', name: '번개 칼날',
-    desc: lv => `기본공격이 감전시킨다. 감전된 적을 때리면 번개가 주변 ${1 + lv}명에게 튄다 (공격력의 ${pct(0.5 + 0.25 * lv)}).` },
+    desc: lv => `기본공격이 감전시킨다. 감전된 적은 4초 동안 받는 피해 +${20 + 10 * (lv - 1)}%. (번개가 튀는 건 연쇄 번개)` },
   { id: 'elec_chain', el: 'thunder', needs: 'elec_basic', name: '연쇄 번개',
     desc: lv => `기본공격이 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전.` },
   { id: 'elec_charge', el: 'thunder', slot: 'charge', name: '뇌전 회오리',
@@ -82,7 +82,7 @@ const BOONS = [
   { id: 'static', el: 'thunder', name: '정전기',
     desc: lv => `적을 때릴 때 ${8 + 4 * lv}% 확률로 하늘에서 낙뢰 (공격력의 150%).` },
   { id: 'overcharge', el: 'thunder', name: '과충전', req: () => ownsAny(SHOCK_SRC),
-    desc: lv => `감전된 적이 받는 피해 +${20 + 15 * lv}% (기본 +20%).` },
+    desc: lv => `감전된 적이 받는 피해가 ${15 * lv}% 더 늘어난다 (감전 기본 +20%에 더해서).` },
 
   // ── ☠ 독: 중첩될수록 가속되는 피해, 죽으면 주변으로 전염 ──
   { id: 'poison_basic', el: 'poison', slot: 'basic', name: '독날 칼날',
@@ -326,7 +326,8 @@ const FX = {
     t.shockT = 4;
   },
   // 감전된 적이 받는 피해 배율
-  shockMult(t) { return t.shockT > 0 ? 1 + SHOCK_VULN + 0.15 * this.lv('overcharge') : 1; },
+  // 번개 칼날 레벨마다 +10%, 과충전 레벨마다 +15%
+  shockMult(t) { return t.shockT > 0 ? 1 + SHOCK_VULN + 0.1 * Math.max(0, this.lv('elec_basic') - 1) + 0.15 * this.lv('overcharge') : 1; },
 
   skyBolt(t, dmg) {
     this.bolt(t.x + rand(-12, 12), t.y - 150, t.x, t.y);
@@ -439,7 +440,7 @@ const FX = {
     }
     if (basic) {
       const eb = this.lv('elec_basic');
-      if (eb) { if (t.shockT > 0) this.chainFrom(t, 1 + eb, atk * (0.5 + 0.25 * eb)); this.shock(t); }
+      if (eb) this.shock(t); // 번개 칼날: 감전만 건다 (번개가 튀는 건 연쇄 번개 몫)
       if (this.lv('fire_basic')) this.burn(t, 1);
       if (this.lv('ice_basic')) this.chill(t, 1);
       if (this.lv('poison_basic')) this.poison(t, 1);
