@@ -43,8 +43,12 @@ const Input = (() => {
     return d; })();
   // kbMode: 컴퓨터 조작 방식 'mouse' = 키보드+마우스 (WASD · 클릭 · 커서 조준) / 'keys' = 키보드만 (방향키 · Z X C)
   const pcFine = !!(window.matchMedia && matchMedia('(pointer: fine)').matches);
-  const settings = Object.assign({ rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys', cursorAim: false }, load('settings', {}));
+  const settings = Object.assign({ rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys', cursorAim: false, padLayout: 'xbox' }, load('settings', {}));
   const kbHas = (action, code) => binds.kb[action].includes(code);
+  // 패드 종류: 버튼 '위치'는 같고 이름만 다르다. 엑박 = 아래 A · 오른쪽 B, 스위치 = 오른쪽 A · 아래 B
+  // 메뉴 선택은 언제나 그 패드의 'A', 취소는 'B' (버튼 번호: 0 아래 · 1 오른쪽)
+  const padOk = () => (settings.padLayout === 'switch' ? 1 : 0);
+  const padNo = () => (settings.padLayout === 'switch' ? 0 : 1);
   const isGameKey = code => Object.values(binds.kb).some(list => list.includes(code));
 
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) state.device = 'touch';
@@ -216,7 +220,7 @@ const Input = (() => {
     // 키 설정 중: 처음 누른 버튼을 넘긴다. B는 언제나 취소.
     if (api.capture) {
       const i = edge.findIndex(Boolean);
-      if (i >= 0) { const f = api.capture; api.capture = null; f(i === 1 ? 'cancel' : 'pad', i); }
+      if (i >= 0) { const f = api.capture; api.capture = null; f(i === padNo() ? 'cancel' : 'pad', i); }
       return { ax: 0, ay: 0 };
     }
     const any = list => list.some(i => edge[i]);
@@ -225,14 +229,14 @@ const Input = (() => {
     if (any(binds.pad.dash)) queued.dash = true;
     if (any(binds.pad.pause)) queued.pause = true;
     // 메뉴 규칙 (키 설정과 상관없이 고정): A = 선택 · B = 취소/뒤로
-    if (edge[0]) queued.confirm = true;
-    if (edge[1]) queued.back = true;
+    if (edge[padOk()]) queued.confirm = true;
+    if (edge[padNo()]) queued.back = true;
     if (edge[4]) queued.lb = true; // 메뉴 좌우 넘기기: LB · RB (고정)
     if (edge[5]) queued.rb = true;
-    if (edge[3]) queued.reroll = true;                             // 축복 다시 뽑기: Y
+    if (edge[3]) queued.reroll = true;                             // 축복 다시 뽑기: 위 버튼 (엑박 Y · 스위치 X)
     if (anyButton && edge.some(Boolean)) queued.start = true;
     padHeldAttack = binds.pad.attack.some(i => down(i));
-    padHeldA = down(0);
+    padHeldA = down(padOk());
     return { ax, ay };
   }
 
@@ -299,6 +303,6 @@ const Input = (() => {
 
   const api = { init, update, state, joy, buttons, pointers, setButton, rumble, onUi: null, onPadConnect: null,
     rot: false, physW: innerWidth, viewW: innerWidth, wheel: 0,
-    binds, settings, bind, resetBinds, saveSettings, capture: null, clearKeys: () => keys.clear(), padInfo: null, captureDev: null, lastKey: null };
+    binds, settings, bind, resetBinds, saveSettings, capture: null, clearKeys: () => keys.clear(), padInfo: null, padOk, padNo, captureDev: null, lastKey: null };
   return api;
 })();

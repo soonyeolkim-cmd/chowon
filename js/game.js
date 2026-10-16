@@ -1125,8 +1125,9 @@ const KEY_NAMES = {
   Comma: ',', Period: '.', Slash: '/', Semicolon: ';', Quote: "'", BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=',
 };
 const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Back', 'Start', 'L스틱', 'R스틱', '십자↑', '십자↓', '십자←', '십자→', '홈'];
+const PAD_NAMES_SWITCH = ['B', 'A', 'Y', 'X', 'L', 'R', 'ZL', 'ZR', '−', '+', 'L스틱', 'R스틱', '십자↑', '십자↓', '십자←', '십자→', '홈'];
 const kbName = c => KEY_NAMES[c] || c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, '키패드 ');
-const padName = i => PAD_NAMES[i] || '버튼' + i;
+const padName = i => (Input.settings.padLayout === 'switch' ? PAD_NAMES_SWITCH : PAD_NAMES)[i] || '버튼' + i;
 
 // ── 일시정지 메뉴 (패키지 게임처럼) ─────────────────────────
 // 일시정지 키(Esc · P · START · ⏸)를 누르면 열린다
@@ -1237,7 +1238,7 @@ function settingsRows(tab) {
   if (tab === 0) return [{ kind: 'mode', name: '조작 방식', value: S.kbMode === 'mouse' ? '키보드+마우스' : '키보드만' },
     ...(S.kbMode === 'mouse' ? [{ kind: 'toggle', key: 'cursorAim', name: '마우스 조준 (공격이 커서 쪽으로)', value: S.cursorAim ? '켜짐' : '꺼짐' }] : []), ...KB_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'kb', action: a, name: n, value: B.kb[a].map(kbName).join(' / ') })),
     { kind: 'reset', dev: 'kb', name: '키보드 기본값으로 되돌리기', value: '' }];
-  if (tab === 1) return [...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
+  if (tab === 1) return [{ kind: 'padlayout', name: '패드 종류', value: S.padLayout === 'switch' ? '스위치 (오른쪽 A 선택 · 아래 B 취소)' : '엑스박스 (아래 A 선택 · 오른쪽 B 취소)' }, ...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
   return [{ kind: 'toggle', key: 'rumble', name: '진동 (게임패드 · 휴대폰)', value: S.rumble ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'shake', name: '화면 흔들림', value: S.shake ? '켜짐' : '꺼짐' }];
@@ -1256,6 +1257,11 @@ function settingsAct(row) {
   const s = G.su;
   if (row.kind === 'reset') { Input.resetBinds(row.dev); s.msg = '기본값으로 되돌렸어요'; Sfx.level(); return; }
   if (row.kind === 'toggle') { Input.settings[row.key] = !Input.settings[row.key]; Input.saveSettings(); Sfx.pickup(); return; }
+  if (row.kind === 'padlayout') {
+    Input.settings.padLayout = Input.settings.padLayout === 'switch' ? 'xbox' : 'switch'; Input.saveSettings(); Sfx.pickup();
+    s.msg = Input.settings.padLayout === 'switch' ? '스위치 배치: 오른쪽 A로 선택, 아래 B로 취소해요' : '엑스박스 배치: 아래 A로 선택, 오른쪽 B로 취소해요';
+    s.t = 0; return;
+  }
   if (row.kind === 'mode') {
     Input.settings.kbMode = Input.settings.kbMode === 'mouse' ? 'keys' : 'mouse'; Input.saveSettings(); Sfx.pickup();
     s.msg = Input.settings.kbMode === 'mouse' ? '키보드+마우스: WASD 이동 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시' : '키보드만: 방향키 이동 · Z 공격 · X 대시 · C 특수';
@@ -1313,7 +1319,7 @@ function drawSettings(blink) {
     const sel = s.sel === i, r = row.r, waiting = s.waiting === r;
     ctx.fillStyle = waiting ? 'rgba(120,90,20,0.95)' : sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.88)'; ctx.fillRect(row.x, row.y, row.w, row.h);
     if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(row.x + 1, row.y + 1, row.w - 2, row.h - 2); }
-    label(r.name + (r.kind === 'mode' ? '  (A · Enter로 바꾸기)' : ''), row.x + 14, row.y + row.h / 2, 13, r.kind === 'reset' ? '#ffb0a0' : r.kind === 'mode' ? '#ffe08a' : '#fff', 'left', '700');
+    label(r.name + (r.kind === 'mode' ? '  (A · Enter로 바꾸기)' : r.kind === 'padlayout' ? '  (A로 바꾸기)' : ''), row.x + 14, row.y + row.h / 2, 13, r.kind === 'reset' ? '#ffb0a0' : r.kind === 'mode' || r.kind === 'padlayout' ? '#ffe08a' : '#fff', 'left', '700');
     const val = waiting ? (blink ? (r.dev === 'kb' ? '새 키를 누르세요… (Esc 취소)' : '새 버튼을 누르세요… (B 취소)') : '') : r.value;
     label(val, row.x + row.w - 14, row.y + row.h / 2, 13, waiting ? '#ffe08a' : r.kind === 'toggle' ? (r.value === '켜짐' ? '#8ff0b0' : '#ff9a7a') : '#c8d8ff', 'right', '800');
   });
@@ -1501,7 +1507,7 @@ function drawBoonScreen() {
   if (rb && Meta.lv('choice') > 0) {
     const ok = G.rerolls > 0 && o.armed;
     ctx.fillStyle = ok ? 'rgba(106,63,176,0.9)' : 'rgba(60,60,70,0.8)'; ctx.fillRect(rb.x, rb.y, rb.w, rb.h);
-    const key = d === 'touch' ? '' : d === 'gamepad' ? ' [Y]' : ` [${keyNames().P}]`;
+    const key = d === 'touch' ? '' : d === 'gamepad' ? ` [${padName(3)}]` : ` [${keyNames().P}]`;
     label(`↻ 다시 뽑기 ${G.rerolls}${key}`, rb.x + rb.w / 2, rb.y + rb.h / 2, 12, ok ? '#fff' : '#999', 'center', '800');
   }
 }
@@ -1709,7 +1715,7 @@ function drawVillage(blink) {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
-    : d === 'gamepad' ? 'LB · RB: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 START 설정' : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
+    : d === 'gamepad' ? `${padName(4)} · ${padName(5)}: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
