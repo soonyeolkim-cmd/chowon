@@ -1238,7 +1238,7 @@ function settingsRows(tab) {
   if (tab === 0) return [{ kind: 'mode', name: '조작 방식', value: S.kbMode === 'mouse' ? '키보드+마우스' : '키보드만' },
     ...(S.kbMode === 'mouse' ? [{ kind: 'toggle', key: 'cursorAim', name: '마우스 조준 (공격이 커서 쪽으로)', value: S.cursorAim ? '켜짐' : '꺼짐' }] : []), ...KB_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'kb', action: a, name: n, value: B.kb[a].map(kbName).join(' / ') })),
     { kind: 'reset', dev: 'kb', name: '키보드 기본값으로 되돌리기', value: '' }];
-  if (tab === 1) return [{ kind: 'padlayout', name: '패드 종류', value: S.padLayout === 'switch' ? '스위치 (오른쪽 A 선택 · 아래 B 취소)' : '엑스박스 (아래 A 선택 · 오른쪽 B 취소)' }, ...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
+  if (tab === 1) return [{ kind: 'padlayout', name: '패드 레이아웃', value: S.padLayout === 'switch' ? '스위치  ·  A 선택 (오른쪽) · B 취소 (아래)' : 'Xbox  ·  A 선택 (아래) · B 취소 (오른쪽)' }, ...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
   return [{ kind: 'toggle', key: 'rumble', name: '진동 (게임패드 · 휴대폰)', value: S.rumble ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'shake', name: '화면 흔들림', value: S.shake ? '켜짐' : '꺼짐' }];
@@ -1259,7 +1259,7 @@ function settingsAct(row) {
   if (row.kind === 'toggle') { Input.settings[row.key] = !Input.settings[row.key]; Input.saveSettings(); Sfx.pickup(); return; }
   if (row.kind === 'padlayout') {
     Input.settings.padLayout = Input.settings.padLayout === 'switch' ? 'xbox' : 'switch'; Input.saveSettings(); Sfx.pickup();
-    s.msg = Input.settings.padLayout === 'switch' ? '스위치 배치: 오른쪽 A로 선택, 아래 B로 취소해요' : '엑스박스 배치: 아래 A로 선택, 오른쪽 B로 취소해요';
+    s.msg = Input.settings.padLayout === 'switch' ? '스위치 레이아웃: A 선택 (오른쪽) · B 취소 (아래)' : 'Xbox 레이아웃: A 선택 (아래) · B 취소 (오른쪽)';
     s.t = 0; return;
   }
   if (row.kind === 'mode') {
@@ -1541,6 +1541,7 @@ function handleBoonInput(dt, inp) {
   }
   const axis = L.horiz ? inp.mx : inp.my;
   const dir = axis > 0.5 ? 1 : axis < -0.5 ? -1 : 0;
+  if (inp.lb || inp.rb) { o.sel = (o.sel + (inp.rb ? 1 : -1) + o.cards.length) % o.cards.length; o.hold = 0; Sfx.pickup(); }
   if (dir && dir !== o.axis) { o.sel = (o.sel + dir + o.cards.length) % o.cards.length; o.hold = 0; Sfx.pickup(); }
   o.axis = dir;
 
@@ -1819,7 +1820,7 @@ function handleVillageInput(dt, inp) {
   // 아래 버튼 줄: 화면 순서대로 난이도 · 모험 떠나기 · 봉인 등급
   const BAR = [n + 1, n, n + 2], inBar = v.sel >= n;
   const barMove = d => {
-    const k = BAR.indexOf(v.sel), nk = k < 0 ? 1 : clamp(k + d, 0, 2); // 목록에 있었으면 '모험 떠나기'로
+    const k = BAR.indexOf(v.sel), nk = k < 0 ? 1 : (k + d + 3) % 3; // 목록에 있었으면 '모험 떠나기'로, 끝에서는 반대쪽 끝으로
     if (BAR[nk] !== v.sel) { v.sel = BAR[nk]; v.msg = null; Sfx.pickup(); }
   };
   // 패드: LB · RB로 아래 버튼 줄을 넘긴다
@@ -1833,10 +1834,11 @@ function handleVillageInput(dt, inp) {
   };
   // B(취소): 위쪽(목록 · ⚙)에 있으면 아래 버튼 줄의 '모험 떠나기'로 내려간다
   if (inp.back && !inBar) { v.sel = n; v.msg = null; Sfx.pickup(); return; }
-  if (inp.lb || inp.rb) { const d = inp.rb ? 1 : -1; if (inBar) barMove(d); else tabTo(d > 0 ? 1 : 0); return; }
+  const nextTab = d => (v.tab + d + 2) % 2; // 탭도 끝에서 반대쪽 끝으로
+  if (inp.lb || inp.rb) { const d = inp.rb ? 1 : -1; if (inBar) barMove(d); else tabTo(nextTab(d)); return; }
   // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
-  if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else tabTo(hx > 0 ? 1 : 0); }
+  if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else tabTo(nextTab(hx)); }
   v.axisX = hx;
   // ↑↓: 목록 줄 이동. 아래 버튼 줄은 한 줄로 본다 (맨 아래 → 모험 떠나기, 버튼 줄에서 ↑ → 목록 마지막)
   const dir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0;
