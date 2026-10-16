@@ -1152,18 +1152,31 @@ function quitLayout() {
 }
 const inRectPt = (pt, r) => pt && pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
 // 위아래 / 좌우 입력을 한 번씩만 받는다
-function menuAxis(o, inp) {
-  const v = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0, h = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
-  const dy = v && v !== o.axis ? v : 0, dx = h && h !== o.axisX ? h : 0;
-  o.axis = v; o.axisX = h;
-  return { dy, dx };
+// 위아래를 길게 누르면 반복: 0.35초 뒤부터, 점점 빨라진다 (0.13초 → 0.04초 간격)
+// 반복 중(rep)에는 목록 끝에서 멈춘다 (한 번 누를 때만 반대쪽 끝으로 넘어간다)
+const REPEAT_DELAY = 0.35, REPEAT_GAP = 0.13, REPEAT_MIN = 0.04, REPEAT_ACCEL = 0.82;
+function axisRepeat(o, v, dt) {
+  if (!v) { o.rpRep = false; return 0; }
+  if (v !== o.axis) { o.rpT = REPEAT_DELAY; o.rpGap = REPEAT_GAP; o.rpRep = false; return v; }
+  o.rpT -= dt;
+  if (o.rpT > 0) return 0;
+  o.rpT += o.rpGap; o.rpGap = Math.max(REPEAT_MIN, o.rpGap * REPEAT_ACCEL); o.rpRep = true;
+  return v;
 }
+function menuAxis(o, inp, dt = 0) {
+  const v = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0, h = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
+  const dy = axisRepeat(o, v, dt), dx = h && h !== o.axisX ? h : 0;
+  o.axis = v; o.axisX = h;
+  return { dy, dx, rep: !!(dy && o.rpRep) };
+}
+// 목록 이동: 한 번 누르면 끝에서 반대쪽 끝으로, 길게 누르는 중엔 끝에서 멈춤
+const stepSel = (sel, dy, len, rep) => (rep ? clamp(sel + dy, 0, len - 1) : (sel + dy + len) % len);
 
 function handlePauseInput(dt, inp) {
   const m = G.pm || (G.pm = { sel: 0, view: 'menu', axis: 0, t: 0, qsel: 1 });
   m.t += dt;
   if (m.t < 0.15) return;
-  const { dy, dx } = menuAxis(m, inp);
+  const { dy, dx, rep } = menuAxis(m, inp, dt);
   if (m.view === 'moves') { if (inp.back || inp.confirm || inp.tap) { m.view = 'menu'; Sfx.pickup(); } return; }
   if (m.view === 'quit') {
     if (dx) { m.qsel = m.qsel ? 0 : 1; Sfx.pickup(); }
@@ -1175,7 +1188,7 @@ function handlePauseInput(dt, inp) {
     if (pick === 1 || inp.back) { m.view = 'menu'; Sfx.pickup(); }
     return;
   }
-  if (dy) { m.sel = (m.sel + dy + PAUSE_ITEMS.length) % PAUSE_ITEMS.length; Sfx.pickup(); }
+  if (dy) { const k = stepSel(m.sel, dy, PAUSE_ITEMS.length, rep); if (k !== m.sel) { m.sel = k; Sfx.pickup(); } }
   let pick = null;
   if (inp.tap) { const i = pauseLayout().findIndex(r => inRectPt(inp.tap, r)); if (i >= 0) { m.sel = i; pick = i; } }
   else if (inp.confirm) pick = m.sel;
@@ -1288,7 +1301,7 @@ function handleSettingsInput(dt, inp) {
     return;
   }
   if (s.t < 0.2) { menuAxis(s, inp); return; }
-  const L = settingsLayout(), { dy, dx } = menuAxis(s, inp);
+  const L = settingsLayout(), { dy, dx, rep } = menuAxis(s, inp, dt);
   if (inp.tap) {
     if (inRectPt(inp.tap, L.back)) { closeSettings(); return; }
     const ti = L.tabs.findIndex(r => inRectPt(inp.tap, r));
@@ -1300,7 +1313,7 @@ function handleSettingsInput(dt, inp) {
   if (inp.back) { closeSettings(); return; }
   const tx = dx || (inp.rb ? 1 : inp.lb ? -1 : 0); // 탭 이동: ←→ 또는 LB · RB
   if (tx) { s.tab = (s.tab + tx + SETTING_TABS.length) % SETTING_TABS.length; s.sel = 0; s.msg = null; Sfx.pickup(); return; }
-  if (dy) { s.sel = (s.sel + dy + L.rows.length) % L.rows.length; Sfx.pickup(); }
+  if (dy) { const k = stepSel(s.sel, dy, L.rows.length, rep); if (k !== s.sel) { s.sel = k; Sfx.pickup(); } }
   if (inp.confirm && L.rows[s.sel]) settingsAct(L.rows[s.sel].r);
 }
 function drawSettings(blink) {
@@ -1841,11 +1854,15 @@ function handleVillageInput(dt, inp) {
   if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else tabTo(nextTab(hx)); }
   v.axisX = hx;
   // ↑↓: 목록 줄 이동. 아래 버튼 줄은 한 줄로 본다 (맨 아래 → 모험 떠나기, 버튼 줄에서 ↑ → 목록 마지막)
-  const dir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0;
-  if (dir && dir !== v.axis) {
+  const vdir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0, dir = axisRepeat(v, vdir, dt), rep = v.rpRep;
+  if (dir) {
     const rows = []; for (let k = 0; k < n; k++) if (selectable(k)) rows.push(k);
     let i;
-    if (v.sel === -1) i = dir > 0 ? (rows.length ? rows[0] : n) : n;
+    if (rep && !inBar && v.sel !== -1) { // 길게 누르는 중: 목록 안에서만 움직이고 끝에서 멈춘다
+      const k = clamp(rows.indexOf(v.sel) + dir, 0, rows.length - 1);
+      i = rows[k];
+    } else if (rep) i = v.sel;
+    else if (v.sel === -1) i = dir > 0 ? (rows.length ? rows[0] : n) : n;
     else if (inBar) i = dir < 0 ? (rows.length ? rows[rows.length - 1] : -1) : -1;
     else {
       const k = rows.indexOf(v.sel) + dir;
@@ -1853,7 +1870,7 @@ function handleVillageInput(dt, inp) {
     }
     if (i !== v.sel) { v.sel = i; v.msg = null; Sfx.pickup(); if (i < n) villageScrollTo(i); }
   }
-  v.axis = dir;
+  v.axis = vdir;
   if (inp.confirm || (inp.attack && Input.state.device !== 'gamepad')) villageAct(v.sel); // 패드는 A로만 선택
 }
 
