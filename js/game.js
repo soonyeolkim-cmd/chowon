@@ -65,6 +65,8 @@ const Sfx = (() => {
 
 // ── 배경음악: 마을 · 세계마다 · 보스 · 엔딩 (Ninja Adventure 음악, CC0). 설정에서 끌 수 있다 ──
 // 오래 들어도 덜 피곤하게: 볼륨은 낮게, 곡이 바뀔 땐 천천히 겹쳐 바뀌고, 일시정지 · 설정 화면에선 작게
+// 아직 곡을 고르는 중이라 꺼 둔다 (2026-10-16). true 로 바꾸면 배경음악이 나오고, 배포에도 곡 파일이 같이 올라간다.
+const MUSIC_ON = false;
 const MUSIC_DIR = 'assets/NinjaAdventure/Audio/Musics/';
 const MUSIC = {
   title: '1 - Adventure Begin.ogg', village: '33 - Calm Village.ogg',
@@ -110,6 +112,7 @@ const Music = (() => {
   return {
     current: null, els, // els: 확인용
     update(dt, target, duck) {
+      if (!MUSIC_ON) return;
       if (Input.state.device === 'gamepad' && Input.state.start) unlocked = true;
       const want = Input.settings.bgm && !document.hidden ? target : null;
       this.current = want;
@@ -1330,7 +1333,7 @@ function settingsRows(tab) {
   if (tab === 1) return [{ kind: 'padlayout', name: '패드 레이아웃', value: S.padLayout === 'switch' ? '스위치  ·  A 선택 (오른쪽) · B 취소 (아래)' : 'Xbox  ·  A 선택 (아래) · B 취소 (오른쪽)' }, ...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
   return [{ kind: 'toggle', key: 'sfx', name: '효과음', value: S.sfx ? '켜짐' : '꺼짐' },
-    { kind: 'toggle', key: 'bgm', name: '배경음악', value: S.bgm ? '켜짐' : '꺼짐' },
+    { kind: 'toggle', key: 'bgm', name: MUSIC_ON ? '배경음악' : '배경음악 (곧 추가돼요)', value: S.bgm ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'rumble', name: '진동 (게임패드 · 휴대폰)', value: S.rumble ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'shake', name: '화면 흔들림', value: S.shake ? '켜짐' : '꺼짐' }];
 }
@@ -2253,7 +2256,7 @@ function frame(now) {
     G.cam.x = World.pw / 2 + Math.cos(G.time * 0.15) * 300;
     G.cam.y = World.ph / 2 + Math.sin(G.time * 0.2) * 200;
     // 브라우저는 처음 누른 뒤에야 소리를 낸다: 음악이 켜져 있으면 첫 입력은 시작 화면 음악을 틀고, 다음 입력에 출발
-    if (inp.start) { if (Input.settings.bgm && !G.titleHeard) { G.titleHeard = true; G.titleT = 0; } else if (!(G.titleT < 0.4)) G.goVillage(); }
+    if (inp.start) { if (MUSIC_ON && Input.settings.bgm && !G.titleHeard) { G.titleHeard = true; G.titleT = 0; } else if (!(G.titleT < 0.4)) G.goVillage(); }
     G.titleT = (G.titleT || 0) + dt;
   } else if (G.state === 'play') {
     if (inp.pause) openPause();
