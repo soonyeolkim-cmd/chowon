@@ -13,6 +13,10 @@ const AIM_RANGE = 120, AIM_HALF_ANGLE = Math.PI / 3, AIM_FRONT_BIAS = 40;
 // 검기 조준: 멀리 날아가니 더 멀리(340)까지 찾고, 걸으면서 쏴도 진행 방향 좌우 25° 안의 적에게 살짝 맞춰 준다
 const WAVE_AIM = { range: 340, half: AIM_HALF_ANGLE, moveHalf: 25 * Math.PI / 180 };
 // 창 조준: 판정이 좁은 일직선이라 걸으면서 찔러도 좌우 20° 안의 적에게 맞춰 준다 (투창은 더 멀리)
+// 방향 바꾸기: 스틱을 이만큼 이상 밀어야 바라보는 방향이 바뀐다 (스틱을 놓을 때 살짝 튕기는 입력에 휙 돌지 않게)
+const FACE_MIN = 0.35;
+// 자동 조준 고정: 방금 노린 적이 아직 범위 안이면, 다른 적이 이만큼 더 가깝지 않은 한 계속 그 적을 노린다
+const AIM_STICKY = 30;
 const SPEAR_AIM = { range: 110, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 const THROW_AIM = { range: 200, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 
@@ -138,8 +142,8 @@ class Player {
     } else {
       this.moving = mag > 0.05;
       if (this.moving) {
-        if (!this.act) this.facing = Math.atan2(inp.my, inp.mx);
-        if (mag >= 0.2) this.aimBase = Math.atan2(inp.my, inp.mx);
+        if (!this.act && mag >= FACE_MIN) this.facing = Math.atan2(inp.my, inp.mx);
+        if (mag >= FACE_MIN) this.aimBase = Math.atan2(inp.my, inp.mx);
         const mul = (this.act ? 0.25 : this.charge > 0 ? 0.45 : 1) * (this.slowT > 0 ? 0.6 : 1) * G.slowAt(this.x, this.y);
         const l = Math.hypot(inp.mx, inp.my), spd = this.speed * mag * mul;
         World.move(this, inp.mx / l * spd * dt, inp.my / l * spd * dt);
@@ -204,9 +208,10 @@ class Player {
       const base = moving ? this.facing : this.aimBase;
       const off = Math.abs(angDiff(Math.atan2(t.y - this.y, t.x - this.x), base));
       if (off > half) continue;
-      const score = d + bias * off / half;
+      const score = d + bias * off / half - (t === this.aimTarget && !t.dead ? AIM_STICKY : 0); // 방금 노린 적 우대
       if (score < bs) { bs = score; best = t; }
     }
+    this.aimTarget = best;
     if (best) this.facing = Math.atan2(best.y - this.y, best.x - this.x);
   }
 

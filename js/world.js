@@ -201,6 +201,8 @@ const World = {
       return [3, 3];
     };
     const FLOOR = ART.img.floor, WATER = ART.img.water, NATURE = ART.img.nature;
+    // 물 타일셋의 안쪽 모서리 조각: 그 대각선 귀퉁이에만 땅이 있는 물 (열, 행)
+    const WATER_INNER = { nw: [6, 8], ne: [5, 8], sw: [6, 7], se: [5, 7] };
     const GRASS = [[3, 11], [3, 11], [3, 11], [3, 11], [2, 11], [2, 12], [3, 12], [4, 12]];
     const FLOWERS = [[0, 11], [1, 11], [3, 11], [6, 11], [4, 10], [6, 10]];
 
@@ -209,6 +211,12 @@ const World = {
       if (t === T.WATER) {
         const [ec, er] = edge(is(tx, ty - 1, T.WATER), is(tx, ty + 1, T.WATER), is(tx - 1, ty, T.WATER), is(tx + 1, ty, T.WATER));
         put(WATER, ec, 6 + er, x, y);
+        // 안쪽 모서리: 상하·좌우는 물인데 대각선만 땅이면 그 귀퉁이(1/4칸)에 물가 테두리를 덧그린다
+        for (const [ox, oy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          if (!is(tx + ox, ty, T.WATER) || !is(tx, ty + oy, T.WATER) || is(tx + ox, ty + oy, T.WATER)) continue;
+          const [ic, ir] = WATER_INNER[(oy < 0 ? 'n' : 's') + (ox < 0 ? 'w' : 'e')], qx = ox < 0 ? 0 : 1, qy = oy < 0 ? 0 : 1;
+          g.drawImage(WATER, ic * 16 + qx * 8, ir * 16 + qy * 8, 8, 8, x + qx * TILE / 2, y + qy * TILE / 2, TILE / 2, TILE / 2);
+        }
       } else if (t === T.DIRT) {
         const [ec, er] = edge(is(tx, ty - 1, T.DIRT), is(tx, ty + 1, T.DIRT), is(tx - 1, ty, T.DIRT), is(tx + 1, ty, T.DIRT));
         put(FLOOR, ec, 7 + er, x, y);
