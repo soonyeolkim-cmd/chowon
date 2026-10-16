@@ -273,8 +273,10 @@ class Player {
   get pierceLen() { return SPEAR_PIERCE_LEN * (1 + 0.1 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')); }
   startLunge(mag) {
     this.aim(mag);
-    this.act = { kind: 'lunge', t: 0, dur: 0.24, hit: new Set(), pierced: 0, len: this.pierceLen };
-    this.atkCd = 0.5; this.charge = 0; this.comboT = 0;
+    // 연환 꿰뚫기(공격 축복): 찌른 뒤 정령의 창이 같은 줄을 레벨만큼 더 찌른다 (0.1초 간격)
+    const ms = FX.lv('atk_multispin');
+    this.act = { kind: 'lunge', t: 0, dur: 0.24 + 0.1 * ms, dur0: 0.24, hit: new Set(), pierced: 0, len: this.pierceLen, extra: ms, stabs: 0, opts: ms ? { kb: 40 } : undefined };
+    this.atkCd = 0.5 + 0.1 * ms; this.charge = 0; this.comboT = 0;
     G.text(this.x, this.y - 24, '관통 찌르기', '#ffd24a', 12, 0.6);
     Sfx.thrust();
     FX.onPierce(this, this.act.len);
@@ -340,7 +342,7 @@ class Player {
     for (const [along, t] of list) {
       if (maxN && a.pierced >= maxN) break;
       a.hit.add(t); a.pierced++;
-      if (a.kind === 'lunge') { this.deal(t, a.kind, fx, fy); continue; }
+      if (a.kind === 'lunge') { this.deal(t, a.kind, fx, fy, a.opts); continue; }
       const tip = along > len * SPEAR_TIP, haft = along < SPEAR_HAFT;
       if (tip) G.burst(t.x - fx * t.r, t.y - fy * t.r, 6, ['#fff', '#ffe18a'], 160);
       this.deal(t, a.kind, fx, fy, { mult: tip ? SPEAR_TIP_MULT : haft ? SPEAR_HAFT_MULT : 1, tip });
@@ -355,8 +357,16 @@ class Player {
       return;
     }
     if (a.kind === 'lunge') {
-      if (a.t > a.dur * 0.15 && a.t < a.dur * 0.7) this.hitSpear(a, a.len, SPEAR_WIDTH + 2, 0);
-      else if (a.t >= a.dur * 0.7 && !a.ended) { a.ended = true; FX.onLungeEnd(this); }
+      const d0 = a.dur0 || a.dur;
+      if (a.t > d0 * 0.15 && a.t < d0 * 0.7) this.hitSpear(a, a.len, SPEAR_WIDTH + 2, 0);
+      else if (a.t >= d0 * 0.7 && !a.ended) { a.ended = true; FX.onLungeEnd(this); }
+      // 연환 꿰뚫기: 정령의 창이 같은 줄을 다시 찌른다 (한 번에 줄 전체 판정)
+      if (a.stabs < (a.extra || 0) && a.t >= d0 * 0.7 + 0.1 * a.stabs) {
+        a.stabs++; a.hit = new Set(); a.phantomAt = a.t;
+        a.opts = { mult: MULTISPIN_MULT, kb: a.stabs < a.extra ? 40 : undefined };
+        this.hitSpear(a, a.len, SPEAR_WIDTH + 2, 0);
+        G.burst(this.x + fx * a.len, this.y - 1 + fy * a.len, 5, ['#7fe0ff', '#fff'], 120); Sfx.thrust();
+      }
       return;
     }
     if (a.kind === 'sweep') {
@@ -536,8 +546,16 @@ class Player {
         }
       }
     } else if (a && a.kind === 'lunge') {
-      const p = a.t / a.dur, e = p < 0.25 ? p / 0.25 : 1 - (p - 0.25) / 0.75;
+      const p = Math.min(1, a.t / (a.dur0 || a.dur)), e = p < 0.25 ? p / 0.25 : 1 - (p - 0.25) / 0.75;
       spearSprite(g, x, cy, f, -12 + e * 46);
+      if (a.phantomAt !== undefined && a.t - a.phantomAt < 0.1) { // 연환 꿰뚫기: 정령의 창 잔상
+        const q = (a.t - a.phantomAt) / 0.1, ga = g.globalAlpha;
+        g.globalAlpha = ga * 0.65 * (1 - q);
+        spearSprite(g, x, cy, f, -12 + 46 * (1 - q * 0.4));
+        g.strokeStyle = 'rgba(127,224,255,0.9)'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
+        g.globalAlpha = ga;
+      }
       if (e > 0.2) { // 관통 궤적
         const cs = ElFx.slot('charge');
         if (cs) {
