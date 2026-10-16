@@ -218,6 +218,75 @@ class FxShot {
   }
 }
 
+
+// ── 속성 연출: 축복이 붙은 칸(기본 · 차지 · 특수 · 대시)을 그 속성 색 · 입자로 그린다 ──
+//  불 = 위로 튀는 불티 · 얼음 = 흩날리는 가루 · 전기 = 지글거리는 테두리와 스파크 · 독 = 떨어지는 방울
+//  축복이 최대 레벨(3)이면 빛 번짐이 생기고 입자가 더 많아진다.
+const EL_STYLE = {
+  fire:    { rgb: [255, 122, 60],  main: '#ff7a3c', light: '#ffd24a', dark: '#d8402a' },
+  frost:   { rgb: [127, 216, 255], main: '#7fd8ff', light: '#e8faff', dark: '#3a9ad8' },
+  thunder: { rgb: [255, 225, 74],  main: '#ffe14a', light: '#fffbe0', dark: '#d8a020' },
+  poison:  { rgb: [155, 225, 93],  main: '#9be15d', light: '#d8ff9c', dark: '#4f9a2a' },
+};
+const EL_MAX_LV = 3;
+const ElFx = {
+  // 그 칸에 붙은 속성 축복: { el, lv, max } 또는 null
+  slot(slot) {
+    for (const b of BOONS) if (b.slot === slot && G.boons[b.id]) return { el: b.el, lv: G.boons[b.id], max: G.boons[b.id] >= EL_MAX_LV };
+    return null;
+  },
+  rgba(el, a) { const c = EL_STYLE[el].rgb; return `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1)})`; },
+  spark(s, x, y, n = 1) {
+    if (!s) return;
+    const S = EL_STYLE[s.el];
+    if (s.max) n = Math.ceil(n * 1.8);
+    for (let i = 0; i < n; i++) {
+      let q;
+      if (s.el === 'fire') q = { vx: rand(-25, 25), vy: rand(-70, -30), life: rand(0.25, 0.45), size: rand(2, 3.5), grav: 0 };
+      else if (s.el === 'frost') q = { vx: rand(-20, 20), vy: rand(5, 30), life: rand(0.35, 0.6), size: rand(1.5, 2.5), grav: 0 };
+      else if (s.el === 'thunder') { const a = rand(0, Math.PI * 2), sp = rand(90, 160); q = { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(0.08, 0.16), size: 2, grav: 0 }; }
+      else q = { vx: rand(-15, 15), vy: rand(-20, 0), life: rand(0.4, 0.6), size: rand(2, 3), grav: 160 };
+      const color = s.el === 'poison' ? (Math.random() < 0.5 ? S.main : S.dark) : (Math.random() < 0.5 ? S.main : S.light);
+      G.particles.push(Object.assign({ x: x + rand(-3, 3), y: y + rand(-3, 3), max: q.life, color }, q));
+    }
+  },
+  // 호 궤적
+  arc(g, s, x, y, r, a0, a1, w, alpha) {
+    if (s.max) { g.strokeStyle = this.rgba(s.el, alpha * 0.3); g.lineWidth = w * 2.2; g.beginPath(); g.arc(x, y, r, a0, a1); g.stroke(); }
+    g.strokeStyle = this.rgba(s.el, alpha); g.lineWidth = w;
+    g.beginPath(); g.arc(x, y, r, a0, a1); g.stroke();
+    if (s.el === 'thunder') {
+      const n = Math.max(4, Math.round(Math.abs(a1 - a0) * 5));
+      g.strokeStyle = `rgba(255,251,224,${clamp(alpha * 1.2, 0, 1)})`; g.lineWidth = 1.2; g.beginPath();
+      for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n, rr = r + w * 0.5 + (i % 2 ? 3 : -2) * Math.random(); i ? g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+      g.stroke();
+    }
+  },
+  // 직선 궤적 (찌르기 · 관통 · 던진 창 꼬리)
+  line(g, s, x1, y1, x2, y2, w, alpha) {
+    if (s.max) { g.strokeStyle = this.rgba(s.el, alpha * 0.3); g.lineWidth = w * 2.4; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); }
+    g.strokeStyle = this.rgba(s.el, alpha); g.lineWidth = w;
+    g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+    if (s.el === 'thunder') {
+      const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len, n = Math.max(3, Math.round(len / 10));
+      g.strokeStyle = `rgba(255,251,224,${clamp(alpha * 1.2, 0, 1)})`; g.lineWidth = 1.2; g.beginPath();
+      for (let i = 0; i <= n; i++) { const k = i / n, j = i === 0 || i === n ? 0 : rand(-1, 1) * (w * 0.5 + 3); const px = x1 + dx * k + nx * j, py = y1 + dy * k + ny * j; i ? g.lineTo(px, py) : g.moveTo(px, py); }
+      g.stroke();
+    }
+  },
+  // 베기 그림을 속성 색으로 물들인 사본 (한 번 만들어 둔다)
+  tinted(img, el) {
+    const c = this._tint || (this._tint = {});
+    if (c[el] && c[el].src === img) return c[el].cv;
+    const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+    const x = cv.getContext('2d');
+    x.drawImage(img, 0, 0);
+    x.globalCompositeOperation = 'source-atop'; x.globalAlpha = 0.65; x.fillStyle = EL_STYLE[el].main; x.fillRect(0, 0, cv.width, cv.height);
+    c[el] = { src: img, cv };
+    return cv;
+  },
+};
+
 // ── 효과 처리 ─────────────────────────────────────────────
 const FX = {
   lv(id) {
@@ -609,6 +678,8 @@ const FX = {
 
   onDashStart(p) { p.dashHits = new Set(); p.zoneFrom = { x: p.x, y: p.y }; },
   onDashMove(p) {
+    const ds = ElFx.slot('dash');
+    if (ds && Math.random() < 0.7) ElFx.spark(ds, p.x, p.y + 6);
     const fd = this.lv('fire_dash'), id = this.lv('ice_dash'), pd = this.lv('poison_dash');
     if ((fd || id || pd) && Math.hypot(p.x - p.zoneFrom.x, p.y - p.zoneFrom.y) > 12) {
       p.zoneFrom = { x: p.x, y: p.y };
@@ -687,10 +758,15 @@ const FX = {
 
   drawStatus(g, e) {
     if (e.dead) return;
-    if (e.frozenT > 0) {
+    if (e.frozenT > 0) { // 빙결: 각진 얼음 덩어리
+      const l = e.x - e.r - 4, r = e.x + e.r + 4, t = e.y - e.r - 8, b = e.y + e.r + 5, w = r - l;
       g.fillStyle = 'rgba(180,230,255,0.55)'; g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 1.5;
-      g.fillRect(e.x - e.r - 3, e.y - e.r - 6, e.r * 2 + 6, e.r * 2 + 10);
-      g.strokeRect(e.x - e.r - 3, e.y - e.r - 6, e.r * 2 + 6, e.r * 2 + 10);
+      g.beginPath();
+      g.moveTo(l + w * 0.2, t); g.lineTo(l + w * 0.75, t + 2); g.lineTo(r, t + (b - t) * 0.3); g.lineTo(r - 2, b - 3);
+      g.lineTo(l + w * 0.55, b); g.lineTo(l + 2, b - 4); g.lineTo(l, t + (b - t) * 0.35); g.closePath();
+      g.fill(); g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(l + w * 0.25, t + 4); g.lineTo(l + w * 0.12, t + (b - t) * 0.45); g.moveTo(l + w * 0.4, t + 3); g.lineTo(l + w * 0.32, t + 9); g.stroke();
     } else if (e.chill > 0) {
       g.strokeStyle = 'rgba(127,216,255,0.8)'; g.lineWidth = e.chill;
       g.beginPath(); g.ellipse(e.x, e.y + e.r * 0.7, e.r + 2, e.r * 0.45, 0, 0, Math.PI * 2); g.stroke();
@@ -698,6 +774,18 @@ const FX = {
     if (e.poison && e.poison.stacks > 0) {
       g.fillStyle = '#9be15d'; g.font = 'bold 8px sans-serif'; g.textAlign = 'center';
       g.fillText('☠' + e.poison.stacks, e.x, e.y + e.r + 12);
+      if (Math.random() < 0.08 + 0.02 * e.poison.stacks) // 올라가는 독 기포
+        G.particles.push({ x: e.x + rand(-e.r, e.r), y: e.y + rand(-4, 6), vx: rand(-5, 5), vy: rand(-28, -14), life: 0.6, max: 0.6, color: Math.random() < 0.5 ? '#9be15d' : '#c8f59a', size: 2, grav: 0 });
+    }
+    if (e.burn && e.burn.stacks > 0) { // 화상: 머리 위 불꽃 (중첩이 많을수록 크게) + 몸이 붉게 깜빡임
+      const k = Math.min(1.6, 0.7 + 0.25 * e.burn.stacks), fl = Math.sin(G.time * 22 + e.x) * 1.2;
+      const fx = e.x, fy = e.y - e.r - 7;
+      g.fillStyle = 'rgba(255,90,40,0.85)';
+      g.beginPath(); g.ellipse(fx, fy, 3.2 * k, 5 * k + fl, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,214,74,0.95)';
+      g.beginPath(); g.ellipse(fx, fy + 1.5 * k, 1.6 * k, 2.8 * k + fl * 0.5, 0, 0, Math.PI * 2); g.fill();
+      if (((G.time * 8) | 0) % 2 === 0) { g.fillStyle = 'rgba(255,80,40,0.18)'; g.beginPath(); g.arc(e.x, e.y, e.r + 2, 0, Math.PI * 2); g.fill(); }
+      if (Math.random() < 0.12) G.particles.push({ x: e.x + rand(-e.r, e.r) * 0.6, y: e.y - e.r * 0.3, vx: rand(-10, 10), vy: rand(-50, -25), life: 0.35, max: 0.35, color: Math.random() < 0.5 ? '#ff7a3c' : '#ffd24a', size: 2, grav: 0 });
     }
     if (e.shockT > 0 && ((G.time * 14) | 0) % 2 === 0) {
       g.strokeStyle = '#ffe14a'; g.lineWidth = 1.5;

@@ -412,15 +412,21 @@ class Player {
   draw(g) {
     // 차지 표시
     if (this.charge > 0) {
-      const full = this.charge >= 1;
-      g.strokeStyle = full ? `rgba(255,210,74,${0.6 + Math.sin(G.time * 30) * 0.3})` : 'rgba(255,255,255,0.6)';
-      g.lineWidth = full ? 3 : 2;
-      g.beginPath(); g.arc(this.x, this.y + 2, 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * this.charge); g.stroke();
+      const full = this.charge >= 1, cs = ElFx.slot('charge'), a1 = -Math.PI / 2 + Math.PI * 2 * this.charge;
+      if (cs) {
+        ElFx.arc(g, cs, this.x, this.y + 2, 16, -Math.PI / 2, a1, full ? 3 : 2, full ? 0.7 + Math.sin(G.time * 30) * 0.3 : 0.55);
+        if (full && Math.random() < 0.45) ElFx.spark(cs, this.x + rand(-14, 14), this.y + rand(-10, 10));
+      } else {
+        g.strokeStyle = full ? `rgba(255,210,74,${0.6 + Math.sin(G.time * 30) * 0.3})` : 'rgba(255,255,255,0.6)';
+        g.lineWidth = full ? 3 : 2;
+        g.beginPath(); g.arc(this.x, this.y + 2, 16, -Math.PI / 2, a1); g.stroke();
+      }
     }
     // 대시 잔상
+    const ds = ElFx.slot('dash');
     for (const t of this.trail) {
-      g.globalAlpha = t.life / 0.18 * 0.35;
-      g.fillStyle = '#9cc4ff';
+      g.globalAlpha = t.life / 0.18 * (ds && ds.max ? 0.5 : 0.35);
+      g.fillStyle = ds ? EL_STYLE[ds.el].main : '#9cc4ff';
       g.beginPath(); g.arc(t.x, t.y - 3, 9, 0, Math.PI * 2); g.fill();
     }
     g.globalAlpha = this.alive ? 1 : 0.5;
@@ -465,18 +471,28 @@ class Player {
       g.rotate(this.facing);
       if (a.swingDir < 0) g.scale(1, -1);
       g.globalAlpha *= 0.95;
-      g.drawImage(ART.img.slash, Math.min(3, Math.floor(p * 4)) * 32, 0, 32, 32, -16 * k, -16 * k, 32 * k, 32 * k);
+      const bs = ElFx.slot('basic'), img = bs ? ElFx.tinted(ART.img.slash, bs.el) : ART.img.slash, fr = Math.min(3, Math.floor(p * 4)) * 32;
+      if (bs && bs.max) { const a0 = g.globalAlpha; g.globalAlpha = a0 * 0.35; g.drawImage(img, fr, 0, 32, 32, -19 * k, -19 * k, 38 * k, 38 * k); g.globalAlpha = a0; }
+      g.drawImage(img, fr, 0, 32, 32, -16 * k, -16 * k, 32 * k, 32 * k);
       g.restore();
+      if (bs && Math.random() < 0.6) ElFx.spark(bs, x + Math.cos(ang) * 24, cy + Math.sin(ang) * 24);
     } else if (a && a.kind === 'spin') {
       const p = a.t / a.dur, ang = this.facing + p * Math.PI * 2.2;
-      g.strokeStyle = `rgba(255,220,120,${0.6 * (1 - p)})`; g.lineWidth = 10;
-      const sr = this.spinRange;
-      g.beginPath(); g.arc(x, cy, sr - 12, ang - 2.4, ang); g.stroke();
+      const sr = this.spinRange, cs = ElFx.slot('charge');
+      if (cs) {
+        ElFx.arc(g, cs, x, cy, sr - 12, ang - 2.4, ang, 10, 0.65 * (1 - p));
+        if (Math.random() < 0.8) ElFx.spark(cs, x + Math.cos(ang) * (sr - 12), cy + Math.sin(ang) * (sr - 12), 2);
+      } else {
+        g.strokeStyle = `rgba(255,220,120,${0.6 * (1 - p)})`; g.lineWidth = 10;
+        g.beginPath(); g.arc(x, cy, sr - 12, ang - 2.4, ang); g.stroke();
+      }
       this.blade(g, x, cy, ang);
     } else if (a && a.kind === 'thrust') {
       const p = a.t / a.dur;
-      g.fillStyle = `rgba(156,220,255,${0.5 * (1 - p)})`;
+      const ds = ElFx.slot('dash');
+      g.fillStyle = ds ? ElFx.rgba(ds.el, (ds.max ? 0.65 : 0.5) * (1 - p)) : `rgba(156,220,255,${0.5 * (1 - p)})`;
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
+      if (ds && Math.random() < 0.7) ElFx.spark(ds, x + c * rand(10, 50), cy + s * rand(10, 50));
       g.beginPath(); g.moveTo(x - s * 8, cy + c * 8); g.lineTo(x + c * 54, cy + s * 54); g.lineTo(x + s * 8, cy - c * 8); g.closePath(); g.fill();
       this.blade(g, x, cy, this.facing);
     } else {
@@ -490,22 +506,40 @@ class Player {
     if (a && a.kind === 'sweep') {
       const p = clamp(a.t / (a.dur * 0.7), 0, 1), e = 1 - Math.pow(1 - p, 2);
       const ang = f - a.half + 2 * a.half * e;
-      g.strokeStyle = `rgba(255,240,200,${0.55 * (1 - p * 0.6)})`; g.lineWidth = 8;
-      g.beginPath(); g.arc(x, cy, a.len - 14, f - a.half, ang); g.stroke();
+      const ds = ElFx.slot('dash');
+      if (ds) {
+        ElFx.arc(g, ds, x, cy, a.len - 14, f - a.half, ang, 8, 0.6 * (1 - p * 0.6));
+        if (Math.random() < 0.7) ElFx.spark(ds, x + Math.cos(ang) * (a.len - 14), cy + Math.sin(ang) * (a.len - 14));
+      } else {
+        g.strokeStyle = `rgba(255,240,200,${0.55 * (1 - p * 0.6)})`; g.lineWidth = 8;
+        g.beginPath(); g.arc(x, cy, a.len - 14, f - a.half, ang); g.stroke();
+      }
       spearSprite(g, x, cy, ang, 2);
     } else if (a && (a.kind === 'poke' || a.kind === 'pokeFin')) {
       const p = a.t / a.dur, e = p < 0.35 ? p / 0.35 : 1 - (p - 0.35) / 0.65;
       spearSprite(g, x, cy, f, -12 + e * 40);
       if (e > 0.4) { // 찌르기 궤적
-        g.strokeStyle = `rgba(255,255,255,${0.7 * e})`; g.lineWidth = a.kind === 'pokeFin' ? 3 : 2;
-        g.beginPath(); g.moveTo(x + c * 30, cy + s * 30); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
+        const bs = ElFx.slot('basic');
+        if (bs) {
+          ElFx.line(g, bs, x + c * 30, cy + s * 30, x + c * a.len, cy + s * a.len, a.kind === 'pokeFin' ? 4 : 3, 0.8 * e);
+          if (Math.random() < 0.5) ElFx.spark(bs, x + c * a.len, cy + s * a.len);
+        } else {
+          g.strokeStyle = `rgba(255,255,255,${0.7 * e})`; g.lineWidth = a.kind === 'pokeFin' ? 3 : 2;
+          g.beginPath(); g.moveTo(x + c * 30, cy + s * 30); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
+        }
       }
     } else if (a && a.kind === 'lunge') {
       const p = a.t / a.dur, e = p < 0.25 ? p / 0.25 : 1 - (p - 0.25) / 0.75;
       spearSprite(g, x, cy, f, -12 + e * 46);
       if (e > 0.2) { // 관통 궤적
-        g.strokeStyle = `rgba(255,220,120,${0.8 * e})`; g.lineWidth = 5;
-        g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
+        const cs = ElFx.slot('charge');
+        if (cs) {
+          ElFx.line(g, cs, x + c * 26, cy + s * 26, x + c * a.len, cy + s * a.len, 5, 0.85 * e);
+          if (Math.random() < 0.8) ElFx.spark(cs, x + c * rand(26, a.len), cy + s * rand(26, a.len), 2);
+        } else {
+          g.strokeStyle = `rgba(255,220,120,${0.8 * e})`; g.lineWidth = 5;
+          g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
+        }
         g.strokeStyle = `rgba(255,255,255,${0.9 * e})`; g.lineWidth = 2;
         g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
       }
@@ -571,8 +605,14 @@ class SpearShot {
     const c = Math.cos(this.dir), s = Math.sin(this.dir);
     const a = g.globalAlpha;
     if (this.phantom) g.globalAlpha = a * 0.6;
-    g.strokeStyle = this.phantom ? 'rgba(127,224,255,0.6)' : 'rgba(255,255,255,0.35)'; g.lineWidth = 3;
-    g.beginPath(); g.moveTo(this.x - c * 30, this.y - s * 30); g.lineTo(this.x + c * 10, this.y + s * 10); g.stroke();
+    const ss = ElFx.slot('special');
+    if (ss) {
+      ElFx.line(g, ss, this.x - c * 30, this.y - s * 30, this.x + c * 10, this.y + s * 10, 3, this.phantom ? 0.5 : 0.7);
+      if (Math.random() < 0.6) ElFx.spark(ss, this.x - c * 12, this.y - s * 12);
+    } else {
+      g.strokeStyle = this.phantom ? 'rgba(127,224,255,0.6)' : 'rgba(255,255,255,0.35)'; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(this.x - c * 30, this.y - s * 30); g.lineTo(this.x + c * 10, this.y + s * 10); g.stroke();
+    }
     spearSprite(g, this.x, this.y, this.dir, -14);
     g.globalAlpha = a;
   }
@@ -603,9 +643,15 @@ class Wave {
   draw(g) {
     g.globalAlpha = clamp(this.life / this.max * 2, 0, 1);
     g.lineCap = 'round';
-    g.strokeStyle = 'rgba(127,224,255,0.5)'; g.lineWidth = 8;
-    g.beginPath(); g.arc(this.x - Math.cos(this.dir) * 8, this.y - Math.sin(this.dir) * 8, this.size, this.dir - 1.1, this.dir + 1.1); g.stroke();
-    g.strokeStyle = '#fff'; g.lineWidth = 3;
+    const ss = ElFx.slot('special'), ox = this.x - Math.cos(this.dir) * 8, oy = this.y - Math.sin(this.dir) * 8;
+    if (ss) {
+      ElFx.arc(g, ss, ox, oy, this.size, this.dir - 1.1, this.dir + 1.1, 8, 0.6);
+      if (Math.random() < 0.7) { const a = this.dir + rand(-1, 1); ElFx.spark(ss, ox + Math.cos(a) * this.size, oy + Math.sin(a) * this.size); }
+    } else {
+      g.strokeStyle = 'rgba(127,224,255,0.5)'; g.lineWidth = 8;
+      g.beginPath(); g.arc(ox, oy, this.size, this.dir - 1.1, this.dir + 1.1); g.stroke();
+    }
+    g.strokeStyle = ss ? EL_STYLE[ss.el].light : '#fff'; g.lineWidth = 3;
     g.beginPath(); g.arc(this.x - Math.cos(this.dir) * 8, this.y - Math.sin(this.dir) * 8, this.size, this.dir - 1, this.dir + 1); g.stroke();
     g.globalAlpha = 1;
   }
