@@ -22,6 +22,16 @@ const ART_FILES = {
   skull:     'Actor/Monster/Skull/SpriteSheet.png',
   eye:       'Actor/Monster/Eye/Eye.png',
   flam:      'Actor/Monster/Flam/SpriteSheet.png',
+  kappa:     'Actor/Monster/KappaGreen/SpriteSheet.png',
+  axolot:    'Actor/Monster/Axolot/SpriteSheet.png',
+  spider:    'Actor/Monster/SpiderRed/SpriteSheet.png',
+  mollusc:   'Actor/Monster/Mollusc/Mollusc.png',
+  boss4Idle: 'Actor/Boss/GiantFrog/Idle40x40.png',
+  boss4Jump: 'Actor/Boss/GiantFrog/Jump.png',
+  boss4Attack:'Actor/Boss/GiantFrog/Attack.png',
+  boss4Charge:'Actor/Boss/GiantFrog/Charge.png',
+  boss4Hit:  'Actor/Boss/GiantFrog/Hit.png',
+  boss4Face: 'Actor/Boss/GiantFrog/Faceset.png',
   boss1Idle: 'Actor/Boss/GiantSlime/Idle.png',
   boss1Jump: 'Actor/Boss/GiantSlime/Jump.png',
   boss1Hit:  'Actor/Boss/GiantSlime/Hit.png',
@@ -48,6 +58,7 @@ const ART_FILES = {
 // 피격 시 하얗게, 공격 예고 시 빨갛게 번쩍일 그림들
 const ART_FLASH = ['hero', 'spirit', 'slime', 'bat', 'cyclope', 'skeleton',
   'mushroom', 'mole', 'racoon', 'bear', 'snake', 'owl', 'skull', 'eye', 'flam',
+  'kappa', 'axolot', 'spider', 'mollusc', 'boss4Idle', 'boss4Jump', 'boss4Attack', 'boss4Charge', 'boss4Hit',
   'boss1Idle', 'boss1Jump', 'boss1Hit', 'boss2Idle', 'boss2Attack', 'boss2Charge', 'boss2Jump',
   'boss3Idle', 'boss3Walk', 'boss3Attack', 'boss3Charge', 'boss3Hit'];
 
@@ -116,4 +127,5 @@ const BOSS_ART = [
   { fw: 62, idle: 'boss1Idle', move: 'boss1Idle', wind: 'boss1Jump', attack: 'boss1Jump', hit: 'boss1Hit', face: 'boss1Face', foot: 4 },
   { fw: 60, idle: 'boss2Idle', move: 'boss2Idle', wind: 'boss2Charge', attack: 'boss2Attack', hit: 'boss2Jump', face: 'boss2Face', foot: 4 },
   { fw: 62, idle: 'boss3Idle', move: 'boss3Walk', wind: 'boss3Charge', attack: 'boss3Attack', hit: 'boss3Hit', face: 'boss3Face', foot: 2 },
+  { fw: 40, idle: 'boss4Idle', move: 'boss4Idle', wind: 'boss4Charge', attack: 'boss4Attack', hit: 'boss4Hit', air: 'boss4Jump', face: 'boss4Face', foot: 2, scale: 1.5 },
 ];

@@ -18,6 +18,11 @@ const PALETTES = [
     tree: ['#1d3b3a', '#1a3536', '#22423e'], treeHi: '#2f5a52', trunk: '#3a2a20',
     dirt: '#6e5a48', dirtDk: '#5e4c3c', water: '#2c3f7a', waterHi: '#46609e', sand: '#8e8466',
     flowers: ['#b48cff', '#7fe0ff', '#e6e6ff'] },
+  // 깊은 숲
+  { name: '안개 늪', bg: '#0f2422', trees: [[4, 0], [2, 0]], tint: 'rgba(60,150,140,0.5)', grass: ['#3f7a5a', '#3a7354', '#44805f'], blade: '#2f6448',
+    tree: ['#1f4a3a', '#1c4434', '#245040'], treeHi: '#2f6a52', trunk: '#3a2e20',
+    dirt: '#6e6a48', dirtDk: '#5e5a3c', water: '#2a6a6a', waterHi: '#3f8a86', sand: '#9a9468',
+    flowers: ['#c8f0e0', '#9ad8c8', '#ffffff'] },
 ];
 
 function mulberry32(a) {
@@ -122,6 +127,12 @@ const World = {
 
   solidAt(px, py) { return SOLID[this.tile(Math.floor(px / TILE), Math.floor(py / TILE))]; },
 
+  // 물을 헤엄쳐 건널 수 있는 몬스터 (갓파): 나무 · 바위만 막힌다
+  swimBlocked(x, y, r) {
+    const t = (px, py) => { const v = this.tile(Math.floor(px / TILE), Math.floor(py / TILE)); return SOLID[v] && v !== T.WATER; };
+    return t(x - r, y - r) || t(x + r, y - r) || t(x - r, y + r) || t(x + r, y + r);
+  },
+  inWater(px, py) { return this.tile(Math.floor(px / TILE), Math.floor(py / TILE)) === T.WATER; },
   blocked(x, y, r) {
     return this.solidAt(x - r, y - r) || this.solidAt(x + r, y - r) ||
            this.solidAt(x - r, y + r) || this.solidAt(x + r, y + r);

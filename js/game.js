@@ -7,8 +7,10 @@ const FONT = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,san
 const FINAL_STAGE = 3;            // 마지막 세계
 const STAGES_PER_WORLD = 5;
 const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
-const ENEMY_COST = { slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
+const ENEMY_COST = { kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
+const DEEP_SHARD_MULT = 0.6;          // 깊은 숲: 정령의 조각은 덜
+const DEEP_ESSENCE_MULT = 2;          // 깊은 숲: 무기의 정수는 두 배
 const EASY_DMG_TAKEN = 1 / 3;        // 쉬움 모드: 받는 피해 배율 (1/3)
 const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
 const HEART_DROP = 0.035;              // 처치 시 하트 확률
@@ -71,8 +73,9 @@ const ENEMY_POOLS = [
   [['slime', 30], ['bat', 10], ['mole', 15], ['mushroom', 45]],            // 세계 1 · 슬라임 대왕의 들판
   [['racoon', 25], ['bear', 15], ['snake', 30], ['owl', 30]],              // 세계 2 · 너구리 패거리
   [['shield', 20], ['skull', 25], ['eye', 25], ['flam', 30]],              // 세계 3 · 봉인의 망령들
+  [['kappa', 25], ['axolot', 30], ['spider', 30], ['mollusc', 15]],         // 세계 4 · 늪의 주민들
 ];
-const BOSS_MINION = ['slime', 'racoon', 'flam']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
+const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
 const MONSTER_HINTS = {
   mushroom: '버섯이 몸을 부풀리면 곧 포자를 뿜어요! 포자 사이로 비켜서 다가가요. 검기나 던진 창은 날아오는 투사체를 지워요.',
   mole: '흙이 들썩이는 건 땅속 두더지예요. 빨간 표시가 보이면 그 자리를 벗어나요!',
@@ -83,6 +86,10 @@ const MONSTER_HINTS = {
   skull: '해골의 저주 구슬은 천천히 따라와요. 공격으로 부술 수 있어요!',
   eye: '눈알이 붉은 선을 그으면 곧 광선이 나가요. 선 밖으로 비켜요!',
   flam: '도깨비불은 약해지면 달려와서 터져요. 붉게 깜빡이면 떨어져요!',
+  kappa: '갓파는 물속을 헤엄쳐 다가와요. 물속에선 안 맞으니 뭍으로 올라올 때를 노려요!',
+  axolot: '도롱뇽의 분홍 침에 맞으면 잠깐 대시를 못 해요!',
+  spider: '거미줄이 깔린 곳에 들어가면 느려져요. 돌아가요!',
+  mollusc: '달팽이는 단단해요. 지나간 점액 위에서는 느려져요!',
 };
 
 // ── 게임 상태 ────────────────────────────────────────────
@@ -97,6 +104,7 @@ const G = {
   spawnT: 0, toast: null, banner: null, hintBox: null, seen: store.get('hints') || {},
   unlocks: new Set(), dialog: null, lumi: null, lumiHeals: 0,
   runShards: 0, runKills: 0, reviveLeft: 0, rerolls: 0, runEmblems: 0, runEssence: 0, village: null,
+  firstWorld: 1, finalWorld: FINAL_STAGE, route: 'outer',
   tier: 1, tierInfo: null, tierCurses: [], tierFirst: false,
 
   // ── 로그라이트: 런 시작 / 마을 ──
@@ -107,7 +115,9 @@ const G = {
     this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0;
     this.reviveLeft = Meta.lv('revive');
     this.rerolls = Meta.lv('choice');
-    this.startStage(1, 1, Meta.startStats(), true);
+    const worlds = ROUTES[this.tierInfo.route].worlds;
+    this.firstWorld = worlds[0]; this.finalWorld = worlds[worlds.length - 1]; this.route = this.tierInfo.route;
+    this.startStage(this.firstWorld, 1, Meta.startStats(), true);
   },
   goVillage() {
     Meta.save();
@@ -118,12 +128,12 @@ const G = {
   },
   // 무기의 정수 (모든 무기 공통)
   earnEssence(n, x, y) {
-    n = Math.max(1, Math.round(n * (this.tierInfo ? this.tierInfo.rewardMult : 1)));
+    n = Math.max(1, Math.round(n * (this.tierInfo ? this.tierInfo.rewardMult : 1) * (this.route === 'deep' ? DEEP_ESSENCE_MULT : 1)));
     Meta.data.essence += n; this.runEssence += n;
     if (x !== undefined) this.text(x, y, '⚔' + n, '#ffcf6a', 13, 1.2);
   },
   earn(n, x, y) {
-    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck')) * (this.tierInfo ? this.tierInfo.rewardMult : 1)));
+    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck')) * (this.tierInfo ? this.tierInfo.rewardMult : 1) * (this.route === 'deep' ? DEEP_SHARD_MULT : 1)));
     this.runShards += v; Meta.data.shards += v;
     if (x !== undefined) this.text(x + rand(-6, 6), y - 14, '◆' + v, '#c8a0ff', 10, 0.8);
   },
@@ -134,7 +144,8 @@ const G = {
     Meta.data.seen[id] = 1; Meta.save();
     this.talk(lines, then);
   },
-  boons: {}, offer: null, zones: [], bolts: [], recentEls: [],
+  boons: {}, offer: null, zones: [], bolts: [], recentEls: [], slows: [],
+  slowAt(x, y) { let m = 1; for (const s of this.slows) if (Math.hypot(x - s.x, (y - s.y) * 1.4) < s.r) m = Math.min(m, s.mul); return m; },
 
   // 기본기는 레벨로 해금
   // 레벨 해금이 필요한 기술인지 확인 (UNLOCK_LV 에 없는 기술은 처음부터 사용 가능)
@@ -259,7 +270,7 @@ const G = {
     World.generate((Math.random() * 1e9) | 0, world - 1, { boss: sub === STAGES_PER_WORLD });
     this.player = new Player(World.startPos.x, World.startPos.y, stats);
     this.enemies = []; this.pickups = []; this.particles = []; this.texts = [];
-    this.projectiles = []; this.eshots = []; this.rings = []; this.fxRings = [];
+    this.projectiles = []; this.eshots = []; this.rings = []; this.fxRings = []; this.slows = [];
     const isBoss = sub === STAGES_PER_WORLD;
     this.totems = isBoss ? [] : World.totemSpots.map(s => new Totem(s.x, s.y, this.diff));
     this.setupWaves(isBoss ? 0 : WAVES_PER_STAGE[sub - 1] + (curse('wave') ? 1 : 0));
@@ -602,6 +613,8 @@ const G = {
     for (const w of this.projectiles) w.update(dt);
     this.projectiles = this.projectiles.filter(w => !w.done);
     for (const s of this.eshots) s.update(dt);
+    for (const s of this.slows) s.life -= dt;
+    this.slows = this.slows.filter(s => s.life > 0);
     if (p.act && MOVES[p.act.kind]) {
       const fx = Math.cos(p.facing), fy = Math.sin(p.facing), reach = p.act.len || 50;
       for (const s of this.eshots) {
@@ -647,9 +660,9 @@ const G = {
         // 보스전: 대사 → 축복 → 세계 클리어 화면
         this.phase = 'ended';
         const done = () => {
-          this.state = this.stage === FINAL_STAGE ? 'ending' : 'clear';
+          this.state = this.stage === this.finalWorld ? 'ending' : 'clear';
           this.clearT = 0;
-          if (this.stage === FINAL_STAGE) {
+          if (this.stage === this.finalWorld) {
             Meta.data.clears++; this.earn(SHARD_ALL_CLEAR); this.earnEssence(ESSENCE_ALL_CLEAR);
             const info = this.tierInfo || tierInfo(1);
             this.tierFirst = !Meta.data.tierCleared[info.n];
@@ -666,7 +679,7 @@ const G = {
         };
         const story = STORY[this.stage];
         // 최종 보스 뒤에는 이어지는 스테이지가 없으니 축복 없이 바로 엔딩
-        const reward = this.stage === FINAL_STAGE ? done : () => this.openBoon(null, done);
+        const reward = this.stage === this.finalWorld ? done : () => this.openBoon(null, done);
         this.storyOnce(this.stage, 'bossDown', reward);
       }
     }
@@ -805,6 +818,19 @@ function drawWorld() {
   if (!G.player || G.state === 'title') return;
   const boss = G.boss && !G.boss.dead ? G.boss : null;
   FX.drawZones(ctx);
+  for (const s of G.slows) { // 거미줄 · 점액 · 진흙
+    const a = clamp(s.life / s.max * 3, 0, 1);
+    ctx.globalAlpha = a;
+    if (s.kind === 'web') {
+      ctx.strokeStyle = 'rgba(235,235,245,0.75)'; ctx.lineWidth = 1;
+      for (let i = 0; i < 8; i++) { const ang = i / 8 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + Math.cos(ang) * s.r, s.y + Math.sin(ang) * s.r * 0.7); ctx.stroke(); }
+      for (const k of [0.35, 0.65, 0.95]) { ctx.beginPath(); ctx.ellipse(s.x, s.y, s.r * k, s.r * k * 0.7, 0, 0, Math.PI * 2); ctx.stroke(); }
+    } else {
+      ctx.fillStyle = s.kind === 'mud' ? 'rgba(90,70,40,0.55)' : 'rgba(200,230,170,0.35)';
+      ctx.beginPath(); ctx.ellipse(s.x, s.y, s.r, s.r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
   // 바닥 예고 표시
   for (const e of G.enemies) e.drawTelegraph(ctx);
   if (boss) boss.drawTelegraph(ctx);
@@ -1658,6 +1684,13 @@ function render() {
     gr.addColorStop(0, 'rgba(30,0,10,0)'); gr.addColorStop(1, 'rgba(30,0,10,0.6)');
     ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
   }
+  if (World.pal === PALETTES[3]) { // 안개 늪: 가장자리에 짙은 안개, 천천히 흐른다
+    const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.62);
+    gr.addColorStop(0, 'rgba(190,230,220,0)'); gr.addColorStop(1, 'rgba(190,230,220,0.5)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(210,240,230,0.07)';
+    for (let i = 0; i < 4; i++) { const yy = ((G.time * 8 + i * H / 4) % (H + 80)) - 40; ctx.fillRect(0, yy, W, 26 + i * 6); }
+  }
   if (World.pal === PALETTES[2]) { // 어둠의 숲: 시야를 좁힌다
     const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.65);
     gr.addColorStop(0, 'rgba(0,0,10,0)'); gr.addColorStop(1, 'rgba(0,0,10,0.55)');
@@ -1719,8 +1752,9 @@ function render() {
         label(`이번 런 ◆ ${G.runShards}  ·  ⚔ ${WEAPONS[G.player.weaponId].essence} ${G.runEssence}`, W / 2, H * 0.54, 13, '#c8a0ff', 'center', '700');
         if (G.clearT > 1.2 && blink) label(`${tap}해서 세계 ${G.stage + 1}로 (정령의 힘 · 체력 회복)`, W / 2, H * 0.68, 18, '#ffd24a');
       } else {
-        label('숲에 평화가 돌아왔다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
-        label('모든 스테이지를 클리어했어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
+        const deep = G.route === 'deep';
+        label(deep ? '늪의 봉인을 풀었다!' : '숲에 평화가 돌아왔다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
+        label(deep ? '깊은 숲 첫 번째 세계를 클리어했어요. (세계 5 · 6은 준비 중)' : '모든 스테이지를 클리어했어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
         label(stats, W / 2, H * 0.48, 13, '#fff', 'center', '600');
         label(`클리어 보너스 ◆ ${SHARD_ALL_CLEAR}  ·  이번 런 ◆ ${G.runShards}  ·  ⚔ ${WEAPONS[G.player.weaponId].essence} ${G.runEssence}`, W / 2, H * 0.57, 14, '#c8a0ff', 'center', '700');
         const ti = G.tierInfo || tierInfo(1);

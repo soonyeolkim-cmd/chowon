@@ -94,7 +94,7 @@ class Player {
     const inp = Input.state;
     for (const k of ['atkCd', 'dashCd', 'invuln', 'hurtT', 'comboT', 'finisherT', 'atkBuffer',
       'specialBuffer', 'skillBuffer', 'dashBuffer', 'postDashT', 'dodgeT', 'counterT', 'leafT', 'specialCd', 'skillCd',
-      'dashGuardT', 'spinGuardT', 'slowT']) this[k] -= dt;
+      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT']) this[k] -= dt;
     if (this.dashStock < this.dashMax) {
       this.dashRecharge -= dt;
       if (this.dashRecharge <= 0) { this.dashStock++; this.dashRecharge = this.dashCdBase; }
@@ -129,14 +129,14 @@ class Player {
       this.moving = mag > 0.05;
       if (this.moving) {
         if (!this.act) this.facing = Math.atan2(inp.my, inp.mx);
-        const mul = (this.act ? 0.25 : this.charge > 0 ? 0.45 : 1) * (this.slowT > 0 ? 0.6 : 1);
+        const mul = (this.act ? 0.25 : this.charge > 0 ? 0.45 : 1) * (this.slowT > 0 ? 0.6 : 1) * G.slowAt(this.x, this.y);
         const l = Math.hypot(inp.mx, inp.my), spd = this.speed * mag * mul;
         World.move(this, inp.mx / l * spd * dt, inp.my / l * spd * dt);
         this.walk += dt * mag;
       }
       const lateInAct = !this.act || this.act.t > this.act.dur * 0.6;
       const W = this.weapon;
-      if (this.dashBuffer > 0 && this.dashStock > 0) this.startDash(mag);
+      if (this.dashBuffer > 0 && this.dashStock > 0 && !(this.noDashT > 0)) this.startDash(mag);
       else if (W.skill && this.skillBuffer > 0 && this.skillCd <= 0 && lateInAct) {
         this.skillBuffer = 0; this.skillCd = this.skillCdBase; W.skill(this, mag);
       } else if (this.specialBuffer > 0 && this.specialCd <= 0 && lateInAct && !this.spearOut) {
@@ -619,6 +619,12 @@ const ENEMY = {
   eye:      { hp: 32, speed: 36, dmg: 6, xp: 8, r: 10, color: '#ff6a5a', ranged: true, shot: 12, keep: 200, rate: 3.6, wind: 1.0 },
   flam:     { hp: 24, speed: 55, dmg: 8, xp: 7, r: 9, color: '#ff9a3c', ranged: true, shot: 9, keep: 140, rate: 2.4, wind: 0.45 },
   orc:      { hp: 70, speed: 50, dmg: 12, xp: 15, r: 13, color: '#7a8f3a', heavy: true },
+  // 세계 4 · 늪의 주민들
+  kappa:    { hp: 40, speed: 72, dmg: 11, xp: 7, r: 10, color: '#6ac87a', swim: true },
+  axolot:   { hp: 26, speed: 44, dmg: 6, xp: 7, r: 9, color: '#ff9ad0', ranged: true, shot: 7, keep: 150, rate: 2.4, wind: 0.5 },
+  spider:   { hp: 24, speed: 50, dmg: 6, xp: 7, r: 9, color: '#d84a4a', ranged: true, shot: 5, keep: 165, rate: 2.8, wind: 0.6 },
+  mollusc:  { hp: 110, speed: 24, dmg: 10, xp: 12, r: 12, color: '#c8b8a0', heavy: true },
+  tadpole:  { hp: 10, speed: 96, dmg: 5, xp: 1, r: 6, color: '#2a3a30' },      // 개굴대왕이 부르는 올챙이
 };
 
 class Enemy {
@@ -671,6 +677,23 @@ class Enemy {
       mv(Math.cos(a) * s, Math.sin(a) * s);
     } else if (this.type === 'orc') {
       this.lungeAI(dt, p, dx, dy, d, chase, mv, 85, 0.55, 280, 0.28);
+    } else if (this.type === 'kappa') {
+      // 물을 헤엄쳐 다가온다. 물속에선 맞지 않고, 뭍에 올라와야 싸울 수 있다
+      const swim = (vx, vy) => this.swim(vx * slow, vy * slow, dt);
+      this.burrowed = World.inWater(this.x, this.y + 4);
+      if (this.burrowed && Math.random() < dt * 6) G.particles.push({ x: this.x + rand(-6, 6), y: this.y + 4, vx: 0, vy: -10, life: 0.5, max: 0.5, color: '#bfefff', size: 2, grav: 0 });
+      // 거리와 상관없이 늘 쫓아온다 → 물속에 숨어 안 나오는 갓파가 생기지 않게
+      this.lungeAI(dt, p, dx, dy, d, p.alive, swim, 60, 0.4, 300, 0.18);
+    } else if (this.type === 'mollusc') {
+      if (chase) mv(dx / d * this.speed, dy / d * this.speed);
+      // 지나간 자리에 미끄덩한 점액
+      if (!this.trailFrom || Math.hypot(this.x - this.trailFrom.x, this.y - this.trailFrom.y) > 18) {
+        this.trailFrom = { x: this.x, y: this.y };
+        G.slows.push({ x: this.x, y: this.y + 4, r: 16, life: 4, max: 4, kind: 'slime', mul: 0.6 });
+      }
+    } else if (this.type === 'tadpole') {
+      const a = chase ? Math.atan2(dy, dx) + Math.sin(this.t * 10) * 0.6 : this.wander;
+      mv(Math.cos(a) * this.speed, Math.sin(a) * this.speed);
     } else if (this.type === 'racoon') {
       // 치고 빠지기: 짧게 달려들고, 빈틈 동안 뒤로 물러난다
       if (this.state === 'recover') mv(-dx / d * this.speed * 0.9, -dy / d * this.speed * 0.9);
@@ -736,6 +759,8 @@ class Enemy {
     else if (this.type === 'snake') shot(a, { kind: 'dart', speed: 230, r: 4, life: 1.6, slow: 1.0 });
     else if (this.type === 'skull') shot(a, { kind: 'orb', speed: 105, r: 7, life: 4.5, homing: 1.4, breakable: true });
     else if (this.type === 'flam') shot(a, { kind: 'fire', speed: 185, r: 6, life: 2.2 });
+    else if (this.type === 'axolot') { shot(a, { kind: 'spit', speed: 160, r: 6, life: 2, nodash: 1.6 }); shot(a + 0.25, { kind: 'spit', speed: 140, r: 5, life: 2, nodash: 1.6 }); }
+    else if (this.type === 'spider') shot(a, { kind: 'web', speed: 150, r: 6, life: 1.4, web: true });
     if (this.type !== 'eye') Sfx.wave(false); else Sfx.zap();
   }
 
@@ -783,6 +808,19 @@ class Enemy {
       if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < FLAM_BOOM_R + p.r) G.hurtPlayer(Math.round(this.shotDmg * 1.6), { x: this.x, y: this.y, attacking: true });
       this.hp = 0; G.killEnemy(this);
     }
+  }
+
+  // 헤엄 이동 (물 통과, 나무 · 바위에 막히면 옆으로 비킨다)
+  swim(vx, vy, dt) {
+    let a = Math.atan2(vy, vx);
+    const want = Math.hypot(vx, vy) * dt;
+    if (this.detourT > 0) { this.detourT -= dt; a += this.detour; }
+    const x0 = this.x, y0 = this.y, step = Math.ceil(want / 8) || 1, sx = Math.cos(a) * want / step, sy = Math.sin(a) * want / step;
+    for (let i = 0; i < step; i++) {
+      if (!World.swimBlocked(this.x + sx, this.y, this.r)) this.x += sx;
+      if (!World.swimBlocked(this.x, this.y + sy, this.r)) this.y += sy;
+    }
+    if (want > 0.3 && Math.hypot(this.x - x0, this.y - y0) < want * 0.3 && !(this.detourT > 0)) { this.detour = (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2; this.detourT = rand(0.4, 0.8); }
   }
 
   // 장애물에 막히면 잠깐 옆으로 비켜 걷는다
@@ -850,6 +888,15 @@ class Enemy {
 
     if (this.type === 'stump') {
       drawStump(g, this.x, this.y, this.t);
+    } else if (this.type === 'tadpole') {
+      const a = this.t * 12, x = this.x, y = this.y;
+      g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(x, y + 5, 6, 2, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = white ? '#fff' : '#1f2a24'; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = white ? '#fff' : '#1f2a24'; g.lineWidth = 2;
+      const lk = Math.atan2(p.y - y, p.x - x) + Math.PI;
+      g.beginPath(); g.moveTo(x + Math.cos(lk) * 4, y + Math.sin(lk) * 4);
+      g.quadraticCurveTo(x + Math.cos(lk) * 8 + Math.sin(a) * 3, y + Math.sin(lk) * 8 + Math.cos(a) * 3, x + Math.cos(lk) * 12, y + Math.sin(lk) * 12); g.stroke();
+      g.fillStyle = '#fff'; g.fillRect(x - 2, y - 2, 1.5, 1.5); g.fillRect(x + 1, y - 2, 1.5, 1.5);
     } else if (this.type === 'slime' || this.type === 'bigslime') {
       const big = this.type === 'bigslime' ? 1.6 : 1;
       const h = this.hop, x = this.x, y = this.y - h * 9 * big;
@@ -905,6 +952,13 @@ class Enemy {
   // 새 몬스터 공용 그리기 (4방향 × 4프레임 시트)
   drawMonster(g, white, look) {
     const A = MONSTER_ART[this.type], x = this.x;
+    if (this.burrowed && this.type === 'kappa') { // 물속: 머리 접시와 물결만 보인다
+      g.strokeStyle = 'rgba(200,240,255,0.6)'; g.lineWidth = 1.5;
+      g.beginPath(); g.ellipse(x, this.y + 4, 10 + Math.sin(this.t * 6) * 2, 4, 0, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = '#6ac87a'; g.beginPath(); g.ellipse(x, this.y + 1, 6, 3, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#c8f0e0'; g.beginPath(); g.ellipse(x, this.y, 3.5, 1.5, 0, 0, Math.PI * 2); g.fill();
+      return;
+    }
     if (this.burrowed) { // 땅속: 흙 둔덕만 보인다
       g.fillStyle = '#7a5a3a'; g.beginPath(); g.ellipse(x, this.y + 6, 9, 4, 0, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#a8865a'; g.beginPath(); g.ellipse(x, this.y + 5, 6, 2.5, 0, 0, Math.PI * 2); g.fill();
@@ -933,6 +987,7 @@ class Enemy {
 const MONSTER_ART = {
   mushroom: { scale: 2 }, mole: { scale: 2 }, racoon: { scale: 2 }, bear: { scale: 2.4 }, snake: { scale: 2 },
   owl: { scale: 2 }, skull: { scale: 2 }, eye: { scale: 2 }, flam: { scale: 2 },
+  kappa: { scale: 2 }, axolot: { scale: 2 }, spider: { scale: 2 }, mollusc: { scale: 2.2 },
 };
 const EYE_BEAM_LEN = 340;  // 눈알 광선 길이
 const MOLE_POP_R = 28;     // 두더지가 튀어나올 때 범위
@@ -958,11 +1013,13 @@ class EnemyShot {
       const before = p.hp;
       G.hurtPlayer(this.dmg, { x: this.x, y: this.y, attacking: true });
       if (this.slow && p.hp < before) p.slowT = this.slow;
+      if (this.nodash && p.hp < before) { p.noDashT = this.nodash; G.text(p.x, p.y - 30, '대시 봉인!', '#ff9ad0', 12, 0.8); }
       this.pop();
     }
   }
   pop() {
     this.done = true;
+    if (this.web) G.slows.push({ x: this.x, y: this.y + 4, r: 34, life: 5, max: 5, kind: 'web', mul: 0.45 });
     G.burst(this.x, this.y, 5, [SHOT_COLOR[this.kind], '#fff'], 80);
   }
   draw(g) {
@@ -987,7 +1044,7 @@ class EnemyShot {
     g.globalAlpha = 1;
   }
 }
-const SHOT_COLOR = { spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c', leaf: '#8ad84a' };
+const SHOT_COLOR = { spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c', leaf: '#8ad84a', spit: '#ff9ad0', web: '#e8e8f0' };
 
 // 플레이어의 검기 · 던진 창이 지나가며 적 투사체를 지운다
 function clearShotsNear(x, y, r) {
@@ -999,6 +1056,7 @@ const SEAL_THEMES = [
   { name: '황금 봉인석', stone: '#7a7468', lit: '#a29a88', glow: [255, 206, 74],  hex: '#ffd24a', rune: 'cross' },   // 초록 들판
   { name: '청옥 봉인석', stone: '#4a3a30', lit: '#6e5646', glow: [80, 220, 230],  hex: '#50dce6', rune: 'diamond' }, // 단풍 숲
   { name: '핏빛 봉인석', stone: '#1e1a24', lit: '#3a3244', glow: [255, 70, 90],   hex: '#ff4a5a', rune: 'eye' },     // 어둠의 숲
+  { name: '이끼 봉인석', stone: '#34463c', lit: '#4e6656', glow: [120, 240, 190], hex: '#78f0be', rune: 'diamond' }, // 안개 늪
 ];
 const sealTheme = () => SEAL_THEMES[((G.stage || 1) - 1) % SEAL_THEMES.length];
 
@@ -1059,8 +1117,8 @@ class Totem {
   }
 }
 
-const BOSS_NAMES = ['슬라임 대왕 말랑', '숲지기 너구리 바루', '숲의 군주'];
-const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b', '#6d4a92']];
+const BOSS_NAMES = ['슬라임 대왕 말랑', '숲지기 너구리 바루', '숲의 군주', '늪의 왕 개굴대왕'];
+const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b', '#6d4a92'], ['#2a6a5a', '#4a9a7a']];
 
 // 보스: 세계마다 고유 패턴. 공통으로 체력 절반 이하에서 격노, 벽에 부딪히는 돌진은 기절(반격 기회).
 //  말랑(슬라임): 통통 점프 연타 · 내려찍기 · 슬라임 소환 / 격노 시 분열(큰 슬라임 둘)
@@ -1069,8 +1127,8 @@ const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b',
 class Boss {
   constructor(x, y, stage) {
     this.type = 'boss'; this.x = x; this.y = y; this.r = 28; this.stage = stage;
-    const i = this.kind = (stage - 1) % 3;
-    this.name = stage > 3 ? BOSS_NAMES[i] + ' +' + (stage - 3) : BOSS_NAMES[i];
+    const i = this.kind = Math.min(stage, BOSS_NAMES.length) - 1;
+    this.name = BOSS_NAMES[i];
     this.colors = BOSS_COLORS[i];
     this.maxHp = this.hp = Math.round(450 * 1.1 * (1 + 0.5 * (stage - 1)));
     this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + 0.3 * (stage - 1)) * (1 + 0.05 * (G.player.lv - 1)));
@@ -1102,6 +1160,11 @@ class Boss {
       if (r < 0.7) return 'leafWind';
       return 'chargeWind';
     }
+    if (this.kind === 3) { // 개굴대왕
+      if (r < 0.18 && G.enemies.length < 8) return 'summon';
+      if (r < 0.55) return 'tongueWind';
+      return 'hop';
+    }
     if (r < 0.18 && G.enemies.length < 5) return 'summon';
     if (r < 0.5) return 'rootWind';
     if (r < 0.8) return 'bamboo';
@@ -1122,8 +1185,11 @@ class Boss {
       G.lumi.say('갈라졌어요! 작은 쪽이 진짜 대왕이에요!');
     } else if (this.kind === 1) {
       G.lumi.say('둔갑술을 쓸지도 몰라요! 진짜 바루를 찾아요!');
-    } else {
+    } else if (this.kind === 2) {
       G.lumi.say('숲이 시들고 있어요… 어두워도 정신 차려요!');
+    } else if (this.kind === 3) { // 늪이 차오른다: 진흙 웅덩이
+      G.lumi.say('늪 물이 차올라요! 진흙에 빠지면 느려져요!');
+      this.mudT = 0;
     }
   }
 
@@ -1253,6 +1319,29 @@ class Boss {
         } else if (this.st <= 0) { this.reveal(); this.state = 'slamWind'; this.st = 0.45; }
         break;
 
+      // ── 개굴대왕: 혀 낚아채기 ──
+      case 'tongueWind':
+        if (this.st > 0.22) this.dir = Math.atan2(dy, dx);
+        if (this.st <= 0) { this.state = 'tongue'; this.st = 0.5; this.tongueHit = false; Sfx.lunge(); }
+        break;
+      case 'tongue': {
+        const k = 1 - this.st / 0.5, ext = k < 0.4 ? k / 0.4 : 1 - (k - 0.4) / 0.6;
+        this.tongueLen = TONGUE_LEN * ext;
+        if (!this.tongueHit && ext > 0.2 && p.alive) {
+          const c = Math.cos(this.dir), s = Math.sin(this.dir), ox = this.x + c * 14, oy = this.y - 6 + s * 14;
+          const ddx = p.x - ox, ddy = p.y - oy, along = ddx * c + ddy * s;
+          if (along > 0 && along < this.tongueLen && Math.abs(ddx * s - ddy * c) < 10 + p.r && !(p.dashT > 0 || p.invuln > 0)) {
+            this.tongueHit = true;
+            G.hurtPlayer(Math.round(this.dmg * 0.7), { x: this.x, y: this.y, attacking: true });
+            // 끌어당긴다
+            p.kvx = -c * 620; p.kvy = -s * 620;
+            G.text(p.x, p.y - 30, '꿀꺽!', '#ff9ad0', 16, 0.8);
+          }
+        }
+        if (this.st <= 0) { this.tongueLen = 0; if (this.tongueHit) { this.state = 'slamWind'; this.st = 0.55; } else { this.state = 'recover'; this.st = 0.6; } }
+        break;
+      }
+
       // ── 숲의 군주: 뿌리 · 대나무 창비 ──
       case 'rootWind':
         if (this.st <= 0) { this.state = 'recover'; this.st = 1.0; }
@@ -1265,6 +1354,14 @@ class Boss {
       case 'recover':
         if (this.st <= 0) { this.state = 'chase'; this.st = rand(0.8, 1.6) * fast; }
         break;
+    }
+    // 개굴대왕 격노: 진흙 웅덩이가 계속 생긴다
+    if (this.kind === 3 && this.enraged) {
+      this.mudT = (this.mudT || 0) - dt;
+      if (this.mudT <= 0) {
+        this.mudT = 2.2;
+        for (let i = 0; i < 2; i++) { const s = World.findSpawn(p.x, p.y, 40, 200); if (s) G.slows.push({ x: s.x, y: s.y, r: 30, life: 7, max: 7, kind: 'mud', mul: 0.5 }); }
+      }
     }
     const noTouch = this.state === 'intro' || this.state === 'hopAir' || this.state === 'hidden';
     if (p.alive && !noTouch && d < this.r + p.r - 2) {
@@ -1358,6 +1455,14 @@ class Boss {
         g.globalAlpha = 1;
       }
     }
+    if (this.state === 'tongueWind') {
+      const c = Math.cos(this.dir), s = Math.sin(this.dir), w = 10, len = TONGUE_LEN, ox = this.x, oy = this.y - 6;
+      g.fillStyle = `rgba(255,80,150,${pulse + 0.05})`;
+      g.beginPath();
+      g.moveTo(ox - s * w, oy + c * w); g.lineTo(ox + c * len - s * w, oy + s * len + c * w);
+      g.lineTo(ox + c * len + s * w, oy + s * len - c * w); g.lineTo(ox + s * w, oy - c * w);
+      g.closePath(); g.fill();
+    }
     if (this.state === 'slamWind') {
       const prog = 1 - this.st / (0.9 * this.fast);
       g.fillStyle = `rgba(255,50,30,${pulse})`;
@@ -1380,7 +1485,7 @@ class Boss {
   draw(g) {
     const x = this.x, y = this.y, white = this.flash > 0 && this.state !== 'hidden';
     if (this.state === 'hidden') { drawStump(g, x, y, this.t); FX.drawStatus(g, this); return; }
-    const winds = ['slamWind', 'chargeWind', 'summon', 'hopWind', 'drumWind', 'leafWind', 'rootWind', 'cast'];
+    const winds = ['slamWind', 'chargeWind', 'summon', 'hopWind', 'drumWind', 'leafWind', 'rootWind', 'cast', 'tongueWind'];
     const wind = winds.includes(this.state);
     const shake = wind ? Math.sin(this.t * 50) * 1.5 : 0;
     const lift = (this.state === 'slamWind' ? 6 * (1 - this.st) : 0) + (this.air || 0);
@@ -1389,17 +1494,25 @@ class Boss {
     g.fillStyle = 'rgba(0,0,0,0.35)';
     g.beginPath(); g.ellipse(x, y + 20, 24 * this.scale * sh, 8 * this.scale * sh, 0, 0, Math.PI * 2); g.fill();
     const bx = x + shake, by = y - lift;
-    const art = BOSS_ART[(this.stage - 1) % 3];
+    const art = BOSS_ART[this.kind];
     let key = art.idle, fr = Math.floor(this.t * 8);
     if (this.state === 'chase') key = art.move;
     else if (wind && this.state !== 'slamWind') key = art.wind;
     else if (this.state === 'slamWind') {
       key = art.attack;
       fr = Math.min(stripFrames(key, art.fw) - 1, Math.floor((1 - this.st / (0.9 * this.fast)) * stripFrames(key, art.fw)));
-    } else if (['charge', 'hopAir', 'drum', 'leaves'].includes(this.state)) key = art.attack;
+    } else if (this.state === 'hopAir' && art.air) key = art.air;
+    else if (['charge', 'hopAir', 'drum', 'leaves', 'tongue'].includes(this.state)) key = art.attack;
     else if (this.state === 'stun') key = art.hit;
     const red = wind ? (((this.t * 14) | 0) % 2 ? 0.45 : 0.15) : this.enraged ? 0.15 : 0;
-    drawStrip(g, key, art.fw, fr, bx, by + 22 + art.foot, { white, red, scale: PIX * this.scale });
+    drawStrip(g, key, art.fw, fr, bx, by + 22 + art.foot, { white, red, scale: PIX * this.scale * (art.scale || 1) });
+    if (this.tongueLen > 2) { // 개굴대왕의 혀
+      const c = Math.cos(this.dir), s = Math.sin(this.dir), ox = bx + c * 10, oy = by - 8 + s * 10;
+      g.strokeStyle = '#ff6a9a'; g.lineWidth = 7; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(ox, oy); g.lineTo(ox + c * this.tongueLen, oy + s * this.tongueLen); g.stroke();
+      g.fillStyle = '#ff8ab0'; g.beginPath(); g.arc(ox + c * this.tongueLen, oy + s * this.tongueLen, 6, 0, Math.PI * 2); g.fill();
+      g.lineCap = 'butt';
+    }
     if (this.state === 'stun') {
       for (let i = 0; i < 4; i++) {
         const a = this.t * 4 + i * 1.57;
@@ -1426,7 +1539,8 @@ function drawStump(g, x, y, t) {
   g.beginPath(); g.ellipse(x, y - 10, 4, 1.5, 0, 0, Math.PI * 2); g.stroke();
   g.fillStyle = '#5a9a3a'; g.fillRect(x + 8, y - 16 + Math.sin(t * 3) * 1, 4, 5); // 새싹
 }
-const BOSS_SUMMON = [['slime'], ['racoon'], ['skull', 'eye']];
+const BOSS_SUMMON = [['slime'], ['racoon'], ['skull', 'eye'], ['tadpole']];
+const TONGUE_LEN = 250; // 개굴대왕 혀 길이
 
 Boss.prototype.steer = Enemy.prototype.steer;
 

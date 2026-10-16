@@ -22,6 +22,7 @@ const SHARD_DROP = { // 마물이 많은 만큼 확률은 낮게
   slime: 0.055, bat: 0.055, mushroom: 0.06, mole: 0.06,
   racoon: 0.06, bear: 0.16, snake: 0.06, owl: 0.06,
   shield: 0.11, skull: 0.07, eye: 0.1, flam: 0.07, orc: 0.18,
+  kappa: 0.07, axolot: 0.07, spider: 0.07, mollusc: 0.14, tadpole: 0.02, bigslime: 0.1,
 };
 const SHARD_TOTEM = 2;        // 봉인석 하나
 const SHARD_BOSS = 4;         // × 세계 번호
@@ -31,7 +32,7 @@ const SHARD_ALL_CLEAR = 15;   // 세계 3까지 완주
 const EMBLEM_PER_CLEAR = 1;
 // 무기의 정수: 모든 무기의 숙련 강화에 쓰는 공통 재화 (어떤 무기로 플레이해도 모인다)
 const ESSENCE_STAGE = 1;            // 스테이지 클리어
-const ESSENCE_BOSS = [3, 5, 8];     // 세계 1 · 2 · 3 보스
+const ESSENCE_BOSS = [3, 5, 8, 8, 11, 15]; // 세계 1~6 보스
 const ESSENCE_ALL_CLEAR = 5;        // 완주 보너스
 
 // 테스트 모드: 내 컴퓨터(로컬 서버, 같은 와이파이)에서 실행할 때만 켜진다. 배포된 링크에는 적용되지 않는다.

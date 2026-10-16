@@ -6,8 +6,8 @@
 // 쉬움 모드로 깨도 모두 인정된다.
 
 const ROUTES = {
-  outer: { name: '바깥 숲', ready: true },
-  deep:  { name: '깊은 숲', ready: false }, // 세계 4~6을 만들면 true
+  outer: { name: '바깥 숲', ready: true, worlds: [1, 2, 3] },
+  deep:  { name: '깊은 숲', ready: true, worlds: [4] }, // 세계 5 · 6을 만들면 [4, 5, 6]
 };
 
 const CURSES = {

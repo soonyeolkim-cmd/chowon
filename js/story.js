@@ -8,6 +8,7 @@ const SPEAKERS = {
   boss1: { name: '슬라임 대왕 말랑', color: '#9fd8ff' },
   boss2: { name: '숲지기 너구리 바루', color: '#e0b070' },
   boss3: { name: '숲의 군주', color: '#b8f08a' },
+  boss4: { name: '늪의 왕 개굴대왕', color: '#8af0c8' },
   system: { name: '', color: '#ffd24a' },
 };
 
@@ -95,6 +96,34 @@ const STORY = {
   },
 };
 
+// 깊은 숲 (세계 4~6)
+STORY[4] = {
+  start: [
+    ['lumi', '여기가 깊은 숲… 바깥 숲보다 봉인의 기운이 훨씬 짙어요.'],
+    ['rian', '군주님이 말했던 "더 깊은 곳의 봉인"이 여기구나. 안개 때문에 앞이 잘 안 보여.'],
+    ['lumi', '늪에 사는 마물들은 물속을 헤엄쳐 다녀요. 물가를 조심해요!'],
+  ],
+  totem1: [
+    ['lumi', '이 봉인석… 바깥 숲 것보다 훨씬 오래됐어요. 누가, 왜 이렇게 깊이 봉인을 했을까요?'],
+  ],
+  totem2: [
+    ['rian', '정령들이 풀려날수록 안개가 걷히는 것 같아.'],
+    ['lumi', '늪 한가운데서 커다란 울음소리가 들려요. 늪의 주인이에요.'],
+  ],
+  bossIntro: [
+    ['boss4', '개굴… 개굴… 오랜만에 맛있어 보이는 손님이로구나.'],
+    ['rian', '혀가… 엄청 길어!'],
+    ['boss4', '이 늪 너머엔 아무도 보낼 수 없다. 저 깊은 곳엔 깨어나선 안 될 것들이 잠들어 있으니까!'],
+    ['lumi', '혀를 쭉 내밀기 전에 선이 보일 거예요. 옆으로 피해요!'],
+  ],
+  bossDown: [
+    ['boss4', '개굴… 너희라면… 어쩌면 그 세 녀석을…'],
+    ['rian', '세 녀석? 무슨 소리야?'],
+    ['boss4', '봉인의 근원에서… 세 마리 용이… 눈을 뜨려 하고 있다…'],
+    ['lumi', '세 마리 용…! 리안, 이 숲 깊은 곳에 진짜 위험이 있는 것 같아요.'],
+  ],
+};
+
 const RETRY_LINES = [
   '괜찮아요, 다시 해 봐요! 빨간 표시가 보이면 일단 피하는 게 먼저예요.',
   '포기하지 마요! 방패병은 뒤로 돌아가거나 가드 브레이크 기술로 깨면 돼요.',
@@ -103,11 +132,11 @@ const RETRY_LINES = [
 ];
 
 // 대화창 초상화 (에셋의 얼굴 그림)
-const FACES = { rian: 'heroFace', lumi: 'spiritFace', boss1: 'boss1Face', boss2: 'boss2Face', boss3: 'boss3Face' };
+const FACES = { rian: 'heroFace', lumi: 'spiritFace', boss1: 'boss1Face', boss2: 'boss2Face', boss3: 'boss3Face', boss4: 'boss4Face' };
 function drawPortrait(g, who, cx, cy, s) {
   g.save();
   g.beginPath(); g.arc(cx, cy, s / 2, 0, Math.PI * 2); g.clip();
-  g.fillStyle = { lumi: '#1f3d2c', rian: '#1d2a40', boss1: '#1d3340', boss2: '#3d2a16', boss3: '#22361c' }[who] || '#222';
+  g.fillStyle = { lumi: '#1f3d2c', rian: '#1d2a40', boss1: '#1d3340', boss2: '#3d2a16', boss3: '#22361c', boss4: '#16362e' }[who] || '#222';
   g.fillRect(cx - s / 2, cy - s / 2, s, s);
   const face = FACES[who] && ART.img[FACES[who]];
   if (face) { g.imageSmoothingEnabled = false; g.drawImage(face, cx - s * 0.48, cy - s * 0.48, s * 0.96, s * 0.96); }
