@@ -1330,10 +1330,12 @@ function drawSettings(blink) {
 
 // 마을의 설정 버튼 (톱니)
 function villageGear() { return { x: W - inset.r - 46, y: inset.t + 30, w: 34, h: 30 }; }
-function drawGear(r) {
-  ctx.fillStyle = 'rgba(30,36,48,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+function drawGear(r, sel) {
+  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(30,36,48,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
+  else { ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
   label('⚙', r.x + r.w / 2, r.y + r.h / 2 + 1, 16, '#fff', 'center', '700');
+  if (sel) label('설정', r.x - 6, r.y + r.h / 2, 12, '#ffe08a', 'right', '800');
 }
 
 function keyNames() {
@@ -1688,7 +1690,7 @@ function drawVillage(blink) {
   ctx.fillStyle = ssel ? '#3f8a3b' : '#2f6b2f'; ctx.fillRect(st.x, st.y, st.w, st.h);
   ctx.strokeStyle = ssel && blink ? '#ffd24a' : 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.strokeRect(st.x + 1, st.y + 1, st.w - 2, st.h - 2);
   label('모험 떠나기 ▶', st.x + st.w / 2, st.y + st.h / 2, 16, '#fff', 'center', '900');
-  drawGear(villageGear());
+  drawGear(villageGear(), G.village && G.village.sel === -1); // 패드 · 키보드로도 고를 수 있다 (목록 맨 위에서 ↑)
   // 난이도 버튼
   const mb = L.mode, msel = v.sel === L.items.length + 1, easy = md.mode === 'easy';
   ctx.fillStyle = easy ? 'rgba(40,110,70,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(mb.x, mb.y, mb.w, mb.h);
@@ -1706,12 +1708,13 @@ function drawVillage(blink) {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
-    : d === 'gamepad' ? 'LB · RB 아래 버튼 · ←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · START 설정' : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
+    : d === 'gamepad' ? 'LB · RB 아래 버튼 · ←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 START 설정' : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
 function villageAct(i) {
   const v = G.village, items = villageItems(v.tab);
+  if (i === -1) { openSettings('village'); return; } // ⚙ 설정
   if (i === items.length) { G.startRun(); return; }
   if (i === items.length + 2) { // 봉인 등급 바꾸기 (열린 등급을 차례로)
     const list = playableTiers(), k = list.indexOf(Meta.data.tier);
@@ -1815,17 +1818,18 @@ function handleVillageInput(dt, inp) {
   if (inp.lb || inp.rb) { barMove(inp.rb ? 1 : -1); return; }
   // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
-  if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else setTab(hx > 0 ? 1 : 0); }
+  if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else if (v.sel >= 0) setTab(hx > 0 ? 1 : 0); }
   v.axisX = hx;
   // ↑↓: 목록 줄 이동. 아래 버튼 줄은 한 줄로 본다 (맨 아래 → 모험 떠나기, 버튼 줄에서 ↑ → 목록 마지막)
   const dir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0;
   if (dir && dir !== v.axis) {
     const rows = []; for (let k = 0; k < n; k++) if (selectable(k)) rows.push(k);
     let i;
-    if (inBar) i = dir < 0 ? (rows.length ? rows[rows.length - 1] : v.sel) : (rows.length ? rows[0] : v.sel);
+    if (v.sel === -1) i = dir > 0 ? (rows.length ? rows[0] : n) : n;
+    else if (inBar) i = dir < 0 ? (rows.length ? rows[rows.length - 1] : -1) : -1;
     else {
       const k = rows.indexOf(v.sel) + dir;
-      i = k >= rows.length || k < 0 ? n : rows[k]; // 목록 끝을 넘으면 모험 떠나기
+      i = k >= rows.length ? n : k < 0 ? -1 : rows[k]; // 목록 끝을 넘으면 모험 떠나기, 맨 위를 넘으면 ⚙ 설정
     }
     if (i !== v.sel) { v.sel = i; v.msg = null; Sfx.pickup(); if (i < n) villageScrollTo(i); }
   }
