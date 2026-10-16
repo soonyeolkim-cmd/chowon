@@ -1337,13 +1337,16 @@ const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b',
 //  말랑(슬라임): 통통 점프 연타 · 내려찍기 · 슬라임 소환 / 격노 시 분열(큰 슬라임 둘)
 //  바루(너구리): 배 두드리기 충격파 · 나뭇잎 표창 · 배치기 돌진 / 격노 후 둔갑술(그루터기 사이에 숨기)
 //  숲의 군주(대나무): 뿌리 솟구침 · 대나무 창비 · 망령 소환 · 내려찍기 / 격노 시 숲이 시든다(시야 어두워짐)
+// 보스 체력 배율 (너무 쉽다는 의견으로 3배, 2026-10-16). 삼룡은 이 체력을 셋이 나눠 가진다.
+const BOSS_HP_MULT = 3;
+
 class Boss {
   constructor(x, y, stage) {
     this.type = 'boss'; this.x = x; this.y = y; this.r = 28; this.stage = stage;
     const i = this.kind = Math.min(stage, BOSS_NAMES.length) - 1;
     this.name = BOSS_NAMES[i];
     this.colors = BOSS_COLORS[i];
-    this.maxHp = this.hp = Math.round(450 * 1.1 * (1 + 0.5 * (stage - 1)));
+    this.maxHp = this.hp = Math.round(450 * 1.1 * (1 + 0.5 * (stage - 1)) * BOSS_HP_MULT);
     this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + 0.3 * (stage - 1)) * (1 + 0.05 * (G.player.lv - 1)));
     this.speed = 46; this.superArmor = true; this.scale = 1;
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
