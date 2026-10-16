@@ -1234,7 +1234,7 @@ function closeSettings() {
 }
 function settingsRows(tab) {
   const B = Input.binds, S = Input.settings;
-  if (tab === 0) return [...KB_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'kb', action: a, name: n, value: B.kb[a].map(kbName).join(' / ') })),
+  if (tab === 0) return [{ kind: 'mode', name: '조작 방식', value: S.kbMode === 'mouse' ? '키보드+마우스' : '키보드만' }, ...KB_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'kb', action: a, name: n, value: B.kb[a].map(kbName).join(' / ') })),
     { kind: 'reset', dev: 'kb', name: '키보드 기본값으로 되돌리기', value: '' }];
   if (tab === 1) return [...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
@@ -1255,6 +1255,11 @@ function settingsAct(row) {
   const s = G.su;
   if (row.kind === 'reset') { Input.resetBinds(row.dev); s.msg = '기본값으로 되돌렸어요'; Sfx.level(); return; }
   if (row.kind === 'toggle') { Input.settings[row.key] = !Input.settings[row.key]; Input.saveSettings(); Sfx.pickup(); return; }
+  if (row.kind === 'mode') {
+    Input.settings.kbMode = Input.settings.kbMode === 'mouse' ? 'keys' : 'mouse'; Input.saveSettings(); Sfx.pickup();
+    s.msg = Input.settings.kbMode === 'mouse' ? '키보드+마우스: WASD 이동 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시' : '키보드만: 방향키 이동 · Z 공격 · X 대시 · C 특수';
+    return;
+  }
   s.waiting = row; s.msg = null; s.wt = 0; Sfx.pickup();
   Input.captureDev = row.dev;
   Input.capture = (kind, code) => {
@@ -1307,13 +1312,13 @@ function drawSettings(blink) {
     const sel = s.sel === i, r = row.r, waiting = s.waiting === r;
     ctx.fillStyle = waiting ? 'rgba(120,90,20,0.95)' : sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.88)'; ctx.fillRect(row.x, row.y, row.w, row.h);
     if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(row.x + 1, row.y + 1, row.w - 2, row.h - 2); }
-    label(r.name, row.x + 14, row.y + row.h / 2, 13, r.kind === 'reset' ? '#ffb0a0' : '#fff', 'left', '700');
+    label(r.name + (r.kind === 'mode' ? '  (A · Enter로 바꾸기)' : ''), row.x + 14, row.y + row.h / 2, 13, r.kind === 'reset' ? '#ffb0a0' : r.kind === 'mode' ? '#ffe08a' : '#fff', 'left', '700');
     const val = waiting ? (blink ? (r.dev === 'kb' ? '새 키를 누르세요… (Esc 취소)' : '새 버튼을 누르세요… (B 취소)') : '') : r.value;
     label(val, row.x + row.w - 14, row.y + row.h / 2, 13, waiting ? '#ffe08a' : r.kind === 'toggle' ? (r.value === '켜짐' ? '#8ff0b0' : '#ff9a7a') : '#c8d8ff', 'right', '800');
   });
   const d = Input.state.device;
   const how = s.msg || (s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
-    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 선택 → 바꿀 버튼 누르기 · B 취소/돌아가기 (B는 지정할 수 없어요)' : s.tab === 0 ? '마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 (커서 쪽으로) · WASD 이동도 돼요' : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
+    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 선택 → 바꿀 버튼 누르기 · B 취소/돌아가기 (B는 지정할 수 없어요)' : s.tab === 0 ? (Input.settings.kbMode === 'mouse' ? '키보드+마우스: 공격은 커서 쪽으로 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수' : '키보드만: 공격은 보는 방향으로 · 마우스는 메뉴 클릭에만') : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
   label(how, W / 2, H - inset.b - 18, 12, s.msg ? '#ffe08a' : '#aab', 'center', '600');
   if (s.tab === 1) { // 패드 입력 확인: 스틱 · 십자키 · 버튼이 제대로 들어오는지
     const pi = Input.padInfo;
@@ -1336,7 +1341,7 @@ function keyNames() {
   if (d === 'touch') return { A: '공격', P: '특수', D: '대시', move: '왼쪽 조이스틱' };
   if (d === 'gamepad') return { A: padName(B.pad.attack[0]), P: padName(B.pad.special[0]), D: padName(B.pad.dash[0]), move: '왼쪽 스틱' };
   if (Input.state.mouseAim) return { A: '왼쪽 클릭', P: '오른쪽 클릭', D: kbName(B.kb.dash.includes('Space') ? 'Space' : B.kb.dash[0]), move: B.kb.up.includes('KeyW') ? 'WASD' : kbName(B.kb.up[0]) + kbName(B.kb.left[0]) + kbName(B.kb.down[0]) + kbName(B.kb.right[0]) };
-  const arrows = B.kb.up[0] === 'ArrowUp' && B.kb.left[0] === 'ArrowLeft';
+  const arrows = B.kb.up.includes('ArrowUp') && B.kb.left.includes('ArrowLeft');
   return { A: kbName(B.kb.attack[0]), P: kbName(B.kb.special[0]), D: kbName(B.kb.dash[0]), move: arrows ? '방향키' : [B.kb.up, B.kb.left, B.kb.down, B.kb.right].map(l => kbName(l[0])).join('') };
 }
 
@@ -1985,7 +1990,7 @@ function render() {
     label(`봉인 등급 ${md.tier} · ${ROUTES[tierInfo(md.tier).route].name}   ·   난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 1/3)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
     const { move, A, P, D } = keyNames();
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
-    if (Input.state.device === 'keyboard') label(Input.state.mouseAim ? '키보드만으로도 할 수 있어요: 방향키 · Z 공격 · X 대시 · C 특수' : '키보드+마우스: WASD 이동 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시', W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
+    if (Input.state.device === 'keyboard') label(`조작 방식: ${Input.settings.kbMode === 'mouse' ? '키보드+마우스' : '키보드만'}  ·  마을의 ⚙ 설정 > 키보드에서 바꿀 수 있어요`, W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
     label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, H * 0.56 + 20, 12, '#b8c8b8', 'center', '500');
     if (blink) label(`${tap} 시작`, W / 2, H * 0.78, 20, '#ffd24a');
   } else if (G.state === 'village' || (G.state === 'settings' && G.settingsFrom === 'village')) {

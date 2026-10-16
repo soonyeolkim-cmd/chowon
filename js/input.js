@@ -11,7 +11,7 @@ const Input = (() => {
     reroll: false,               // 축복 다시 뽑기 (키보드: 특수 키 · 패드: Y)
     confirm: false, back: false, // 메뉴용: 결정(Enter · 공격 · 패드 A) / 뒤로(Esc · 일시정지 · 패드 B)
     device: 'keyboard',      // 마지막으로 쓴 입력 장치: keyboard | touch | gamepad
-    mouseAim: false,         // 키보드+마우스로 하는 중: 공격은 마우스 커서 쪽으로
+    mouseAim: false,         // 키보드+마우스 방식으로 하는 중: 공격은 마우스 커서 쪽으로 (설정의 조작 방식에서 정한다)
     mouse: null,             // 마우스 커서 위치 (화면 좌표)
   };
   let mouseBtns = 0;         // 지금 눌린 마우스 버튼 (1 왼쪽 · 2 오른쪽)
@@ -40,7 +40,9 @@ const Input = (() => {
     for (const [a, k] of [['up', 'KeyW'], ['down', 'KeyS'], ['left', 'KeyA'], ['right', 'KeyD']])
       if (!Object.values(d.kb).some(l => l.includes(k))) d.kb[a] = d.kb[a].concat(k);
     return d; })();
-  const settings = Object.assign({ rumble: true, shake: true }, load('settings', {}));
+  // kbMode: 컴퓨터 조작 방식 'mouse' = 키보드+마우스 (WASD · 클릭 · 커서 조준) / 'keys' = 키보드만 (방향키 · Z X C)
+  const pcFine = !!(window.matchMedia && matchMedia('(pointer: fine)').matches);
+  const settings = Object.assign({ rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys' }, load('settings', {}));
   const kbHas = (action, code) => binds.kb[action].includes(code);
   const isGameKey = code => Object.values(binds.kb).some(list => list.includes(code));
 
@@ -60,10 +62,11 @@ const Input = (() => {
     const now = e.buttons, fresh = now & ~mouseBtns;
     mouseBtns = now;
     if (!fresh) return;
-    state.device = 'keyboard'; state.mouseAim = true;
+    state.device = 'keyboard';
+    queued.start = true;
+    if (settings.kbMode !== 'mouse') return; // 키보드만 방식: 마우스는 메뉴 클릭에만
     if (fresh & 1) queued.attack = true;
     if (fresh & 2) queued.special = true;
-    queued.start = true;
   }
 
   function onDown(e) {
@@ -146,7 +149,6 @@ const Input = (() => {
       if (api.capture) { e.preventDefault(); if (!e.repeat) { const f = api.capture; api.capture = null; f('kb', e.code); } return; }
       keys.add(e.code);
       if (!e.repeat) {
-        if (kbHas('attack', e.code) || kbHas('special', e.code)) state.mouseAim = false; // 키보드로 공격하면 다시 이동 방향 조준
         if (kbHas('attack', e.code)) queued.attack = true;
         if (kbHas('dash', e.code)) queued.dash = true;
         if (kbHas('special', e.code)) queued.special = queued.reroll = true;
@@ -209,7 +211,7 @@ const Input = (() => {
     if (dx || dy) { const l = Math.hypot(dx, dy); ax = dx / l; ay = dy / l; } // 십자키가 스틱보다 우선
     api.padInfo = { id: gp.id, mapping: gp.mapping || '비표준', ax, ay, pressed: edge.map((_, i) => i).filter(down) };
 
-    if (ax || ay || anyButton) { state.device = 'gamepad'; state.mouseAim = false; }
+    if (ax || ay || anyButton) state.device = 'gamepad';
     // 키 설정 중: 처음 누른 버튼을 넘긴다. B는 언제나 취소.
     if (api.capture) {
       const i = edge.findIndex(Boolean);
@@ -258,7 +260,8 @@ const Input = (() => {
     state.confirm = queued.confirm; state.back = queued.back; state.reroll = queued.reroll;
     queued.tap = null;
     state.padA = padHeldA;
-    state.attackHeld = binds.kb.attack.some(has) || !!(mouseBtns & 1) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
+    state.mouseAim = settings.kbMode === 'mouse' && state.device === 'keyboard';
+    state.attackHeld = binds.kb.attack.some(has) || (state.mouseAim && !!(mouseBtns & 1)) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
     queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = queued.reroll = false;
   }
 
