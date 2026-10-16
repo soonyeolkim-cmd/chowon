@@ -50,6 +50,8 @@ const TEST_BUILDS = {
   spin: { weapon: 'sword', mastery: { spin: 3 }, boons: { atk_multispin: 3, atk_spin: 3, ice_charge: 3, shatter: 3, guard_spin: 3, sharp: 3, vital: 3, momentum: 3 } },
   // 검기 최강: 거대 검기 · 뇌격 검기 · 과충전 · 치유의 검기 · 날카로운 검 · 급소 (+ 섬광 검기 숙련 3)
   wave: { weapon: 'sword', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
+  // 기본공격 번개: 번개 칼날 · 연쇄 번개 · 정전기 · 과충전 · 연격 · 날카로운 검 · 급소 · 연속 타격 (+ 연속베기 숙련 3)
+  bolt: { weapon: 'sword', mastery: { combo: 3 }, boons: { elec_basic: 3, elec_chain: 3, static: 3, overcharge: 3, atk_combo: 3, sharp: 3, vital: 3, momentum: 3 } },
 };
 const DEV_BUILD = DEV_LOCAL ? TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null : null;
 

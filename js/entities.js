@@ -63,6 +63,7 @@ class Player {
     this.x = x; this.y = y; this.r = 9;
     this.speed = 118;
     this.facing = Math.PI / 2;
+    this.aimBase = this.facing; // 마지막으로 직접 누른 방향: 자동 조준은 이 방향 기준 부채꼴 안에서만 (계속 돌아가지 않게)
     this.lv = s ? s.lv : 1; this.xp = s ? s.xp : 0;
     this.maxHp = s ? s.maxHp : 100; this.atk = s ? s.atk : 10;
     this.hp = s && s.hp ? Math.min(s.hp, this.maxHp) : this.maxHp; // 스테이지 사이엔 체력이 이어진다
@@ -135,6 +136,7 @@ class Player {
       this.moving = mag > 0.05;
       if (this.moving) {
         if (!this.act) this.facing = Math.atan2(inp.my, inp.mx);
+        if (mag >= 0.2) this.aimBase = Math.atan2(inp.my, inp.mx);
         const mul = (this.act ? 0.25 : this.charge > 0 ? 0.45 : 1) * (this.slowT > 0 ? 0.6 : 1) * G.slowAt(this.x, this.y);
         const l = Math.hypot(inp.mx, inp.my), spd = this.speed * mag * mul;
         World.move(this, inp.mx / l * spd * dt, inp.my / l * spd * dt);
@@ -191,7 +193,9 @@ class Player {
       if (t.spawnT > 0.2) continue;
       const d = Math.hypot(t.x - this.x, t.y - this.y) - t.r;
       if (d > range) continue;
-      const off = Math.abs(angDiff(Math.atan2(t.y - this.y, t.x - this.x), this.facing));
+      // 부채꼴 기준: 걸으면서 쏘면 지금 방향, 멈춰서 쏘면 마지막으로 직접 누른 방향 (자동 조준이 쌓여 뒤로 돌지 않게)
+      const base = moving ? this.facing : this.aimBase;
+      const off = Math.abs(angDiff(Math.atan2(t.y - this.y, t.x - this.x), base));
       if (off > half) continue;
       const score = d + bias * off / half;
       if (score < bs) { bs = score; best = t; }
@@ -203,6 +207,7 @@ class Player {
     const inp = Input.state;
     this.dashDir = mag > 0.05 ? Math.atan2(inp.my, inp.mx) : this.facing;
     this.facing = this.dashDir;
+    if (mag > 0.05) this.aimBase = this.dashDir;
     this.act = null; this.charge = 0; this.holdT = 0;
     this.dashT = DASH_TIME; this.dashBuffer = 0;
     if (this.dashStock >= this.dashMax) this.dashRecharge = this.dashCdBase;
