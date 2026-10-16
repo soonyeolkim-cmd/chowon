@@ -1709,7 +1709,7 @@ function drawVillage(blink) {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
-    : d === 'gamepad' ? 'LB · RB 아래 버튼 · ←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 START 설정' : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
+    : d === 'gamepad' ? 'LB · RB: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 START 설정' : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
@@ -1816,10 +1816,18 @@ function handleVillageInput(dt, inp) {
     if (BAR[nk] !== v.sel) { v.sel = BAR[nk]; v.msg = null; Sfx.pickup(); }
   };
   // 패드: LB · RB로 아래 버튼 줄을 넘긴다
-  if (inp.lb || inp.rb) { barMove(inp.rb ? 1 : -1); return; }
+  // LB · RB 와 ←→ 는 같은 규칙: 목록(또는 ⚙)에 있으면 탭 전환, 아래 버튼 줄에 있으면 버튼 사이 이동
+  // 탭을 바꿔도 커서는 새 탭 목록의 첫 줄에 둔다 (계속 LB · RB로 탭을 오갈 수 있게)
+  const tabTo = t => {
+    if (t === v.tab) return;
+    setTab(t);
+    const k = villageItems(t).findIndex(it => !it.header);
+    if (k >= 0) v.sel = k;
+  };
+  if (inp.lb || inp.rb) { const d = inp.rb ? 1 : -1; if (inBar) barMove(d); else tabTo(d > 0 ? 1 : 0); return; }
   // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
-  if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else if (v.sel >= 0) setTab(hx > 0 ? 1 : 0); }
+  if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else tabTo(hx > 0 ? 1 : 0); }
   v.axisX = hx;
   // ↑↓: 목록 줄 이동. 아래 버튼 줄은 한 줄로 본다 (맨 아래 → 모험 떠나기, 버튼 줄에서 ↑ → 목록 마지막)
   const dir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0;
