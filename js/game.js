@@ -427,6 +427,7 @@ const G = {
   },
 
   objective() {
+    if (this.boss && this.boss.state === 'hidden') return null; // 바루 둔갑 중엔 화살표로 알려 주지 않는다 (직접 찾거나 루미가 찾아 준다)
     if (this.boss && !this.boss.dead) return this.boss;
     let best = null, bd = Infinity;
     for (const t of this.totems) {

@@ -1397,6 +1397,8 @@ const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b',
 //  숲의 군주(대나무): 뿌리 솟구침 · 대나무 창비 · 망령 소환 · 내려찍기 / 격노 시 숲이 시든다(시야 어두워짐)
 // 보스 체력: 길의 첫 보스 BOSS_HP_BASE, 뒤 세계로 갈수록 BOSS_HP_GROWTH 배씩 (플레이어도 세계마다 강해지니 그보다 가파르게)
 // 깊은 숲은 처음부터 BOSS_HP_DEEP 배. 삼룡은 이 체력을 셋이 나눠 가진다. (2026-10-17: 첫 보스 2배 · 성장 가파르게)
+// 바루 둔갑: 숨어 있는 시간, 그중 몇 초가 지나면 루미가 찾아 주는가
+const BARU_HIDE = 7, BARU_LUMI_FIND = 4;
 const BOSS_HP_BASE = 2970, BOSS_HP_GROWTH = 1.6, BOSS_HP_DEEP = 2;
 
 class Boss {
@@ -1618,11 +1620,15 @@ class Boss {
         }
         break;
       case 'hidden':
-        // 진짜 바루를 때리면 들킨다 → 기절. 시간이 다 되면 튀어나와 내려찍는다
+        // 진짜 바루를 때리면 들킨다 → 기절. 한참 못 찾으면 루미가 날아가 진짜 그루터기 위를 맴돈다. 그래도 못 찾으면 튀어나와 내려찍는다
         if (this.struck) {
           this.reveal(); this.state = 'stun'; this.st = 1.4;
           G.text(this.x, this.y - 40, '찾았다!', '#ffd24a', 18, 1.2); G.lumi.say('진짜를 찾았어요! 지금이에요!', 1.4);
         } else if (this.st <= 0) { this.reveal(); this.state = 'slamWind'; this.st = 0.45; }
+        else if (this.st <= BARU_HIDE - BARU_LUMI_FIND && !this.lumiFound) {
+          this.lumiFound = true;
+          G.lumi.seek(this.x, this.y, this.st + 0.3); G.lumi.say('여기! 이 그루터기가 진짜예요!', 2);
+        }
         break;
 
       // ── 개굴대왕: 혀 낚아채기 ──
@@ -1723,10 +1729,11 @@ class Boss {
     const me = spots.pop();
     this.x = me.x; this.y = me.y;
     for (const s of spots) { const e = new Enemy('stump', s.x, s.y, G.diff, 1); e.spawnT = 0; this.decoys.push(e); G.enemies.push(e); G.burst(s.x, s.y, 14, ['#ddd', '#a88a52'], 160); }
-    this.state = 'hidden'; this.st = 5; this.flash = 0; this.struck = false; this.disguiseCd = 9;
+    this.state = 'hidden'; this.st = BARU_HIDE; this.flash = 0; this.struck = false; this.lumiFound = false; this.disguiseCd = BARU_HIDE + 4; // 다시 둔갑하기까지: 숨는 시간 + 4초
     G.text(G.player.x, G.player.y - 40, '둔갑술!', '#e0b070', 16, 1.0);
   }
   reveal() {
+    G.lumi.stopSeek();
     for (const e of this.decoys) if (!e.dead) { e.dead = true; G.burst(e.x, e.y, 10, ['#ddd', '#a88a52'], 120); }
     this.decoys = [];
     G.burst(this.x, this.y, 22, ['#ddd', '#e0b070', '#fff'], 200);

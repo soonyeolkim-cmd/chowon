@@ -210,8 +210,17 @@ class Lumi {
   update(dt, p) {
     this.t += dt;
     const side = Math.cos(p.facing) > 0 ? -1 : 1;
-    const tx = p.x + side * 16, ty = p.y - 26 + Math.sin(this.t * 2.5) * 3;
-    const k = 1 - Math.pow(0.02, dt);
+    let tx = p.x + side * 16, ty = p.y - 26 + Math.sin(this.t * 2.5) * 3;
+    // 찾아 주기: 정해진 곳으로 날아가 그 위를 빙빙 돈다 (바루 둔갑 등)
+    if (this.seekP) {
+      this.seekP.t -= dt;
+      if (this.seekP.t <= 0) this.seekP = null;
+      else {
+        tx = this.seekP.x + Math.cos(this.t * 5) * 16; ty = this.seekP.y - 30 + Math.sin(this.t * 5) * 7;
+        if (Math.random() < dt * 20) G.particles.push({ x: this.x + rand(-6, 6), y: this.y + rand(-6, 6), vx: rand(-20, 20), vy: rand(10, 40), life: 0.7, max: 0.7, color: '#ffffa0', size: 2, grav: 0 });
+      }
+    }
+    const k = 1 - Math.pow(this.seekP ? 0.0005 : 0.02, dt);
     this.x += (tx - this.x) * k; this.y += (ty - this.y) * k;
     if (Math.random() < dt * 6) {
       G.particles.push({ x: this.x + rand(-4, 4), y: this.y + rand(-4, 4), vx: rand(-8, 8), vy: rand(10, 25),
@@ -220,6 +229,8 @@ class Lumi {
     if (this.bubble) { this.bubble.t -= dt; if (this.bubble.t <= 0) this.bubble = null; }
   }
   say(text, t = 2.8) { this.bubble = { text, t }; }
+  seek(x, y, t) { this.seekP = { x, y, t }; }
+  stopSeek() { this.seekP = null; }
   draw(g) {
     const x = this.x, y = this.y;
     const gr = g.createRadialGradient(x, y, 1, x, y, 16);
