@@ -2,7 +2,7 @@
 // 입력 통합: 키보드 / 터치(가상 조이스틱 + 버튼) / 게임패드
 const Input = (() => {
   const keys = new Set();
-  const queued = { attack: false, special: false, dash: false, skill: false, start: false, pause: false, confirm: false, back: false, reroll: false, tap: null };
+  const queued = { lb: false, rb: false, attack: false, special: false, dash: false, skill: false, start: false, pause: false, confirm: false, back: false, reroll: false, tap: null };
   const state = {
     mx: 0, my: 0,            // 이동 방향 (-1 ~ 1)
     attack: false,           // 이번 프레임에 공격을 눌렀는가
@@ -226,6 +226,8 @@ const Input = (() => {
     // 메뉴 규칙 (키 설정과 상관없이 고정): A = 선택 · B = 취소/뒤로
     if (edge[0]) queued.confirm = true;
     if (edge[1]) queued.back = true;
+    if (edge[4]) queued.lb = true; // 메뉴 좌우 넘기기: LB · RB (고정)
+    if (edge[5]) queued.rb = true;
     if (edge[3]) queued.reroll = true;                             // 축복 다시 뽑기: Y
     if (anyButton && edge.some(Boolean)) queued.start = true;
     padHeldAttack = binds.pad.attack.some(i => down(i));
@@ -258,6 +260,7 @@ const Input = (() => {
     state.pause = queued.pause;
     state.tap = queued.tap;
     state.confirm = queued.confirm; state.back = queued.back; state.reroll = queued.reroll;
+    state.lb = queued.lb; state.rb = queued.rb; queued.lb = queued.rb = false;
     queued.tap = null;
     state.padA = padHeldA;
     state.mouseAim = settings.kbMode === 'mouse' && state.device === 'keyboard';

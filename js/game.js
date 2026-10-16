@@ -1706,7 +1706,7 @@ function drawVillage(blink) {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
-    : d === 'gamepad' ? '←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · START 설정' : `←→ 탭 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
+    : d === 'gamepad' ? 'LB · RB 아래 버튼 · ←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · START 설정' : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
@@ -1805,15 +1805,29 @@ function handleVillageInput(dt, inp) {
     }
     return;
   }
+  // 아래 버튼 줄: 화면 순서대로 난이도 · 모험 떠나기 · 봉인 등급
+  const BAR = [n + 1, n, n + 2], inBar = v.sel >= n;
+  const barMove = d => {
+    const k = BAR.indexOf(v.sel), nk = k < 0 ? 1 : clamp(k + d, 0, 2); // 목록에 있었으면 '모험 떠나기'로
+    if (BAR[nk] !== v.sel) { v.sel = BAR[nk]; v.msg = null; Sfx.pickup(); }
+  };
+  // 패드: LB · RB로 아래 버튼 줄을 넘긴다
+  if (inp.lb || inp.rb) { barMove(inp.rb ? 1 : -1); return; }
+  // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
-  if (hx && hx !== v.axisX) setTab(hx > 0 ? 1 : 0);
+  if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else setTab(hx > 0 ? 1 : 0); }
   v.axisX = hx;
+  // ↑↓: 목록 줄 이동. 아래 버튼 줄은 한 줄로 본다 (맨 아래 → 모험 떠나기, 버튼 줄에서 ↑ → 목록 마지막)
   const dir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0;
   if (dir && dir !== v.axis) {
-    let i = v.sel;
-    do { i = (i + dir + n + 3) % (n + 3); } while (!selectable(i));
-    v.sel = i; v.msg = null; Sfx.pickup();
-    if (i < n) villageScrollTo(i);
+    const rows = []; for (let k = 0; k < n; k++) if (selectable(k)) rows.push(k);
+    let i;
+    if (inBar) i = dir < 0 ? (rows.length ? rows[rows.length - 1] : v.sel) : (rows.length ? rows[0] : v.sel);
+    else {
+      const k = rows.indexOf(v.sel) + dir;
+      i = k >= rows.length || k < 0 ? n : rows[k]; // 목록 끝을 넘으면 모험 떠나기
+    }
+    if (i !== v.sel) { v.sel = i; v.msg = null; Sfx.pickup(); if (i < n) villageScrollTo(i); }
   }
   v.axis = dir;
   if (inp.confirm || (inp.attack && Input.state.device !== 'gamepad')) villageAct(v.sel); // 패드는 A로만 선택
