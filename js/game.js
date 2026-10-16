@@ -1446,14 +1446,14 @@ function drawBoonScreen() {
   const d = Input.state.device;
   const how = !o.armed ? (o.t < BOON_LOCK ? '…' : '버튼에서 손을 떼 주세요')
     : d === 'touch' ? '카드를 탭해서 고르고, 길게 눌러서 선택'
-    : d === 'gamepad' ? '십자키로 고르고 A를 길게 눌러서 선택'
-    : '← → 로 고르고 Z를 길게 눌러서 선택';
+    : d === 'gamepad' ? `십자키로 고르고 ${keyNames().A}를 길게 눌러서 선택`
+    : `← → 로 고르고 ${keyNames().A}를 길게 눌러서 선택`;
   label(how + '  ·  시간이 지나면 고른 카드로 결정', W / 2, H - inset.b - 16, 12, '#ddd', 'center', '600');
   const rb = L.reroll;
   if (rb && Meta.lv('choice') > 0) {
     const ok = G.rerolls > 0 && o.armed;
     ctx.fillStyle = ok ? 'rgba(106,63,176,0.9)' : 'rgba(60,60,70,0.8)'; ctx.fillRect(rb.x, rb.y, rb.w, rb.h);
-    const key = d === 'touch' ? '' : d === 'gamepad' ? ' [X]' : ' [C]';
+    const key = d === 'touch' ? '' : d === 'gamepad' ? ' [Y]' : ` [${keyNames().P}]`;
     label(`↻ 다시 뽑기 ${G.rerolls}${key}`, rb.x + rb.w / 2, rb.y + rb.h / 2, 12, ok ? '#fff' : '#999', 'center', '800');
   }
 }
@@ -1479,7 +1479,7 @@ function handleBoonInput(dt, inp) {
   // 다시 뽑기: 버튼 탭 또는 특수공격 키(C / X)
   const rb = L.reroll;
   const tapReroll = inp.tap && inp.tap.x >= rb.x && inp.tap.x <= rb.x + rb.w && inp.tap.y >= rb.y && inp.tap.y <= rb.y + rb.h;
-  if ((tapReroll || inp.special) && Meta.lv('choice') > 0) { G.rerollOffer(); return; }
+  if ((tapReroll || inp.reroll) && Meta.lv('choice') > 0) { G.rerollOffer(); return; }
   if (inp.tap) {
     const i = cardAt(inp.tap);
     if (i >= 0 && i !== o.sel) { o.sel = i; o.hold = 0; Sfx.pickup(); }
@@ -1660,7 +1660,7 @@ function drawVillage(blink) {
   label(`${ROUTES[ti.route].name} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
-    : d === 'gamepad' ? '←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · START 설정' : '←→ 탭 · ↑↓ 고르고 Z로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정';
+    : d === 'gamepad' ? '←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · START 설정' : `←→ 탭 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
@@ -1770,7 +1770,7 @@ function handleVillageInput(dt, inp) {
     if (i < n) villageScrollTo(i);
   }
   v.axis = dir;
-  if (inp.attack) villageAct(v.sel);
+  if (inp.attack || inp.confirm) villageAct(v.sel);
 }
 
 // 난이도 아이콘 — 쉬움: 윙크하며 메롱하는 킹받는 꼬마 / 일반: 백열하는 지옥불

@@ -2,12 +2,13 @@
 // 입력 통합: 키보드 / 터치(가상 조이스틱 + 버튼) / 게임패드
 const Input = (() => {
   const keys = new Set();
-  const queued = { attack: false, special: false, dash: false, skill: false, start: false, pause: false, confirm: false, back: false, tap: null };
+  const queued = { attack: false, special: false, dash: false, skill: false, start: false, pause: false, confirm: false, back: false, reroll: false, tap: null };
   const state = {
     mx: 0, my: 0,            // 이동 방향 (-1 ~ 1)
     attack: false,           // 이번 프레임에 공격을 눌렀는가
     attackHeld: false,       // 공격 버튼을 누르고 있는가 (연속 공격)
     special: false, dash: false, skill: false, start: false, pause: false, tap: null,
+    reroll: false,               // 축복 다시 뽑기 (키보드: 특수 키 · 패드: Y)
     confirm: false, back: false, // 메뉴용: 결정(Enter · 공격 · 패드 A) / 뒤로(Esc · 일시정지 · 패드 B)
     device: 'keyboard',      // 마지막으로 쓴 입력 장치: keyboard | touch | gamepad
   };
@@ -20,11 +21,11 @@ const Input = (() => {
 
   // 조작 설정 (설정 화면에서 바꿀 수 있고, 이 기기에 저장된다)
   //  키보드: 방향키 이동 · Z/왼쪽 Ctrl 공격(길게 = 차지) · X/Space 대시 · C/왼쪽 Alt 특수 · Esc/P 일시정지
-  //  게임패드: A 공격 · B/RB 대시 · X/Y/LB/RT 특수 · START 일시정지 (이동은 왼쪽 스틱 · 십자키 고정)
+  //  게임패드 (엑스박스 기준 버튼 위치, 스위치는 같은 위치): X 공격 · A 특수 · RB 대시 · START 일시정지 (이동은 왼쪽 스틱 · 십자키 고정)
   const DEFAULT_BINDS = {
     kb: { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],
           attack: ['KeyZ', 'ControlLeft'], dash: ['KeyX', 'Space'], special: ['KeyC', 'AltLeft'], pause: ['Escape', 'KeyP'] },
-    pad: { attack: [0], dash: [1, 5], special: [2, 3, 4, 7], pause: [9] },
+    pad: { attack: [2], dash: [5], special: [0], pause: [9] },
   };
   const copy = o => JSON.parse(JSON.stringify(o));
   const load = (k, def) => { try { const v = JSON.parse(localStorage.getItem('swordsman.' + k)); return v || def; } catch (_) { return def; } };
@@ -112,7 +113,7 @@ const Input = (() => {
       if (!e.repeat) {
         if (kbHas('attack', e.code)) queued.attack = true;
         if (kbHas('dash', e.code)) queued.dash = true;
-        if (kbHas('special', e.code)) queued.special = true;
+        if (kbHas('special', e.code)) queued.special = queued.reroll = true;
         if (kbHas('pause', e.code)) queued.pause = true;
         if (e.code === 'Enter' || e.code === 'NumpadEnter' || kbHas('attack', e.code)) queued.confirm = true;
         if (e.code === 'Escape' || e.code === 'Backspace' || kbHas('pause', e.code)) queued.back = true;
@@ -174,6 +175,7 @@ const Input = (() => {
     if (any(binds.pad.pause)) queued.pause = true;
     if (edge[0] || any(binds.pad.attack)) queued.confirm = true;   // 메뉴 결정: A
     if (edge[1] || any(binds.pad.pause)) queued.back = true;       // 메뉴 뒤로: B
+    if (edge[3]) queued.reroll = true;                             // 축복 다시 뽑기: Y
     if (anyButton && edge.some(Boolean)) queued.start = true;
     padHeldAttack = binds.pad.attack.some(i => down(i));
     return { ax, ay };
@@ -203,10 +205,10 @@ const Input = (() => {
     state.start = queued.start;
     state.pause = queued.pause;
     state.tap = queued.tap;
-    state.confirm = queued.confirm; state.back = queued.back;
+    state.confirm = queued.confirm; state.back = queued.back; state.reroll = queued.reroll;
     queued.tap = null;
     state.attackHeld = binds.kb.attack.some(has) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
-    queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = false;
+    queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = queued.reroll = false;
   }
 
   // 진동: 게임패드는 듀얼 럼블, 휴대폰은 vibrate (안드로이드)
