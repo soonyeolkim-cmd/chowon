@@ -1505,12 +1505,35 @@ function drawBoonScreen() {
       tx = x + 56; ty = y + 56; tw = r.w - 66;
     }
     wrap(b.desc(c.lv), tw, 12, '500').forEach((l, k) => label(l, tx, ty + k * 16, 12, '#e8e8e8', 'left', '500'));
-    if (o.auto && sel) { // 시간 초과로 고른 카드: 테두리가 반짝인다
-      const on = ((o.auto.t * 12) | 0) % 2 === 0;
-      ctx.strokeStyle = on ? '#fff' : col; ctx.lineWidth = 4;
+    if (o.auto && sel) { // 시간 초과로 고른 카드: 빛나는 테두리 + 퍼지는 빛 + 테두리를 도는 반짝이
+      const t = o.auto.t, on = ((t * 14) | 0) % 2 === 0, pulse = 0.5 + 0.5 * Math.sin(t * 28);
+      ctx.save();
+      ctx.fillStyle = `rgba(255,255,255,${0.08 + 0.12 * pulse})`; ctx.fillRect(x, y, r.w, r.h); // 카드가 번쩍
+      ctx.shadowColor = on ? '#fff' : col; ctx.shadowBlur = 18 + 16 * pulse;                    // 빛 번짐
+      ctx.strokeStyle = on ? '#fff' : col; ctx.lineWidth = 5;
       ctx.strokeRect(x - 3, y - 3, r.w + 6, r.h + 6);
-      ctx.strokeStyle = on ? col : 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2;
-      ctx.strokeRect(x - 7, y - 7, r.w + 14, r.h + 14);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = on ? col : '#fff'; ctx.lineWidth = 2;
+      ctx.strokeRect(x - 8, y - 8, r.w + 16, r.h + 16);
+      // 바깥으로 퍼지는 빛 테두리 (0.3초마다)
+      const k = (t % 0.3) / 0.3, g = 8 + k * 18;
+      ctx.globalAlpha = (1 - k) * 0.8; ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.strokeRect(x - g, y - g, r.w + g * 2, r.h + g * 2);
+      // 테두리를 따라 도는 반짝이
+      ctx.globalAlpha = 1;
+      const per = 2 * (r.w + r.h);
+      for (let s = 0; s < 6; s++) {
+        let d = ((t * 520 + s * per / 6) % per + per) % per, px, py;
+        if (d < r.w) { px = x + d; py = y - 3; }
+        else if ((d -= r.w) < r.h) { px = x + r.w + 3; py = y + d; }
+        else if ((d -= r.h) < r.w) { px = x + r.w - d; py = y + r.h + 3; }
+        else { d -= r.w; px = x - 3; py = y + r.h - d; }
+        ctx.fillStyle = '#fff'; ctx.shadowColor = col; ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.moveTo(px, py - 6); ctx.lineTo(px + 2, py); ctx.lineTo(px, py + 6); ctx.lineTo(px - 2, py); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(px - 6, py); ctx.lineTo(px, py + 2); ctx.lineTo(px + 6, py); ctx.lineTo(px, py - 2); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      ctx.globalAlpha = appear;
     }
     if (sel && o.armed && !o.auto) {
       const k = clamp(o.hold / BOON_HOLD, 0, 1);
