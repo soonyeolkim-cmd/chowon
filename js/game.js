@@ -63,6 +63,54 @@ const Sfx = (() => {
   };
 })();
 
+// ── 배경음악: 마을 · 세계마다 · 보스 · 엔딩 (Ninja Adventure 음악, CC0). 설정에서 끌 수 있다 ──
+// 오래 들어도 덜 피곤하게: 볼륨은 낮게, 곡이 바뀔 땐 천천히 겹쳐 바뀌고, 일시정지 · 설정 화면에선 작게
+const MUSIC_DIR = 'assets/NinjaAdventure/Audio/Musics/';
+const MUSIC = {
+  village: '33 - Calm Village.ogg',
+  w1: '1 - Adventure Begin.ogg', w2: '23 - Road.ogg', w3: '37 - Dark Forest.ogg',
+  w4: '18 - Aquatic.ogg', w5: '30 - Ruins.ogg', w6: '24 - Final Area.ogg',
+  boss: '17 - Fight.ogg', ending: '8 - End Theme.ogg',
+};
+const MUSIC_VOL = 0.4;    // 기본 볼륨 (효과음보다 뒤에 깔리게)
+const MUSIC_FADE = 1.2;   // 곡이 바뀔 때 페이드 시간 (초)
+const MUSIC_DUCK = 0.35;  // 일시정지 · 설정 화면에서 볼륨 비율
+const Music = (() => {
+  const els = {};
+  let unlocked = false;   // 브라우저는 사용자가 한 번 누른 뒤에야 소리를 낼 수 있다
+  const unlock = () => { unlocked = true; };
+  addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
+  const el = k => els[k] || (els[k] = Object.assign(new Audio(MUSIC_DIR + encodeURIComponent(MUSIC[k])), { loop: true, preload: 'auto', volume: 0 }));
+  return {
+    current: null, els, // els: 확인용
+    update(dt, target, duck) {
+      if (Input.state.device === 'gamepad' && Input.state.start) unlocked = true;
+      const want = Input.settings.bgm && !document.hidden ? target : null;
+      this.current = want;
+      for (const k in MUSIC) {
+        const on = k === want;
+        if (!on && !els[k]) continue;
+        const a = el(k);
+        const goal = on ? MUSIC_VOL * (duck ? MUSIC_DUCK : 1) : 0, step = dt / MUSIC_FADE * MUSIC_VOL;
+        a.volume = clamp(a.volume + clamp(goal - a.volume, -step, step), 0, 1);
+        if (on && a.paused && unlocked && !(a.retryT > 0)) { a.retryT = 1; a.play().catch(() => {}); }
+        if (a.retryT > 0) a.retryT -= dt;
+        if (!on && a.volume <= 0.001 && !a.paused) { a.pause(); a.currentTime = 0; } // 다 작아지면 멈추고 처음으로
+      }
+    },
+    pauseAll() { for (const k in els) els[k].pause(); },
+  };
+})();
+// 지금 들려줄 곡
+function musicTarget() {
+  const st = G.state;
+  if (st === 'title' || st === 'village' || (st === 'settings' && G.settingsFrom !== 'paused')) return 'village';
+  if (st === 'ending') return 'ending';
+  if (st === 'over') return null;
+  if (G.boss && !G.boss.dead) return 'boss';
+  return 'w' + clamp(G.stage || 1, 1, 6);
+}
+
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem('swordsman.' + k)); } catch (_) { return null; } },
   set(k, v) { try { localStorage.setItem('swordsman.' + k, JSON.stringify(v)); } catch (_) {} },
@@ -828,7 +876,7 @@ Input.onUi = id => {
 Input.onPadConnect = () => { G.toast = { s: '🎮 게임패드 연결됨', t: 2.5 }; };
 // 화면을 떠나면(전화 · 앱 전환 · 다른 창) 자동으로 일시정지
 const autoPause = () => { if (G.state === 'play') openPause(); };
-document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { autoPause(); Music.pauseAll(); } });
 addEventListener('blur', autoPause);
 addEventListener('pagehide', autoPause);
 
@@ -1255,7 +1303,7 @@ function settingsRows(tab) {
   if (tab === 1) return [{ kind: 'padlayout', name: '패드 레이아웃', value: S.padLayout === 'switch' ? '스위치  ·  A 선택 (오른쪽) · B 취소 (아래)' : 'Xbox  ·  A 선택 (아래) · B 취소 (오른쪽)' }, ...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
   return [{ kind: 'toggle', key: 'sfx', name: '효과음', value: S.sfx ? '켜짐' : '꺼짐' },
-    { kind: 'toggle', key: 'bgm', name: '배경음악 (곧 추가돼요)', value: S.bgm ? '켜짐' : '꺼짐' },
+    { kind: 'toggle', key: 'bgm', name: '배경음악', value: S.bgm ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'rumble', name: '진동 (게임패드 · 휴대폰)', value: S.rumble ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'shake', name: '화면 흔들림', value: S.shake ? '켜짐' : '꺼짐' }];
 }
@@ -2170,6 +2218,7 @@ function frame(now) {
   G.time += dt;
   Input.update();
   layoutButtons();
+  Music.update(dt, musicTarget(), G.state === 'paused' || G.state === 'settings');
   const inp = Input.state;
   const slow = G.slowT > 0 ? 0.3 : 1;
 
