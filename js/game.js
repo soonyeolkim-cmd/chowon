@@ -67,7 +67,7 @@ const Sfx = (() => {
 // 오래 들어도 덜 피곤하게: 볼륨은 낮게, 곡이 바뀔 땐 천천히 겹쳐 바뀌고, 일시정지 · 설정 화면에선 작게
 const MUSIC_DIR = 'assets/NinjaAdventure/Audio/Musics/';
 const MUSIC = {
-  village: '33 - Calm Village.ogg',
+  title: '38 - Intro.ogg', village: '33 - Calm Village.ogg',
   w1: '1 - Adventure Begin.ogg', w2: '23 - Road.ogg', w3: '37 - Dark Forest.ogg',
   w4: '18 - Aquatic.ogg', w5: '30 - Ruins.ogg', w6: '24 - Final Area.ogg',
   boss: '17 - Fight.ogg', ending: '8 - End Theme.ogg',
@@ -104,7 +104,8 @@ const Music = (() => {
 // 지금 들려줄 곡
 function musicTarget() {
   const st = G.state;
-  if (st === 'title' || st === 'village' || (st === 'settings' && G.settingsFrom !== 'paused')) return 'village';
+  if (st === 'title' || (st === 'settings' && G.settingsFrom === 'title')) return 'title';
+  if (st === 'village' || (st === 'settings' && G.settingsFrom === 'village')) return 'village';
   if (st === 'ending') return 'ending';
   if (st === 'over') return null;
   if (G.boss && !G.boss.dead) return 'boss';
@@ -2225,7 +2226,9 @@ function frame(now) {
   if (G.state === 'title') {
     G.cam.x = World.pw / 2 + Math.cos(G.time * 0.15) * 300;
     G.cam.y = World.ph / 2 + Math.sin(G.time * 0.2) * 200;
-    if (inp.start) G.goVillage();
+    // 브라우저는 처음 누른 뒤에야 소리를 낸다: 음악이 켜져 있으면 첫 입력은 시작 화면 음악을 틀고, 다음 입력에 출발
+    if (inp.start) { if (Input.settings.bgm && !G.titleHeard) { G.titleHeard = true; G.titleT = 0; } else if (!(G.titleT < 0.4)) G.goVillage(); }
+    G.titleT = (G.titleT || 0) + dt;
   } else if (G.state === 'play') {
     if (inp.pause) openPause();
     else {
