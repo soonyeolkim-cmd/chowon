@@ -8,6 +8,8 @@ const angDiff = (a, b) => {
   while (d < -Math.PI) d += Math.PI * 2;
   return d;
 };
+// 자동 조준 (방향 입력 없이 공격할 때): 거리 120 · 보는 방향 좌우 60°(앞쪽 120°) 안 · 정면 쪽 적을 조금 더 우선
+const AIM_RANGE = 120, AIM_HALF_ANGLE = Math.PI / 3, AIM_FRONT_BIAS = 40;
 
 function applyKnockback(e, dt) {
   if (!e.kvx && !e.kvy) return;
@@ -174,9 +176,19 @@ class Player {
       return;
     }
     // 방향 입력 없이 공격하면 가까운 적을 자동 조준 (모바일 편의)
+    // 보는 방향 앞쪽 부채꼴 안의 적만 (뒤로 홱 돌지 않게), 정면에 가까울수록 우선
     if (mag >= 0.2) return;
-    const t = G.nearestTarget(this.x, this.y, 120);
-    if (t) this.facing = Math.atan2(t.y - this.y, t.x - this.x);
+    let best = null, bs = Infinity;
+    for (const t of G.targets()) {
+      if (t.spawnT > 0.2) continue;
+      const d = Math.hypot(t.x - this.x, t.y - this.y) - t.r;
+      if (d > AIM_RANGE) continue;
+      const off = Math.abs(angDiff(Math.atan2(t.y - this.y, t.x - this.x), this.facing));
+      if (off > AIM_HALF_ANGLE) continue;
+      const score = d + AIM_FRONT_BIAS * off / AIM_HALF_ANGLE;
+      if (score < bs) { bs = score; best = t; }
+    }
+    if (best) this.facing = Math.atan2(best.y - this.y, best.x - this.x);
   }
 
   startDash(mag) {
