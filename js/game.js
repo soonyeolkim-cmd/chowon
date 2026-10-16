@@ -1234,7 +1234,8 @@ function closeSettings() {
 }
 function settingsRows(tab) {
   const B = Input.binds, S = Input.settings;
-  if (tab === 0) return [{ kind: 'mode', name: '조작 방식', value: S.kbMode === 'mouse' ? '키보드+마우스' : '키보드만' }, ...KB_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'kb', action: a, name: n, value: B.kb[a].map(kbName).join(' / ') })),
+  if (tab === 0) return [{ kind: 'mode', name: '조작 방식', value: S.kbMode === 'mouse' ? '키보드+마우스' : '키보드만' },
+    ...(S.kbMode === 'mouse' ? [{ kind: 'toggle', key: 'cursorAim', name: '마우스 조준 (공격이 커서 쪽으로)', value: S.cursorAim ? '켜짐' : '꺼짐' }] : []), ...KB_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'kb', action: a, name: n, value: B.kb[a].map(kbName).join(' / ') })),
     { kind: 'reset', dev: 'kb', name: '키보드 기본값으로 되돌리기', value: '' }];
   if (tab === 1) return [...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
@@ -1318,7 +1319,7 @@ function drawSettings(blink) {
   });
   const d = Input.state.device;
   const how = s.msg || (s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
-    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 선택 → 바꿀 버튼 누르기 · B 취소/돌아가기 (B는 지정할 수 없어요)' : s.tab === 0 ? (Input.settings.kbMode === 'mouse' ? '키보드+마우스: 공격은 커서 쪽으로 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수' : '키보드만: 공격은 보는 방향으로 · 마우스는 메뉴 클릭에만') : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
+    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 선택 → 바꿀 버튼 누르기 · B 취소/돌아가기 (B는 지정할 수 없어요)' : s.tab === 0 ? (Input.settings.kbMode === 'mouse' ? `키보드+마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · 조준은 ${Input.settings.cursorAim ? '커서 쪽' : '보는 방향 + 자동 조준'}` : '키보드만: 공격은 보는 방향으로 · 마우스는 메뉴 클릭에만') : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
   label(how, W / 2, H - inset.b - 18, 12, s.msg ? '#ffe08a' : '#aab', 'center', '600');
   if (s.tab === 1) { // 패드 입력 확인: 스틱 · 십자키 · 버튼이 제대로 들어오는지
     const pi = Input.padInfo;
@@ -1342,7 +1343,7 @@ function keyNames() {
   const d = Input.state.device, B = Input.binds;
   if (d === 'touch') return { A: '공격', P: '특수', D: '대시', move: '왼쪽 조이스틱' };
   if (d === 'gamepad') return { A: padName(B.pad.attack[0]), P: padName(B.pad.special[0]), D: padName(B.pad.dash[0]), move: '왼쪽 스틱' };
-  if (Input.state.mouseAim) return { A: '왼쪽 클릭', P: '오른쪽 클릭', D: kbName(B.kb.dash.includes('Space') ? 'Space' : B.kb.dash[0]), move: B.kb.up.includes('KeyW') ? 'WASD' : kbName(B.kb.up[0]) + kbName(B.kb.left[0]) + kbName(B.kb.down[0]) + kbName(B.kb.right[0]) };
+  if (Input.state.mouseMode) return { A: '왼쪽 클릭', P: '오른쪽 클릭', D: kbName(B.kb.dash.includes('Space') ? 'Space' : B.kb.dash[0]), move: B.kb.up.includes('KeyW') ? 'WASD' : kbName(B.kb.up[0]) + kbName(B.kb.left[0]) + kbName(B.kb.down[0]) + kbName(B.kb.right[0]) };
   const arrows = B.kb.up.includes('ArrowUp') && B.kb.left.includes('ArrowLeft');
   return { A: kbName(B.kb.attack[0]), P: kbName(B.kb.special[0]), D: kbName(B.kb.dash[0]), move: arrows ? '방향키' : [B.kb.up, B.kb.left, B.kb.down, B.kb.right].map(l => kbName(l[0])).join('') };
 }

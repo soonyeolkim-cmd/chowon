@@ -11,7 +11,8 @@ const Input = (() => {
     reroll: false,               // 축복 다시 뽑기 (키보드: 특수 키 · 패드: Y)
     confirm: false, back: false, // 메뉴용: 결정(Enter · 공격 · 패드 A) / 뒤로(Esc · 일시정지 · 패드 B)
     device: 'keyboard',      // 마지막으로 쓴 입력 장치: keyboard | touch | gamepad
-    mouseAim: false,         // 키보드+마우스 방식으로 하는 중: 공격은 마우스 커서 쪽으로 (설정의 조작 방식에서 정한다)
+    mouseMode: false,        // 키보드+마우스 방식으로 하는 중 (설정의 조작 방식에서 정한다)
+    mouseAim: false,         // 마우스 조준: 공격이 커서 쪽으로 (설정에서 끌 수 있다, 끄면 보는 방향 + 자동 조준)
     mouse: null,             // 마우스 커서 위치 (화면 좌표)
   };
   let mouseBtns = 0;         // 지금 눌린 마우스 버튼 (1 왼쪽 · 2 오른쪽)
@@ -42,7 +43,7 @@ const Input = (() => {
     return d; })();
   // kbMode: 컴퓨터 조작 방식 'mouse' = 키보드+마우스 (WASD · 클릭 · 커서 조준) / 'keys' = 키보드만 (방향키 · Z X C)
   const pcFine = !!(window.matchMedia && matchMedia('(pointer: fine)').matches);
-  const settings = Object.assign({ rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys' }, load('settings', {}));
+  const settings = Object.assign({ rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys', cursorAim: false }, load('settings', {}));
   const kbHas = (action, code) => binds.kb[action].includes(code);
   const isGameKey = code => Object.values(binds.kb).some(list => list.includes(code));
 
@@ -263,8 +264,9 @@ const Input = (() => {
     state.lb = queued.lb; state.rb = queued.rb; queued.lb = queued.rb = false;
     queued.tap = null;
     state.padA = padHeldA;
-    state.mouseAim = settings.kbMode === 'mouse' && state.device === 'keyboard';
-    state.attackHeld = binds.kb.attack.some(has) || (state.mouseAim && !!(mouseBtns & 1)) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
+    state.mouseMode = settings.kbMode === 'mouse' && state.device === 'keyboard';
+    state.mouseAim = state.mouseMode && settings.cursorAim;
+    state.attackHeld = binds.kb.attack.some(has) || (state.mouseMode && !!(mouseBtns & 1)) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
     queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = queued.reroll = false;
   }
 
