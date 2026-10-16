@@ -1227,7 +1227,7 @@ function openSettings(from) {
   G.su = { tab: Input.state.device === 'gamepad' ? 1 : 0, sel: 0, axis: 0, axisX: 0, t: 0, waiting: null, msg: null };
 }
 function closeSettings() {
-  Input.capture = null;
+  Input.capture = null; Input.captureDev = null;
   G.state = G.settingsFrom === 'village' ? 'village' : G.settingsFrom === 'title' ? 'title' : 'paused';
   if (G.state === 'paused' && G.pm) G.pm.t = 0;
   if (G.state === 'village' && G.village) { G.village.t = 0.3; G.village.armed = false; }
@@ -1255,21 +1255,23 @@ function settingsAct(row) {
   const s = G.su;
   if (row.kind === 'reset') { Input.resetBinds(row.dev); s.msg = '기본값으로 되돌렸어요'; Sfx.level(); return; }
   if (row.kind === 'toggle') { Input.settings[row.key] = !Input.settings[row.key]; Input.saveSettings(); Sfx.pickup(); return; }
-  s.waiting = row; s.msg = null; Sfx.pickup();
+  s.waiting = row; s.msg = null; s.wt = 0; Sfx.pickup();
+  Input.captureDev = row.dev;
   Input.capture = (kind, code) => {
-    s.waiting = null; Input.clearKeys();
+    s.waiting = null; Input.clearKeys(); Input.captureDev = null;
     if (kind === 'kb' && code === 'Escape') { s.msg = '취소했어요'; return; }
     if (kind !== row.dev) { s.msg = row.dev === 'kb' ? '키보드 키를 눌러야 해요' : '게임패드 버튼을 눌러야 해요'; return; }
     if (kind === 'pad' && code >= 12 && code <= 15) { s.msg = '십자키는 이동 전용이에요'; return; }
     Input.bind(row.dev, row.action, code);
-    s.msg = `${row.name} → ${kind === 'kb' ? kbName(code) : padName(code)}`; Sfx.level();
+    s.msg = `${row.name} → ${kind === 'kb' ? kbName(code) : `${padName(code)} (버튼 ${code})`}`; Sfx.level();
     s.t = 0; // 방금 누른 키가 바로 메뉴 결정으로 이어지지 않게
   };
 }
 function handleSettingsInput(dt, inp) {
   const s = G.su; s.t += dt;
   if (s.waiting) { // 키 입력 기다리는 중 (화면을 탭하면 취소)
-    if (inp.tap) { Input.capture = null; s.waiting = null; s.msg = '취소했어요'; }
+    s.wt = (s.wt || 0) + dt;
+    if (inp.tap || s.wt > 8) { Input.capture = null; Input.captureDev = null; s.waiting = null; s.msg = inp.tap ? '취소했어요' : '시간이 지나 취소했어요'; }
     return;
   }
   if (s.t < 0.2) { menuAxis(s, inp); return; }
@@ -1305,7 +1307,7 @@ function drawSettings(blink) {
     ctx.fillStyle = waiting ? 'rgba(120,90,20,0.95)' : sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.88)'; ctx.fillRect(row.x, row.y, row.w, row.h);
     if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(row.x + 1, row.y + 1, row.w - 2, row.h - 2); }
     label(r.name, row.x + 14, row.y + row.h / 2, 13, r.kind === 'reset' ? '#ffb0a0' : '#fff', 'left', '700');
-    const val = waiting ? (blink ? (r.dev === 'kb' ? '새 키를 누르세요… (Esc 취소)' : '새 버튼을 누르세요…') : '') : r.value;
+    const val = waiting ? (blink ? (r.dev === 'kb' ? '새 키를 누르세요… (Esc 취소)' : '새 버튼을 누르세요… (화면 탭 취소)') : '') : r.value;
     label(val, row.x + row.w - 14, row.y + row.h / 2, 13, waiting ? '#ffe08a' : r.kind === 'toggle' ? (r.value === '켜짐' ? '#8ff0b0' : '#ff9a7a') : '#c8d8ff', 'right', '800');
   });
   const d = Input.state.device;
@@ -1315,7 +1317,7 @@ function drawSettings(blink) {
   if (s.tab === 1) { // 패드 입력 확인: 스틱 · 십자키 · 버튼이 제대로 들어오는지
     const pi = Input.padInfo;
     const arrow = pi ? (pi.ay < -0.5 ? '↑' : pi.ay > 0.5 ? '↓' : '') + (pi.ax < -0.5 ? '←' : pi.ax > 0.5 ? '→' : '') : '';
-    label(pi ? `입력 확인 · 방향 ${arrow || '·'}  ·  누른 버튼 ${pi.pressed.length ? pi.pressed.map(padName).join(' ') : '없음'}${pi.mapping === 'standard' ? '' : '  (비표준 배치)'}`
+    label(pi ? `입력 확인 · 방향 ${arrow || '·'}  ·  누른 버튼 ${pi.pressed.length ? pi.pressed.map(i => `${padName(i)}(${i})`).join(' ') : '없음'}${Input.lastKey ? `  ·  키 신호 ${Input.lastKey}` : ''}${pi.mapping === 'standard' ? '' : '  (비표준 배치)'}`
       : '패드가 연결되지 않았어요 · 아무 버튼이나 눌러 보세요', W / 2, H - inset.b - 36, 11, pi ? '#8ff0b0' : '#ff9a7a', 'center', '600');
   }
 }

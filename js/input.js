@@ -138,6 +138,9 @@ const Input = (() => {
 
   function init(canvas) {
     addEventListener('keydown', e => {
+      api.lastKey = e.code || e.key || '?';
+      // 패드 버튼 설정 중: 안드로이드 패드는 버튼을 누를 때 키보드 신호(Escape 등)도 같이 보내므로 무시한다
+      if (api.capture && api.captureDev === 'pad') { e.preventDefault(); return; }
       state.device = 'keyboard';
       // 키 설정 중: 누른 키를 그대로 넘긴다
       if (api.capture) { e.preventDefault(); if (!e.repeat) { const f = api.capture; api.capture = null; f('kb', e.code); } return; }
@@ -178,7 +181,7 @@ const Input = (() => {
     lastPad = gp;
     if (!gp) { api.padInfo = null; return null; }
 
-    const down = i => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    const down = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5));
     const edge = [];
     let anyButton = false;
     for (let i = 0; i < gp.buttons.length; i++) {
@@ -285,6 +288,6 @@ const Input = (() => {
 
   const api = { init, update, state, joy, buttons, pointers, setButton, rumble, onUi: null, onPadConnect: null,
     rot: false, physW: innerWidth, viewW: innerWidth, wheel: 0,
-    binds, settings, bind, resetBinds, saveSettings, capture: null, clearKeys: () => keys.clear(), padInfo: null };
+    binds, settings, bind, resetBinds, saveSettings, capture: null, clearKeys: () => keys.clear(), padInfo: null, captureDev: null, lastKey: null };
   return api;
 })();
