@@ -1715,7 +1715,7 @@ function drawVillage(blink) {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
-    : d === 'gamepad' ? `${padName(4)} · ${padName(5)}: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
+    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
@@ -1830,6 +1830,8 @@ function handleVillageInput(dt, inp) {
     const k = villageItems(t).findIndex(it => !it.header);
     if (k >= 0) v.sel = k;
   };
+  // B(취소): 위쪽(목록 · ⚙)에 있으면 아래 버튼 줄의 '모험 떠나기'로 내려간다
+  if (inp.back && !inBar) { v.sel = n; v.msg = null; Sfx.pickup(); return; }
   if (inp.lb || inp.rb) { const d = inp.rb ? 1 : -1; if (inBar) barMove(d); else tabTo(d > 0 ? 1 : 0); return; }
   // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
