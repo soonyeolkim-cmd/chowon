@@ -1542,7 +1542,7 @@ function render() {
   const tap = Input.state.device === 'touch' ? '탭' : '아무 버튼';
   if (G.state === 'title') {
     overlay(0.5);
-    label('초원의 검사', W / 2, H * 0.2, big, '#ffe08a');
+    label('봉인의 숲', W / 2, H * 0.2, big, '#ffe08a');
     const story = '마물에게 습격당한 숲 마을. 견습 검사 리안은 숲의 정령 루미와 함께 봉인석의 비밀을 쫓는다.';
     wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, H * 0.2 + big * 0.9 + i * 20, 14, '#d8e8d0', 'center', '500'));
     const md = Meta.data;
