@@ -293,6 +293,7 @@ const G = {
     else Meta.data.best = Math.max(Meta.data.best, reached);
     Meta.save();
     this.boons = stats && stats.boons ? { ...stats.boons } : {};
+    if (newRun && DEV_BUILD) Object.assign(this.boons, DEV_BUILD.boons); // 로컬 시험 빌드 (?build=spin)
     this.zones = []; this.bolts = []; this.offer = null;
     if (sub === 1) this.lumiHeals = 1 + Meta.lv('bond'); // 루미의 위기 회복은 세계마다
     this.stageStats = stats;

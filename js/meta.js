@@ -44,6 +44,14 @@ const ESSENCE_ALL_CLEAR = 5;        // 완주 보너스
 //   null    — 끄기
 const DEV_LOCAL = /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(location.hostname);
 const DEV_MODE = DEV_LOCAL ? 'spear' : null;
+// 시험 빌드: 로컬에서 주소 뒤에 ?build=spin 을 붙이면 런을 그 축복들을 가진 채로 시작한다
+const TEST_BUILDS = {
+  // 회전베기 최강: 회전 연참 · 일섬 회전 · 빙결 회오리 · 파쇄 · 수호의 회전 · 날카로운 검 · 급소 · 연속 타격 (+ 회전베기 숙련 3)
+  spin: { weapon: 'sword', mastery: { spin: 3 }, boons: { atk_multispin: 3, atk_spin: 3, ice_charge: 3, shatter: 3, guard_spin: 3, sharp: 3, vital: 3, momentum: 3 } },
+  // 검기 최강: 거대 검기 · 뇌격 검기 · 과충전 · 치유의 검기 · 날카로운 검 · 급소 (+ 섬광 검기 숙련 3)
+  wave: { weapon: 'sword', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
+};
+const DEV_BUILD = DEV_LOCAL ? TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null : null;
 
 const Meta = {
   data: null,
@@ -68,6 +76,12 @@ const Meta = {
     if (DEV_MODE === 'all') this.unlockAll();
     if (DEV_MODE === 'spear' && !this.data.unlocked.includes('spear')) {
       this.data.unlocked.push('spear'); this.data.weapon = 'spear';
+    }
+    if (DEV_BUILD) { // 시험 빌드: 무기 · 숙련 맞추기
+      const d = this.data;
+      if (!d.unlocked.includes(DEV_BUILD.weapon)) d.unlocked.push(DEV_BUILD.weapon);
+      d.weapon = DEV_BUILD.weapon;
+      Object.assign(d.wup[DEV_BUILD.weapon] || (d.wup[DEV_BUILD.weapon] = {}), DEV_BUILD.mastery);
     }
   },
   // 테스트용: 강화·숙련 최대, 무기 전부 해금, 재화 넉넉히

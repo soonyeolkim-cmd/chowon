@@ -10,6 +10,8 @@ const angDiff = (a, b) => {
 };
 // 자동 조준 (방향 입력 없이 공격할 때): 거리 120 · 보는 방향 좌우 60°(앞쪽 120°) 안 · 정면 쪽 적을 조금 더 우선
 const AIM_RANGE = 120, AIM_HALF_ANGLE = Math.PI / 3, AIM_FRONT_BIAS = 40;
+// 검기 조준: 멀리 날아가니 더 멀리(340)까지 찾고, 걸으면서 쏴도 진행 방향 좌우 25° 안의 적에게 살짝 맞춰 준다
+const WAVE_AIM = { range: 340, half: AIM_HALF_ANGLE, moveHalf: 25 * Math.PI / 180 };
 
 function applyKnockback(e, dt) {
   if (!e.kvx && !e.kvy) return;
@@ -169,7 +171,7 @@ class Player {
     if (inp.dash) this.dashBuffer = INPUT_BUFFER;
   }
 
-  aim(mag) {
+  aim(mag, o = {}) {
     // 마우스로 하는 중이면 커서 쪽으로
     const ms = Input.state;
     if (ms.mouseAim && ms.mouse && G.view) {
@@ -179,15 +181,19 @@ class Player {
     }
     // 방향 입력 없이 공격하면 가까운 적을 자동 조준 (모바일 편의)
     // 보는 방향 앞쪽 부채꼴 안의 적만 (뒤로 홱 돌지 않게), 정면에 가까울수록 우선
-    if (mag >= 0.2) return;
+    // o: 기술별 조준 (range 거리 · half 부채꼴 · moveHalf 걸으면서 쏠 때의 보정 각도)
+    const moving = mag >= 0.2;
+    if (moving && !o.moveHalf) return;
+    const range = o.range || AIM_RANGE, half = moving ? o.moveHalf : o.half || AIM_HALF_ANGLE;
+    const bias = AIM_FRONT_BIAS * range / AIM_RANGE;
     let best = null, bs = Infinity;
     for (const t of G.targets()) {
       if (t.spawnT > 0.2) continue;
       const d = Math.hypot(t.x - this.x, t.y - this.y) - t.r;
-      if (d > AIM_RANGE) continue;
+      if (d > range) continue;
       const off = Math.abs(angDiff(Math.atan2(t.y - this.y, t.x - this.x), this.facing));
-      if (off > AIM_HALF_ANGLE) continue;
-      const score = d + AIM_FRONT_BIAS * off / AIM_HALF_ANGLE;
+      if (off > half) continue;
+      const score = d + bias * off / half;
       if (score < bs) { bs = score; best = t; }
     }
     if (best) this.facing = Math.atan2(best.y - this.y, best.x - this.x);
@@ -244,7 +250,7 @@ class Player {
 
   // 섬광 검기: 관통하는 큰 검기 (3타째 직후엔 세 갈래)
   castWave(mag) {
-    this.aim(mag);
+    this.aim(mag, WAVE_AIM);
     const triple = this.finisherT > 0 && G.has('triple');
     const dirs = triple ? [-0.35, 0, 0.35] : [0];
     for (const o of dirs) G.projectiles.push(new Wave(this.x, this.y - 2, this.facing + o, triple));
