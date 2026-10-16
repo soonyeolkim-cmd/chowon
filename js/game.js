@@ -833,6 +833,7 @@ addEventListener('pagehide', autoPause);
 
 // ── 그리기: 월드 ────────────────────────────────────────────
 function drawWorld() {
+  canvas.style.cursor = G.state === 'play' && Input.state.mouseAim ? 'crosshair' : '';
   const vw = W / SCALE, vh = H / SCALE;
   let cx = G.cam.x - vw / 2, cy = G.cam.y - vh / 2;
   cx = World.pw > vw ? clamp(cx, 0, World.pw - vw) : (World.pw - vw) / 2;
@@ -1309,7 +1310,7 @@ function drawSettings(blink) {
   });
   const d = Input.state.device;
   const how = s.msg || (s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
-    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 바꾸기 · B 돌아가기' : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
+    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 바꾸기 · B 돌아가기' : s.tab === 0 ? '마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 (커서 쪽으로) · WASD 이동도 돼요' : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
   label(how, W / 2, H - inset.b - 18, 12, s.msg ? '#ffe08a' : '#aab', 'center', '600');
 }
 
@@ -1325,6 +1326,7 @@ function keyNames() {
   const d = Input.state.device, B = Input.binds;
   if (d === 'touch') return { A: '공격', P: '특수', D: '대시', move: '왼쪽 조이스틱' };
   if (d === 'gamepad') return { A: padName(B.pad.attack[0]), P: padName(B.pad.special[0]), D: padName(B.pad.dash[0]), move: '왼쪽 스틱' };
+  if (Input.state.mouseAim) return { A: '왼쪽 클릭', P: '오른쪽 클릭', D: kbName(B.kb.dash.includes('Space') ? 'Space' : B.kb.dash[0]), move: B.kb.up.includes('KeyW') ? 'WASD' : kbName(B.kb.up[0]) + kbName(B.kb.left[0]) + kbName(B.kb.down[0]) + kbName(B.kb.right[0]) };
   const arrows = B.kb.up[0] === 'ArrowUp' && B.kb.left[0] === 'ArrowLeft';
   return { A: kbName(B.kb.attack[0]), P: kbName(B.kb.special[0]), D: kbName(B.kb.dash[0]), move: arrows ? '방향키' : [B.kb.up, B.kb.left, B.kb.down, B.kb.right].map(l => kbName(l[0])).join('') };
 }
@@ -1974,7 +1976,7 @@ function render() {
     label(`봉인 등급 ${md.tier} · ${ROUTES[tierInfo(md.tier).route].name}   ·   난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 1/3)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
     const { move, A, P, D } = keyNames();
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
-    if (Input.state.device === 'keyboard') label('Ctrl 공격 · Space 대시 · Alt 특수도 쓸 수 있어요', W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
+    if (Input.state.device === 'keyboard') label(Input.state.mouseAim ? '키보드만으로도 할 수 있어요: 방향키 · Z 공격 · X 대시 · C 특수' : '키보드+마우스: WASD 이동 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시', W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
     label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, H * 0.56 + 20, 12, '#b8c8b8', 'center', '500');
     if (blink) label(`${tap}해서 시작`, W / 2, H * 0.78, 20, '#ffd24a');
   } else if (G.state === 'village' || (G.state === 'settings' && G.settingsFrom === 'village')) {

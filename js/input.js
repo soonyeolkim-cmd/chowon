@@ -11,7 +11,10 @@ const Input = (() => {
     reroll: false,               // 축복 다시 뽑기 (키보드: 특수 키 · 패드: Y)
     confirm: false, back: false, // 메뉴용: 결정(Enter · 공격 · 패드 A) / 뒤로(Esc · 일시정지 · 패드 B)
     device: 'keyboard',      // 마지막으로 쓴 입력 장치: keyboard | touch | gamepad
+    mouseAim: false,         // 키보드+마우스로 하는 중: 공격은 마우스 커서 쪽으로
+    mouse: null,             // 마우스 커서 위치 (화면 좌표)
   };
+  let mouseBtns = 0;         // 지금 눌린 마우스 버튼 (1 왼쪽 · 2 오른쪽)
   const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0, radius: 60 };
   const buttons = {};        // id -> { x, y, r, visible, pointer, held }
   const pointers = new Map(); // 지금 눌려 있는 손가락·마우스: id -> { x, y }
@@ -20,10 +23,11 @@ const Input = (() => {
   let lastPad = null;
 
   // 조작 설정 (설정 화면에서 바꿀 수 있고, 이 기기에 저장된다)
-  //  키보드: 방향키 이동 · Z/왼쪽 Ctrl 공격(길게 = 차지) · X/Space 대시 · C/왼쪽 Alt 특수 · Esc/P 일시정지
+  //  키보드: 방향키/WASD 이동 · Z/왼쪽 Ctrl 공격(길게 = 차지) · X/Space 대시 · C/왼쪽 Alt 특수 · Esc/P 일시정지
+  //  마우스: 왼쪽 클릭 공격(길게 = 차지) · 오른쪽 클릭 특수, 공격은 커서 쪽으로
   //  게임패드 (엑스박스 기준 버튼 위치, 스위치는 같은 위치): X 공격 · A 특수 · RB 대시 · START 일시정지 (이동은 왼쪽 스틱 · 십자키 고정)
   const DEFAULT_BINDS = {
-    kb: { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],
+    kb: { up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'], left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'],
           attack: ['KeyZ', 'ControlLeft'], dash: ['KeyX', 'Space'], special: ['KeyC', 'AltLeft'], pause: ['Escape', 'KeyP'] },
     pad: { attack: [2], dash: [5], special: [0], pause: [9] },
   };
@@ -32,6 +36,9 @@ const Input = (() => {
   const save = (k, v) => { try { localStorage.setItem('swordsman.' + k, JSON.stringify(v)); } catch (_) {} };
   const binds = (() => { const b = load('binds', null), d = copy(DEFAULT_BINDS); if (!b) return d;
     for (const dev of ['kb', 'pad']) for (const a in d[dev]) if (b[dev] && Array.isArray(b[dev][a]) && b[dev][a].length) d[dev][a] = b[dev][a];
+    // 예전에 저장한 설정에도 WASD 이동을 얹는다 (다른 행동이 쓰는 키가 아니면)
+    for (const [a, k] of [['up', 'KeyW'], ['down', 'KeyS'], ['left', 'KeyA'], ['right', 'KeyD']])
+      if (!Object.values(d.kb).some(l => l.includes(k))) d.kb[a] = d.kb[a].concat(k);
     return d; })();
   const settings = Object.assign({ rumble: true, shake: true }, load('settings', {}));
   const kbHas = (action, code) => binds.kb[action].includes(code);
@@ -48,9 +55,33 @@ const Input = (() => {
   const toView = e => api.rot ? { x: e.clientY, y: api.physW - e.clientX } : { x: e.clientX, y: e.clientY };
   const hit = (b, x, y, pad) => b && b.visible && Math.hypot(x - b.x, y - b.y) <= b.r * pad;
 
+  // 마우스 버튼: 새로 눌린 버튼만 행동으로 (두 버튼을 겹쳐 누르면 pointerdown 없이 pointermove로 온다)
+  function mouseButtons(e) {
+    const now = e.buttons, fresh = now & ~mouseBtns;
+    mouseBtns = now;
+    if (!fresh) return;
+    state.device = 'keyboard'; state.mouseAim = true;
+    if (fresh & 1) queued.attack = true;
+    if (fresh & 2) queued.special = true;
+    queued.start = true;
+  }
+
   function onDown(e) {
     e.preventDefault();
     const { x, y } = toView(e);
+    if (e.pointerType === 'mouse') {
+      state.mouse = { x, y };
+      // 왼쪽 버튼만 화면 버튼(일시정지 등) · 메뉴 탭으로 쓴다
+      if (e.button === 0) {
+        for (const id of ['skip', 'pause', 'fullscreen']) {
+          if (hit(buttons[id], x, y, 1.3)) { mouseBtns = e.buttons; api.onUi && api.onUi(id); return; }
+        }
+        queued.tap = { x, y };
+      }
+      try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+      mouseButtons(e);
+      return;
+    }
     if (e.pointerType !== 'mouse') state.device = 'touch';
     try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
 
@@ -61,7 +92,6 @@ const Input = (() => {
     queued.start = true;
     queued.tap = { x, y };
     pointers.set(e.pointerId, { x, y });
-    if (e.pointerType === 'mouse') { queued.attack = true; return; }
 
     // 터치 판정이 겹치면 손가락에 가장 가까운 버튼을 누른다
     let best = null, bestK = Infinity;
@@ -84,6 +114,7 @@ const Input = (() => {
   function onMove(e) {
     const pt = pointers.get(e.pointerId);
     const v = toView(e);
+    if (e.pointerType === 'mouse') { state.mouse = v; mouseButtons(e); return; }
     if (pt) { pt.x = v.x; pt.y = v.y; }
     if (e.pointerId !== joy.id) return;
     e.preventDefault();
@@ -96,6 +127,7 @@ const Input = (() => {
   }
 
   function onUp(e) {
+    if (e.pointerType === 'mouse') { mouseBtns = e.buttons; return; }
     pointers.delete(e.pointerId);
     if (e.pointerId === joy.id) joy.id = null;
     for (const id in buttons) {
@@ -111,6 +143,7 @@ const Input = (() => {
       if (api.capture) { e.preventDefault(); if (!e.repeat) { const f = api.capture; api.capture = null; f('kb', e.code); } return; }
       keys.add(e.code);
       if (!e.repeat) {
+        if (kbHas('attack', e.code) || kbHas('special', e.code)) state.mouseAim = false; // 키보드로 공격하면 다시 이동 방향 조준
         if (kbHas('attack', e.code)) queued.attack = true;
         if (kbHas('dash', e.code)) queued.dash = true;
         if (kbHas('special', e.code)) queued.special = queued.reroll = true;
@@ -123,7 +156,7 @@ const Input = (() => {
       if (e.code.startsWith('Arrow') || isGameKey(e.code)) e.preventDefault();
     });
     addEventListener('keyup', e => { keys.delete(e.code); if (isGameKey(e.code)) e.preventDefault(); });
-    addEventListener('blur', () => { keys.clear(); joy.id = null; pointers.clear(); });
+    addEventListener('blur', () => { keys.clear(); joy.id = null; pointers.clear(); mouseBtns = 0; });
 
     canvas.addEventListener('pointerdown', onDown);
     canvas.addEventListener('pointermove', onMove);
@@ -161,7 +194,7 @@ const Input = (() => {
     if (down(14)) ax = -1; if (down(15)) ax = 1;   // 십자키
     if (down(12)) ay = -1; if (down(13)) ay = 1;
 
-    if (ax || ay || anyButton) state.device = 'gamepad';
+    if (ax || ay || anyButton) { state.device = 'gamepad'; state.mouseAim = false; }
     // 키 설정 중: 처음 누른 버튼을 넘긴다
     if (api.capture) {
       const i = edge.findIndex(Boolean);
@@ -207,7 +240,7 @@ const Input = (() => {
     state.tap = queued.tap;
     state.confirm = queued.confirm; state.back = queued.back; state.reroll = queued.reroll;
     queued.tap = null;
-    state.attackHeld = binds.kb.attack.some(has) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
+    state.attackHeld = binds.kb.attack.some(has) || !!(mouseBtns & 1) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
     queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = queued.reroll = false;
   }
 

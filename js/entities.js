@@ -166,6 +166,13 @@ class Player {
   }
 
   aim(mag) {
+    // 마우스로 하는 중이면 커서 쪽으로
+    const ms = Input.state;
+    if (ms.mouseAim && ms.mouse && G.view) {
+      const wx = G.view.x + ms.mouse.x / SCALE, wy = G.view.y + ms.mouse.y / SCALE;
+      this.facing = Math.atan2(wy - this.y, wx - this.x);
+      return;
+    }
     // 방향 입력 없이 공격하면 가까운 적을 자동 조준 (모바일 편의)
     if (mag >= 0.2) return;
     const t = G.nearestTarget(this.x, this.y, 120);
