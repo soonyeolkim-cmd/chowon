@@ -67,10 +67,14 @@ const Sfx = (() => {
 // 오래 들어도 덜 피곤하게: 볼륨은 낮게, 곡이 바뀔 땐 천천히 겹쳐 바뀌고, 일시정지 · 설정 화면에선 작게
 const MUSIC_DIR = 'assets/NinjaAdventure/Audio/Musics/';
 const MUSIC = {
-  title: '38 - Intro.ogg', village: '33 - Calm Village.ogg',
-  w1: '1 - Adventure Begin.ogg', w2: '23 - Road.ogg', w3: '37 - Dark Forest.ogg',
+  title: '1 - Adventure Begin.ogg', village: '33 - Calm Village.ogg',
+  w1: '31 - Sunny.ogg', w2: '23 - Road.ogg', w3: '37 - Dark Forest.ogg',
   w4: '18 - Aquatic.ogg', w5: '30 - Ruins.ogg', w6: '24 - Final Area.ogg',
   boss: '17 - Fight.ogg', ending: '8 - End Theme.ogg',
+};
+// 곡별 부드럽게 처리: rate = 빠르기 (음높이는 그대로), lowpass = 이 주파수 위의 날카로운 소리를 깎는다, warm = 저음 살짝 올리기(dB)
+const MUSIC_FX = {
+  title: { rate: 0.9, lowpass: 2200, warm: 2, gain: 0.8 },  // 시작 화면: 잔잔하게
 };
 const MUSIC_VOL = 0.4;    // 기본 볼륨 (효과음보다 뒤에 깔리게)
 const MUSIC_FADE = 1.2;   // 곡이 바뀔 때 페이드 시간 (초)
@@ -80,7 +84,29 @@ const Music = (() => {
   let unlocked = false;   // 브라우저는 사용자가 한 번 누른 뒤에야 소리를 낼 수 있다
   const unlock = () => { unlocked = true; };
   addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
-  const el = k => els[k] || (els[k] = Object.assign(new Audio(MUSIC_DIR + encodeURIComponent(MUSIC[k])), { loop: true, preload: 'auto', volume: 0 }));
+  const el = k => {
+    if (els[k]) return els[k];
+    const a = els[k] = Object.assign(new Audio(MUSIC_DIR + encodeURIComponent(MUSIC[k])), { loop: true, preload: 'auto', volume: 0 });
+    const fx = MUSIC_FX[k];
+    if (fx && fx.rate) { a.preservesPitch = true; a.defaultPlaybackRate = a.playbackRate = fx.rate; }
+    return a;
+  };
+  // 고음 깎기 · 저음 데우기는 오디오 그래프로 (처음 재생할 때 한 번 연결)
+  let ctx = null;
+  const wire = (k, a) => {
+    const fx = MUSIC_FX[k];
+    if (!fx || !(fx.lowpass || fx.warm) || a.wired) return;
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      const src = ctx.createMediaElementSource(a);
+      let node = src;
+      if (fx.lowpass) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = fx.lowpass; f.Q.value = 0.5; node = node.connect(f); }
+      if (fx.warm) { const f = ctx.createBiquadFilter(); f.type = 'lowshelf'; f.frequency.value = 250; f.gain.value = fx.warm; node = node.connect(f); }
+      const g = ctx.createGain(); g.gain.value = fx.gain || 1;
+      node.connect(g).connect(ctx.destination);
+      a.wired = true;
+    } catch (_) { a.wired = true; } // 처리를 못 하면 그냥 원곡으로
+  };
   return {
     current: null, els, // els: 확인용
     update(dt, target, duck) {
@@ -93,7 +119,7 @@ const Music = (() => {
         const a = el(k);
         const goal = on ? MUSIC_VOL * (duck ? MUSIC_DUCK : 1) : 0, step = dt / MUSIC_FADE * MUSIC_VOL;
         a.volume = clamp(a.volume + clamp(goal - a.volume, -step, step), 0, 1);
-        if (on && a.paused && unlocked && !(a.retryT > 0)) { a.retryT = 1; a.play().catch(() => {}); }
+        if (on && a.paused && unlocked && !(a.retryT > 0)) { a.retryT = 1; wire(k, a); if (ctx && ctx.state === 'suspended') ctx.resume(); a.play().catch(() => {}); }
         if (a.retryT > 0) a.retryT -= dt;
         if (!on && a.volume <= 0.001 && !a.paused) { a.pause(); a.currentTime = 0; } // 다 작아지면 멈추고 처음으로
       }
