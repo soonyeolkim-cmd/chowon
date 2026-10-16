@@ -35,7 +35,9 @@ const SHARD_ALL_CLEAR = 15;   // 세계 3까지 완주
 // 영웅의 증표: 최종 보스(세계 3)를 쓰러뜨릴 때마다 1개. 새 무기를 해금하는 데 쓴다.
 const EMBLEM_PER_CLEAR = 1;
 // 무기의 정수: 모든 무기의 숙련 강화에 쓰는 공통 재화 (어떤 무기로 플레이해도 모인다)
-const ESSENCE_RATE = 0.1;           // 무기의 정수 획득 배율 (2026-10-17: 10분의 1로). 소수점은 모아 뒀다가 1이 되면 준다
+// 무기의 정수: 봉인 등급마다 '처음 넘은 지점'에서만 준다 (이미 받은 스테이지 · 보스는 다시 안 준다). 2026-10-17
+// 등급 하나를 끝까지 처음 깨면 대략 28개. 소수점은 모아 뒀다가 1이 되면 준다
+const ESSENCE_RATE = 0.2;
 const ESSENCE_STAGE = 1;            // 스테이지 클리어
 const ESSENCE_BOSS = [3, 5, 8, 8, 11, 15]; // 세계 1~6 보스
 const ESSENCE_ALL_CLEAR = 5;        // 완주 보너스
@@ -76,6 +78,7 @@ const Meta = {
       tier: d.tier || 1,                           // 고른 봉인 등급
       // 처음 깬 봉인 등급들 { 1: true, ... } (예전 저장: 한 번이라도 완주했으면 등급 1을 깬 것으로)
       tierCleared: d.tierCleared || (d.clears ? { 1: true } : {}),
+      essBest: d.essBest || {}, // 봉인 등급별로 정수를 받은 가장 먼 지점 (스테이지 번호, 완주 = 31)
       midEmblem: !!d.midEmblem, // 세계 3 보스 증표를 받았나
       tiers7: !!d.tiers7,      // 7등급(1~6세계 한 번에) 구조로 옮긴 저장인가
       emblems: d.emblems || 0,

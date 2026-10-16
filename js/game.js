@@ -217,7 +217,9 @@ const G = {
     this.runCommitted = true;
     this.runParts = this.rewardParts(cleared);
     this.gotShards = Math.round(this.runShards * this.runParts.total);
-    this.gotEssence = Math.round(this.runEssence * this.runParts.total);
+    this.gotEssence = this.runEssence; // 정수는 처음 넘은 지점에서만 주므로 배율 없이 그대로
+    const tn = (this.tierInfo || tierInfo(1)).n;
+    Meta.data.essBest[tn] = Math.max(Meta.data.essBest[tn] || 0, this.essRunBest || 0);
     Meta.data.shards += this.gotShards; Meta.data.essence += this.gotEssence;
     Meta.save();
   },
@@ -226,7 +228,7 @@ const G = {
     if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
-    this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0; this.shardFrac = 0;
+    this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0; this.shardFrac = 0; this.essRunBest = 0;
     this.reviveLeft = Meta.lv('revive');
     this.rerolls = Meta.lv('choice');
     const worlds = ROUTES[this.tierInfo.route].worlds;
@@ -242,7 +244,13 @@ const G = {
     this.state = 'village';
   },
   // 무기의 정수 (모든 무기 공통)
-  earnEssence(n, x, y) {
+  // at: 이 정수를 주는 지점 (스테이지 번호 1~30, 완주 31). 이 등급에서 이미 넘은 지점이면 주지 않는다
+  earnEssence(n, x, y, at) {
+    if (at !== undefined) {
+      const best = Meta.data.essBest[(this.tierInfo || tierInfo(1)).n] || 0;
+      if (at <= best) { if (x !== undefined) this.text(x, y, '⚔ 이미 받음', '#8a8f99', 10, 0.9); return; }
+      this.essRunBest = Math.max(this.essRunBest || 0, at);
+    }
     const total = n * ESSENCE_RATE * (this.stage >= 4 ? DEEP_ESSENCE_MULT : 1) + (this.essFrac || 0);
     n = Math.floor(total); this.essFrac = total - n; // 1이 안 되는 몫은 모아 둔다
     if (n <= 0) return;
@@ -550,7 +558,7 @@ const G = {
     if (left > 0) { this.banner = { title: '봉인석 파괴!', sub: `남은 봉인석 ${left}개`, t: 2.2 }; return; }
     // 마지막 봉인석 → 스테이지 클리어. 갇혀 있던 정령이 축복을 준다.
     this.clearEl = this.pickElement();
-    this.earnEssence(ESSENCE_STAGE, t.x, t.y - 34);
+    this.earnEssence(ESSENCE_STAGE, t.x, t.y - 34, (this.stage - 1) * STAGES_PER_WORLD + this.sub);
     this.banner = { title: `${this.stage}-${this.sub} 클리어!`, sub: `${ELEMENTS[this.clearEl].spirit}이 풀려났다`, t: 2.4 };
     for (const e of this.enemies) if (!e.dead) { e.dead = true; this.burst(e.x, e.y, 10, [e.color, '#fff'], 150); }
     this.phase = 'done'; this.clearDelay = 1.4; this.slowT = 0.5;
@@ -564,7 +572,7 @@ const G = {
     this.text(b.x, b.y - 40, '격파!', '#ffd24a', 24, 1.6);
     for (const e of this.enemies) if (!e.dead) this.killEnemy(e);
     this.earn(SHARD_BOSS * this.stage, b.x, b.y - 50);
-    this.earnEssence(ESSENCE_BOSS[Math.min(this.stage, ESSENCE_BOSS.length) - 1], b.x, b.y - 70);
+    this.earnEssence(ESSENCE_BOSS[Math.min(this.stage, ESSENCE_BOSS.length) - 1], b.x, b.y - 70, (this.stage - 1) * STAGES_PER_WORLD + this.sub);
     if (this.stage === MID_EMBLEM_WORLD && !Meta.data.midEmblem) { // 세계 3 보스를 처음 쓰러뜨리면 영웅의 증표 (한 번만, 바로 받는다)
       Meta.data.midEmblem = true; Meta.data.emblems += 1; this.runEmblems += 1;
       this.text(b.x, b.y - 92, '✦ 영웅의 증표 +1', '#ffd24a', 18, 2.2);
@@ -802,7 +810,7 @@ const G = {
           this.state = this.stage === this.finalWorld ? 'ending' : 'clear';
           this.clearT = 0;
           if (this.stage === this.finalWorld) {
-            Meta.data.clears++; this.earn(SHARD_ALL_CLEAR); this.earnEssence(ESSENCE_ALL_CLEAR);
+            Meta.data.clears++; this.earn(SHARD_ALL_CLEAR); this.earnEssence(ESSENCE_ALL_CLEAR, undefined, undefined, STAGES_PER_WORLD * FINAL_STAGE + 1);
             const info = this.tierInfo || tierInfo(1);
             this.tierFirst = !Meta.data.tierCleared[info.n];
             if (this.tierFirst) {
@@ -2119,7 +2127,7 @@ function drawRewardResult(y) {
   const P = G.runParts || G.rewardParts(G.state === 'ending');
   const parts = [`등급 ×${P.tier.toFixed(2)}`, `깊이 ×${P.depth.toFixed(2)}`];
   if (P.fam < 1) parts.push(`익숙한 숲 ×${P.fam}`);
-  label(`◆ 정령의 조각 ${G.runShards} → +${G.gotShards ?? Math.round(G.runShards * P.total)}    ⚔ 무기의 정수 ${G.runEssence} → +${G.gotEssence ?? Math.round(G.runEssence * P.total)}`, W / 2, y, 15, '#c8a0ff', 'center', '800');
+  label(`◆ 정령의 조각 ${G.runShards} → +${G.gotShards ?? Math.round(G.runShards * P.total)}    ⚔ 무기의 정수 ${G.runEssence} → +${G.gotEssence ?? G.runEssence}`, W / 2, y, 15, '#c8a0ff', 'center', '800');
   label(`보상 ×${P.total.toFixed(2)}  (${parts.join(' · ')})   ·   보유 ◆ ${Meta.data.shards} · ⚔ ${Meta.data.essence}`, W / 2, y + 18, 11, P.fam < 1 ? '#ff9a7a' : '#ccd', 'center', '600');
 }
 
