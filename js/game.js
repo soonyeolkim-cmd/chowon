@@ -1553,7 +1553,7 @@ function drawPauseScreen(big, blink, tap) {
     const names = owned.map(b => `${boonIcon(b)}${b.name}${G.boons[b.id] > 1 ? G.boons[b.id] : ''}`).join('  ');
     wrap(names, W - 40, 12).forEach((l, k) => label(l, W / 2, end + 10 + k * 16, 12, '#e8ff9c', 'center', '600'));
   }
-  if (blink) label(`${tap}하면 계속`, W / 2, H - inset.b - 18, 15, '#ffd24a');
+  if (blink) label(`${tap} 계속`, W / 2, H - inset.b - 18, 15, '#ffd24a');
 }
 
 // ── 마을: 영구 강화 ───────────────────────────────────────
@@ -1965,7 +1965,7 @@ function render() {
 
   const blink = Math.sin(G.time * 4) > -0.2;
   const big = clamp(Math.min(W, H) * 0.1, 28, 54);
-  const tap = Input.state.device === 'touch' ? '탭' : '아무 버튼';
+  const tap = Input.state.device === 'touch' ? '화면을 탭해서' : '아무 버튼이나 눌러서';
   if (G.state === 'title') {
     overlay(0.5);
     label('봉인의 숲', W / 2, H * 0.2, big, '#ffe08a');
@@ -1978,7 +1978,7 @@ function render() {
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
     if (Input.state.device === 'keyboard') label(Input.state.mouseAim ? '키보드만으로도 할 수 있어요: 방향키 · Z 공격 · X 대시 · C 특수' : '키보드+마우스: WASD 이동 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시', W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
     label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, H * 0.56 + 20, 12, '#b8c8b8', 'center', '500');
-    if (blink) label(`${tap}해서 시작`, W / 2, H * 0.78, 20, '#ffd24a');
+    if (blink) label(`${tap} 시작`, W / 2, H * 0.78, 20, '#ffd24a');
   } else if (G.state === 'village' || (G.state === 'settings' && G.settingsFrom === 'village')) {
     drawVillage(blink);
   } else if (G.state === 'settings' && G.settingsFrom === 'title') {
@@ -2001,7 +2001,7 @@ function render() {
         label('쓰러졌다...', W / 2, H * 0.32, big * 0.85, '#ff8a8a');
         label(`${G.stage}-${G.sub}까지  ·  처치 ${G.runKills}  ·  축복 ${Object.keys(G.boons).length}개`, W / 2, H * 0.45, 15, '#fff', 'center', '600');
         drawRewardResult(H * 0.54);
-        if (G.overT > 1.2 && blink) label(`${tap}해서 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
+        if (G.overT > 1.2 && blink) label(`${tap} 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
       }
     } else if (G.state === 'clear' || G.state === 'ending') {
       overlay(clamp(G.clearT, 0, 0.65));
@@ -2012,7 +2012,7 @@ function render() {
         label(stats, W / 2, H * 0.45, 14, '#fff', 'center', '600');
         const rp = G.rewardParts(false);
         label(`이번 런 ◆ ${G.runShards}  ·  ⚔ ${G.runEssence}   (끝까지 가면 보상 ×${(rp.tier * DEPTH_CLEAR_MULT * rp.fam).toFixed(2)})`, W / 2, H * 0.54, 13, '#c8a0ff', 'center', '700');
-        if (G.clearT > 1.2 && blink) label(`${tap}해서 세계 ${G.stage + 1}로 (정령의 힘 · 체력 회복)`, W / 2, H * 0.68, 18, '#ffd24a');
+        if (G.clearT > 1.2 && blink) label(`${tap} 세계 ${G.stage + 1}로 (정령의 힘 · 체력 회복)`, W / 2, H * 0.68, 18, '#ffd24a');
       } else {
         const deep = G.route === 'deep';
         label(deep ? (G.finalWorld < 6 ? '깊은 숲의 봉인을 풀었다!' : '삼룡을 잠재웠다!') : '숲에 평화가 돌아왔다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
@@ -2026,7 +2026,7 @@ function render() {
           const nx = tierInfo(ti.n + 1);
           if (ti.n < TIER_MAX) label(ROUTES[nx.route].ready ? `다음 도전: 봉인 등급 ${nx.n} · ${ROUTES[nx.route].name}` : `다음 도전: 봉인 등급 ${nx.n} · ${ROUTES[nx.route].name} (준비 중)`, W / 2, H * 0.57 + 40, 12, '#e8d8ff', 'center', '600');
         } else label(`봉인 등급 ${ti.n} · 이미 깬 등급이라 증표는 없어요`, W / 2, H * 0.57 + 20, 12, '#aab', 'center', '600');
-        if (G.clearT > 1.5 && blink) label(`${tap}해서 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
+        if (G.clearT > 1.5 && blink) label(`${tap} 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
       }
     }
   }
