@@ -869,7 +869,7 @@ function drawHud() {
   bar(bx, y, bw, 13, p.hp / p.maxHp, p.hp / p.maxHp < 0.3 ? '#ff5a5a' : '#e04848');
   label(`${Math.ceil(p.hp)} / ${p.maxHp}`, bx + bw / 2, y + 7, 10, '#fff', 'center');
   drawCooldowns(p, bx, y + 19, bw);
-  if (Meta.data.mode === 'easy') label('쉬움', bx + bw + 8, y + 7, 10, '#8ff0b0', 'left', '800');
+  if (Meta.data.mode === 'easy') { drawModeIcon('easy', bx + bw + 4, y - 4, 20); label('쉬움', bx + bw + 26, y + 7, 10, '#8ff0b0', 'left', '800'); }
   drawBoonIcons(x, y + 42);
 
   // 목표
@@ -1322,7 +1322,7 @@ function villageLayout() {
   const tw = rw / 2;
   const tabs = [0, 1].map(i => ({ x: x0 + i * tw, y: inset.t + 58, w: tw - 4, h: 28 }));
   const start = { x: W / 2 - 110, y: H - inset.b - 48, w: 220, h: 38 };
-  const mode = { x: start.x - 132, y: start.y, w: 120, h: 38 };
+  const mode = { x: start.x - 152, y: start.y, w: 140, h: 38 };
   const tier = { x: start.x + start.w + 12, y: start.y, w: 132, h: 38 };
   return { rows, tabs, start, mode, tier, items, view, maxScroll: Math.max(0, contentH - view.h) };
 }
@@ -1397,8 +1397,10 @@ function drawVillage(blink) {
   const mb = L.mode, msel = v.sel === L.items.length + 1, easy = md.mode === 'easy';
   ctx.fillStyle = easy ? 'rgba(40,110,70,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(mb.x, mb.y, mb.w, mb.h);
   ctx.strokeStyle = msel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(mb.x + 1, mb.y + 1, mb.w - 2, mb.h - 2);
-  label(`난이도: ${easy ? '쉬움' : '일반'}`, mb.x + mb.w / 2, mb.y + mb.h / 2 - 6, 13, easy ? '#8ff0b0' : '#fff', 'center', '800');
-  label(easy ? '받는 피해 절반' : '눌러서 바꾸기', mb.x + mb.w / 2, mb.y + mb.h / 2 + 9, 9, '#aab', 'center', '600');
+  drawModeIcon(easy ? 'easy' : 'normal', mb.x + 4, mb.y + 2, 34);
+  const mtx = mb.x + 40 + (mb.w - 40) / 2;
+  label(`난이도: ${easy ? '쉬움' : '일반'}`, mtx, mb.y + mb.h / 2 - 6, 13, easy ? '#8ff0b0' : '#ffb07a', 'center', '800');
+  label(easy ? '받는 피해 절반' : '눌러서 바꾸기', mtx, mb.y + mb.h / 2 + 9, 9, '#aab', 'center', '600');
   // 봉인 등급 버튼
   const tb = L.tier, tsel = v.sel === L.items.length + 2, ti = tierInfo(md.tier);
   ctx.fillStyle = ti.curses.length ? 'rgba(110,40,60,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
@@ -1516,6 +1518,64 @@ function handleVillageInput(dt, inp) {
   }
   v.axis = dir;
   if (inp.attack) villageAct(v.sel);
+}
+
+// 난이도 아이콘 — 쉬움: 낄낄거리는 킹받는 꼬마 / 일반: 활활 타는 지옥불
+const MODE_ICON = (() => { const c = document.createElement('canvas'); c.width = c.height = 20; return { c, g: c.getContext('2d') }; })();
+function drawModeIcon(kind, x, y, size) {
+  const { c, g } = MODE_ICON, t = G.time;
+  g.clearRect(0, 0, 20, 20);
+  g.lineWidth = 1;
+  if (kind === 'easy') {
+    const bob = Math.round(Math.abs(Math.sin(t * 9)) * 1); // 낄낄 들썩
+    const cy = 10 - bob;
+    // 얼굴
+    g.fillStyle = '#ffd36a'; g.beginPath(); g.arc(10, cy + 1, 7.5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#5a3418'; g.stroke();
+    // 삐죽 머리 + 거꾸로 쓴 모자
+    g.fillStyle = '#e04848'; g.fillRect(3, cy - 6, 14, 3); g.fillRect(14, cy - 4, 5, 2);
+    g.fillStyle = '#5a3418'; g.fillRect(4, cy - 4, 2, 2); g.fillRect(8, cy - 4, 1, 2);
+    // 실눈 (^ ^) + 한쪽 눈썹 치켜올림
+    g.strokeStyle = '#3a2010';
+    g.beginPath(); g.moveTo(5, cy); g.lineTo(6.5, cy - 1.5); g.lineTo(8, cy); g.stroke();
+    g.beginPath(); g.moveTo(12, cy); g.lineTo(13.5, cy - 1.5); g.lineTo(15, cy); g.stroke();
+    g.beginPath(); g.moveTo(12, cy - 3.5); g.lineTo(15.5, cy - 4.5); g.stroke();
+    // 볼 터치
+    g.fillStyle = '#ff8a8a'; g.fillRect(4, cy + 2, 2, 1); g.fillRect(14, cy + 2, 2, 1);
+    // 씨익 웃는 입 + 메롱
+    g.fillStyle = '#7a1a1a'; g.beginPath(); g.moveTo(6, cy + 3); g.quadraticCurveTo(10, cy + 8, 14, cy + 3); g.closePath(); g.fill();
+    g.fillStyle = '#ff7a9a'; g.fillRect(10, cy + 5, 3, 3);
+    g.fillStyle = '#fff'; g.fillRect(7, cy + 3, 6, 1);
+    // 입을 가린 손 (킥킥)
+    g.fillStyle = '#ffd36a'; g.fillRect(2, cy + 4, 4, 4); g.strokeStyle = '#5a3418'; g.strokeRect(2.5, cy + 4.5, 3, 3);
+  } else {
+    // 지옥불: 바깥 검붉은 불 → 주황 → 노란 속불, 일렁인다
+    const flame = (w, h, col, ph) => {
+      g.fillStyle = col; g.beginPath(); g.moveTo(10 - w, 19);
+      for (let i = 0; i <= 4; i++) {
+        const fx = 10 - w + (2 * w) * i / 4, tip = 19 - h * (i % 2 ? 0.75 : 1) - Math.sin(t * 12 + i * 1.7 + ph) * 1.5;
+        g.quadraticCurveTo(fx - w / 4, 19 - h * 0.4, fx, tip);
+      }
+      g.lineTo(10 + w, 19); g.closePath(); g.fill();
+    };
+    flame(9, 17, '#7a0a0a', 0);
+    flame(7.5, 14, '#e0301a', 1);
+    flame(5.5, 10, '#ff8a1a', 2);
+    flame(3, 6, '#ffe04a', 3);
+    // 불똥
+    g.fillStyle = '#ffd04a';
+    for (let i = 0; i < 3; i++) { const k = (t * 1.6 + i / 3) % 1; g.fillRect(4 + i * 5 + Math.sin(t * 5 + i) * 1.5, 16 - k * 15, 1, 1); }
+  }
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(c, x, y, size, size);
+  ctx.imageSmoothingEnabled = prev;
+  if (kind === 'easy' && size >= 30) { // 킹받는 ㅋㅋ
+    const k = (t * 1.5) % 1;
+    ctx.globalAlpha = 1 - k;
+    label('ㅋㅋ', x + size - 2, y + 6 - k * 8, 10, '#ffe08a', 'left', '900');
+    ctx.globalAlpha = 1;
+  }
 }
 
 function overlay(alpha) { ctx.fillStyle = `rgba(5,12,5,${alpha})`; ctx.fillRect(0, 0, W, H); }
