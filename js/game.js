@@ -227,7 +227,7 @@ const G = {
     o.sel = 0; o.hold = 0; o.t = BOON_LOCK; // 바로 다시 고를 수 있게
     Sfx.boon();
   },
-  chooseBoon(i, auto) {
+  chooseBoon(i) {
     const o = this.offer, c = o.cards[i];
     if (c.replaces) {
       delete this.boons[c.replaces.id];
@@ -240,7 +240,6 @@ const G = {
     this.fxRing(p.x, p.y, boonColor(c.boon), 70);
     this.burst(p.x, p.y, 24, [boonColor(c.boon), '#fff'], 180);
     this.text(p.x, p.y - 30, c.boon.name + (c.lv > 1 ? ' Lv' + c.lv : ''), boonColor(c.boon), 14, 1.2);
-    if (auto) this.banner = { title: '자동 선택', sub: `${boonIcon(c.boon)} ${c.boon.name}${c.lv > 1 ? ' Lv' + c.lv : ''}`, t: 2 };
     Sfx.level();
     this.offer = null;
     this.state = 'play';
@@ -1468,7 +1467,7 @@ function drawBoonScreen() {
   const head = o.el ? ELEMENTS[o.el] : null;
   const title = head ? `${head.icon} ${head.spirit}의 축복` : '✦ 보스 격파 보상';
   label(title, W / 2, inset.t + 30, 22, head ? head.color : '#ffd24a', 'center', '900');
-  label(o.auto ? '시간 초과! 정령이 대신 골라요…' : '축복을 하나 고르세요', W / 2, inset.t + 56, 13, o.auto ? '#ff9a7a' : '#ddd', 'center', o.auto ? '800' : '600');
+  label('축복을 하나 고르세요', W / 2, inset.t + 56, 13, '#ddd', 'center', '600');
   const L = boonLayout();
   const appear = clamp(o.t / BOON_LOCK, 0, 1);
   const left = o.auto ? 0 : Math.max(0, BOON_TIME - Math.max(0, o.t - BOON_LOCK)), urgent = left <= 3;
@@ -1506,18 +1505,12 @@ function drawBoonScreen() {
       tx = x + 56; ty = y + 56; tw = r.w - 66;
     }
     wrap(b.desc(c.lv), tw, 12, '500').forEach((l, k) => label(l, tx, ty + k * 16, 12, '#e8e8e8', 'left', '500'));
-    if (o.auto && sel) { // 룰렛 빛 · 멈춘 카드에 '자동 선택' 도장
-      const a = o.auto, pulse = a.landed ? 0.5 + 0.5 * Math.sin((a.t - a.landT) * 18) : 1;
-      ctx.fillStyle = a.landed ? `rgba(255,255,255,${0.12 * pulse})` : 'rgba(255,255,255,0.10)'; ctx.fillRect(x, y, r.w, r.h);
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = a.landed ? 4 : 3; ctx.strokeRect(x - 2, y - 2, r.w + 4, r.h + 4);
-      if (a.landed) {
-        const s = Math.min(1, (a.t - a.landT) / 0.15), sc = 1.6 - 0.6 * s;
-        ctx.save(); ctx.translate(x + r.w / 2, y + r.h / 2); ctx.rotate(-0.18); ctx.scale(sc, sc); ctx.globalAlpha = Math.min(1, s * 1.5);
-        ctx.fillStyle = 'rgba(200,40,40,0.85)'; ctx.fillRect(-58, -17, 116, 34);
-        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(-58, -17, 116, 34);
-        label('자동 선택', 0, 1, 18, '#fff', 'center', '900');
-        ctx.restore(); ctx.globalAlpha = appear;
-      }
+    if (o.auto && sel) { // 시간 초과로 고른 카드: 테두리가 반짝인다
+      const on = ((o.auto.t * 12) | 0) % 2 === 0;
+      ctx.strokeStyle = on ? '#fff' : col; ctx.lineWidth = 4;
+      ctx.strokeRect(x - 3, y - 3, r.w + 6, r.h + 6);
+      ctx.strokeStyle = on ? col : 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2;
+      ctx.strokeRect(x - 7, y - 7, r.w + 14, r.h + 14);
     }
     if (sel && o.armed && !o.auto) {
       const k = clamp(o.hold / BOON_HOLD, 0, 1);
@@ -1545,27 +1538,16 @@ const BOON_LOCK = 0.6;   // 화면이 열린 뒤 입력을 무시하는 시간
 const BOON_HOLD = 0.6;   // 이만큼 길게 눌러야 선택된다
 const BOON_TIME = 10;    // 선택 제한 시간. 지나면 룰렛을 돌려 무작위로 결정
 
-// 시간 초과: 카드 위를 빛이 돌다가 점점 느려지며 무작위 카드에 멈춘다 → 잠깐 보여 준 뒤 결정
-const ROULETTE_LAPS = 2, ROULETTE_GAP0 = 0.05, ROULETTE_GAP1 = 0.26, ROULETTE_SHOW = 0.9;
+// 시간 초과: 무작위 카드를 고르고, 그 카드 테두리를 잠깐 반짝여 보여 준 뒤 결정
+const AUTO_PICK_SHOW = 0.9;
 function startBoonRoulette(o) {
-  const n = o.cards.length, target = (Math.random() * n) | 0;
-  const hops = ROULETTE_LAPS * n + ((target - o.sel + n) % n);
-  o.auto = { target, hops, done: 0, next: ROULETTE_GAP0, landed: false, t: 0 };
-  o.hold = 0;
+  o.sel = (Math.random() * o.cards.length) | 0;
+  o.auto = { t: 0 }; o.hold = 0;
+  Sfx.level();
 }
 function boonRoulette(o, dt) {
-  const a = o.auto, n = o.cards.length;
-  a.t += dt;
-  if (!a.landed) {
-    a.next -= dt;
-    if (a.next > 0) return;
-    o.sel = (o.sel + 1) % n; a.done++; Sfx.pickup();
-    const k = a.done / Math.max(1, a.hops);
-    a.next = ROULETTE_GAP0 + (ROULETTE_GAP1 - ROULETTE_GAP0) * k * k; // 점점 느려진다
-    if (a.done >= a.hops) { a.landed = true; a.landT = a.t; Sfx.level(); }
-    return;
-  }
-  if (a.t - a.landT >= ROULETTE_SHOW) G.chooseBoon(o.sel, true);
+  o.auto.t += dt;
+  if (o.auto.t >= AUTO_PICK_SHOW) G.chooseBoon(o.sel);
 }
 
 function handleBoonInput(dt, inp) {

@@ -204,6 +204,7 @@ class Player {
   }
 
   startDash(mag) {
+    this.finisherT = 0; // 대시하면 삼연 기회가 끊긴다
     const inp = Input.state;
     this.dashDir = mag > 0.05 ? Math.atan2(inp.my, inp.mx) : this.facing;
     this.facing = this.dashDir;
@@ -228,13 +229,14 @@ class Player {
     };
     this.atkCd = (fin ? 0.42 : 0.24) * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
-    if (fin) this.finisherT = 0.6; // 이 안에 스킬을 쓰면 삼연 검기
+    this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 삼연 검기 (다른 행동을 하면 끊긴다)
     this.atkBuffer = 0;
     Sfx.swing(fin);
     FX.onSwing(this, fin);
   }
 
   startThrust() {
+    this.finisherT = 0;
     this.aim(Math.hypot(Input.state.mx, Input.state.my));
     this.act = { kind: 'thrust', t: 0, dur: 0.22, hit: new Set() };
     this.atkCd = 0.35; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
@@ -243,6 +245,7 @@ class Player {
   }
 
   startSpin(mag) {
+    this.finisherT = 0;
     this.aim(mag);
     const ms = FX.lv('atk_multispin'); // 회전 연참: 레벨마다 한 바퀴 더 (조금 길어진다)
     this.act = { kind: 'spin', t: 0, dur: 0.36 + 0.06 * ms, hit: new Set(), hits: 1 + ms, wave: 0 };
@@ -276,13 +279,14 @@ class Player {
     this.comboT = this.atkCd + 0.3;
     this.atkBuffer = 0;
     Sfx.thrust();
-    if (fin) this.finisherT = 0.6; // 이 안에 특수공격 → 삼연 투척
+    this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 삼연 투척 (다른 행동을 하면 끊긴다)
     FX.onPoke(this, fin);
   }
 
   // 관통 찌르기 (차지): 제자리에서 기본공격보다 조금 더 길게 찔러 줄 위의 적을 모두 관통
   get pierceLen() { return SPEAR_PIERCE_LEN * (1 + 0.1 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')); }
   startLunge(mag) {
+    this.finisherT = 0;
     this.aim(mag);
     // 연환 꿰뚫기(공격 축복): 찌른 뒤 정령의 창이 같은 줄을 레벨만큼 더 찌른다 (0.1초 간격)
     const ms = FX.lv('atk_multispin');
@@ -312,6 +316,7 @@ class Player {
 
   // 후려치기 (대시 직후 공격): 창 자루로 앞쪽 120도를 휩쓴다. 바깥쪽(창끝)일수록 아프고, 옆으로 쳐낸다
   startSweep() {
+    this.finisherT = 0;
     this.aim(Math.hypot(Input.state.mx, Input.state.my));
     this.act = { kind: 'sweep', t: 0, dur: 0.24, hit: new Set(), half: SWEEP_HALF, len: this.sweepLen };
     this.atkCd = 0.6; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
