@@ -43,7 +43,7 @@ const Input = (() => {
     return d; })();
   // kbMode: 컴퓨터 조작 방식 'mouse' = 키보드+마우스 (WASD · 클릭 · 커서 조준) / 'keys' = 키보드만 (방향키 · Z X C)
   const pcFine = !!(window.matchMedia && matchMedia('(pointer: fine)').matches);
-  const settings = Object.assign({ rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys', cursorAim: false, padLayout: 'xbox' }, load('settings', {}));
+  const settings = Object.assign({ sfx: true, bgm: true, rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys', cursorAim: false, padLayout: 'xbox' }, load('settings', {}));
   const kbHas = (action, code) => binds.kb[action].includes(code);
   // 패드 종류: 버튼 '위치'는 같고 이름만 다르다. 엑박 = 아래 A · 오른쪽 B, 스위치 = 오른쪽 A · 아래 B
   // 메뉴 선택은 언제나 그 패드의 'A', 취소는 'B' (버튼 번호: 0 아래 · 1 오른쪽)

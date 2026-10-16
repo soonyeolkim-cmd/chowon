@@ -26,7 +26,7 @@ const Sfx = (() => {
   };
   addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
   function tone(freq, dur, type = 'square', vol = 0.08, slide = 0, delay = 0) {
-    if (!ac || ac.state !== 'running') return;
+    if (!ac || ac.state !== 'running' || !Input.settings.sfx) return; // 설정에서 효과음 끄기
     const t = ac.currentTime + delay;
     const o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t);
@@ -1254,7 +1254,9 @@ function settingsRows(tab) {
     { kind: 'reset', dev: 'kb', name: '키보드 기본값으로 되돌리기', value: '' }];
   if (tab === 1) return [{ kind: 'padlayout', name: '패드 레이아웃', value: S.padLayout === 'switch' ? '스위치  ·  A 선택 (오른쪽) · B 취소 (아래)' : 'Xbox  ·  A 선택 (아래) · B 취소 (오른쪽)' }, ...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
-  return [{ kind: 'toggle', key: 'rumble', name: '진동 (게임패드 · 휴대폰)', value: S.rumble ? '켜짐' : '꺼짐' },
+  return [{ kind: 'toggle', key: 'sfx', name: '효과음', value: S.sfx ? '켜짐' : '꺼짐' },
+    { kind: 'toggle', key: 'bgm', name: '배경음악 (곧 추가돼요)', value: S.bgm ? '켜짐' : '꺼짐' },
+    { kind: 'toggle', key: 'rumble', name: '진동 (게임패드 · 휴대폰)', value: S.rumble ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'shake', name: '화면 흔들림', value: S.shake ? '켜짐' : '꺼짐' }];
 }
 function settingsLayout() {
