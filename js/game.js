@@ -118,17 +118,35 @@ const G = {
   firstWorld: 1, finalWorld: FINAL_STAGE, route: 'outer',
   tier: 1, tierInfo: null, tierCurses: [], tierFirst: false,
 
+  // 이번 런 보상을 영구 재화로 옮긴다 (게임오버 · 완주 때 한 번만). 포기하거나 그냥 끄면 받지 못한다.
+  // 런 보상 배율 = 등급 × 깊이 × 익숙함. 화면 곳곳에 보여준다.
+  rewardParts(cleared) {
+    const ti = this.tierInfo || tierInfo(1);
+    const depth = cleared ? DEPTH_CLEAR_MULT : DEPTH_MULT[clamp(this.stage - this.firstWorld, 0, DEPTH_MULT.length - 1)];
+    const fam = familiarMult(ti.n);
+    return { tier: ti.rewardMult, depth, fam, total: ti.rewardMult * depth * fam };
+  },
+  commitRun(cleared) {
+    if (this.runCommitted) return;
+    this.runCommitted = true;
+    this.runParts = this.rewardParts(cleared);
+    this.gotShards = Math.round(this.runShards * this.runParts.total);
+    this.gotEssence = Math.round(this.runEssence * this.runParts.total);
+    Meta.data.shards += this.gotShards; Meta.data.essence += this.gotEssence;
+    Meta.save();
+  },
   // ── 로그라이트: 런 시작 / 마을 ──
   startRun() {
     if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
-    Meta.data.runs++; Meta.save();
+    Meta.data.runs++; Meta.save(); this.runCommitted = false;
     this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0;
     this.reviveLeft = Meta.lv('revive');
     this.rerolls = Meta.lv('choice');
     const worlds = ROUTES[this.tierInfo.route].worlds;
     this.firstWorld = worlds[0]; this.finalWorld = worlds[worlds.length - 1]; this.route = this.tierInfo.route;
     this.startStage(this.firstWorld, 1, Meta.startStats(), true);
+    if (familiarMult(this.tier) < 1) this.hintBox = { text: '여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', t: 5 };
   },
   goVillage() {
     Meta.save();
@@ -139,13 +157,13 @@ const G = {
   },
   // 무기의 정수 (모든 무기 공통)
   earnEssence(n, x, y) {
-    n = Math.max(1, Math.round(n * (this.tierInfo ? this.tierInfo.rewardMult : 1) * (this.route === 'deep' ? DEEP_ESSENCE_MULT : 1)));
-    Meta.data.essence += n; this.runEssence += n;
+    n = Math.max(1, Math.round(n * (this.route === 'deep' ? DEEP_ESSENCE_MULT : 1)));
+    this.runEssence += n;
     if (x !== undefined) this.text(x, y, '⚔' + n, '#ffcf6a', 13, 1.2);
   },
   earn(n, x, y) {
-    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck')) * (this.tierInfo ? this.tierInfo.rewardMult : 1) * (this.route === 'deep' ? DEEP_SHARD_MULT : 1)));
-    this.runShards += v; Meta.data.shards += v;
+    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck')) * (this.route === 'deep' ? DEEP_SHARD_MULT : 1)));
+    this.runShards += v; // 런이 끝날 때(쓰러짐 · 완주) 한꺼번에 받는다
     if (x !== undefined) this.text(x + rand(-6, 6), y - 14, '◆' + v, '#c8a0ff', 10, 0.8);
   },
   // 한 번 본 스토리는 다음 런부터 건너뛴다
@@ -422,7 +440,7 @@ const G = {
       return;
     }
     e.dead = true; this.stageKills++; this.runKills++;
-    if (Math.random() < (SHARD_DROP[e.type] || 0.2)) this.earn(1, e.x, e.y);
+    if (Math.random() < (SHARD_DROP[e.type] || 0.2) * KILL_DROP_MULT) this.earn(1, e.x, e.y);
     this.burst(e.x, e.y, 14, [e.color, '#fff'], 180);
     Sfx.kill();
     if (Math.random() < HEART_DROP) this.pickups.push(new Pickup('heart', e.x, e.y, curse('heal') ? 10 : 20));
@@ -434,7 +452,7 @@ const G = {
     this.burst(t.x, t.y - 10, 36, [sealTheme().hex, '#fff', sealTheme().lit], 240);
     this.fxRing(t.x, t.y, sealTheme().hex, 90);
     this.shake = 9; this.hitstop = 0.12; Sfx.totem(); Input.rumble(0.8, 250);
-    this.earn(SHARD_TOTEM, t.x, t.y - 20);
+    this.earn(SHARD_TOTEM + 2 * Math.max(0, this.stage - this.firstWorld), t.x, t.y - 20);
     this.pickups.push(new Pickup('heart', t.x, t.y, curse('heal') ? 12 : 25));
     const left = this.totems.filter(x => !x.dead).length;
     if (left > 0) { this.banner = { title: '봉인석 파괴!', sub: `남은 봉인석 ${left}개`, t: 2.2 }; return; }
@@ -492,7 +510,7 @@ const G = {
       this.fxRing(p.x, p.y, '#ffd24a', 80); this.slowT = 0.8; Sfx.level();
     }
     if (p.hp <= 0) {
-      p.hp = 0; p.alive = false; Meta.save();
+      p.hp = 0; p.alive = false; this.commitRun();
       this.state = 'over'; this.overT = 0;
       this.burst(p.x, p.y, 24, ['#3b6fd6', '#f2c9a0', '#fff'], 160);
     }
@@ -685,6 +703,7 @@ const G = {
               const next = playableTiers().filter(n => n > info.n)[0];
               if (next) Meta.data.tier = next;
             }
+            this.commitRun(true);
           }
           Meta.save();
         };
@@ -806,7 +825,11 @@ Input.onUi = id => {
   else if (id === 'pause') { if (G.state === 'play') openPause(); else if (G.state === 'paused') G.state = 'play'; }
 };
 Input.onPadConnect = () => { G.toast = { s: '🎮 게임패드 연결됨', t: 2.5 }; };
-document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'play') openPause(); });
+// 화면을 떠나면(전화 · 앱 전환 · 다른 창) 자동으로 일시정지
+const autoPause = () => { if (G.state === 'play') openPause(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+addEventListener('blur', autoPause);
+addEventListener('pagehide', autoPause);
 
 // ── 그리기: 월드 ────────────────────────────────────────────
 function drawWorld() {
@@ -940,7 +963,12 @@ function drawHud() {
     label(`${G.chain} HIT`, lx, ly, 22 * s, '#ffd24a', 'left', '900');
     label(`피해 +${Math.round(G.chainBonus() * 100)}%`, lx, ly + 20, 11, '#fff', 'left', '600');
   }
-  label(`◆ ${Meta.data.shards}`, W - inset.r - 112, inset.t + 30, 14, '#c8a0ff', 'right', '800');
+  { // 이번 런에서 모은 조각 (끝나야 받는다)과 지금 받을 배율
+    const rp = G.rewardParts(false);
+    label(`◆ ${G.runShards}`, W - inset.r - 112, inset.t + 30, 14, '#c8a0ff', 'right', '800');
+    label(`보상 ×${rp.total.toFixed(2)}`, W - inset.r - 112, inset.t + 48, 10, rp.fam < 1 ? '#ff8a7a' : '#c8b8ff', 'right', '700');
+    if (rp.fam < 1) label('익숙한 숲', W - inset.r - 112, inset.t + 62, 10, '#ff8a7a', 'right', '700');
+  }
   drawObjectiveArrow();
 }
 
@@ -1105,7 +1133,7 @@ const PAUSE_ITEMS = [
   { id: 'resume', name: '계속하기' },
   { id: 'moves', name: '기술 · 축복 보기' },
   { id: 'settings', name: '설정' },
-  { id: 'quit', name: '마을로 돌아가기' },
+  { id: 'quit', name: '포기하고 마을로' },
 ];
 function openPause() {
   G.state = 'paused';
@@ -1118,7 +1146,7 @@ function pauseLayout() {
 }
 function quitLayout() {
   const w = Math.min(200, (W - 60) / 2), h = 42;
-  return [{ id: 'yes', name: '그만두기', x: W / 2 - w - 8, y: H / 2 + 30, w, h }, { id: 'no', name: '계속하기', x: W / 2 + 8, y: H / 2 + 30, w, h }];
+  return [{ id: 'yes', name: '포기하기', x: W / 2 - w - 8, y: H / 2 + 36, w, h }, { id: 'no', name: '계속하기', x: W / 2 + 8, y: H / 2 + 36, w, h }];
 }
 const inRectPt = (pt, r) => pt && pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
 // 위아래 / 좌우 입력을 한 번씩만 받는다
@@ -1164,8 +1192,9 @@ function drawPauseMenu(big, blink, tap) {
   if (m.view === 'moves') { drawPauseScreen(big, blink, tap); return; }
   overlay(0.6);
   if (m.view === 'quit') {
-    label('이번 모험을 그만둘까요?', W / 2, H / 2 - 40, 20, '#fff', 'center', '800');
-    label('지금까지 모은 정령의 조각 · 무기의 정수는 그대로 남아요', W / 2, H / 2 - 10, 12, '#ccd', 'center', '600');
+    label('이번 모험을 포기할까요?', W / 2, H / 2 - 40, 20, '#fff', 'center', '800');
+    label(`포기하면 이번 런 보상(◆ ${G.runShards} · ⚔ ${G.runEssence})은 받지 못해요`, W / 2, H / 2 - 10, 13, '#ff9a7a', 'center', '700');
+    label('보상은 쓰러지거나 끝까지 깼을 때 받아요', W / 2, H / 2 + 8, 11, '#ccd', 'center', '600');
     quitLayout().forEach((r, i) => {
       const sel = m.qsel === i;
       ctx.fillStyle = sel ? (i ? '#3f8a3b' : '#9a3a2a') : 'rgba(30,36,48,0.95)'; ctx.fillRect(r.x, r.y, r.w, r.h);
@@ -1657,7 +1686,8 @@ function drawVillage(blink) {
   ctx.fillStyle = ti.curses.length ? 'rgba(110,40,60,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
   ctx.strokeStyle = tsel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(tb.x + 1, tb.y + 1, tb.w - 2, tb.h - 2);
   label(`봉인 등급 ${ti.n}`, tb.x + tb.w / 2, tb.y + tb.h / 2 - 6, 13, '#ffd0e0', 'center', '800');
-  label(`${ROUTES[ti.route].name} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, '#aab', 'center', '600');
+  const fm = familiarMult(ti.n);
+  label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
     : d === 'gamepad' ? '←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · START 설정' : `←→ 탭 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
@@ -1672,7 +1702,7 @@ function villageAct(i) {
     Meta.data.tier = list[(k + 1) % list.length]; Meta.save();
     const ti = tierInfo(Meta.data.tier);
     v.msg = list.length < 2 ? '바깥 숲을 끝까지 깨면 다음 등급이 열려요'
-      : `봉인 등급 ${ti.n} · ${ROUTES[ti.route].name} · 보상 ×${ti.rewardMult.toFixed(2)} · ${curseText(ti)}`;
+      : `봉인 등급 ${ti.n} · ${ROUTES[ti.route].name} · 보상 ×${(ti.rewardMult * familiarMult(ti.n)).toFixed(2)}${familiarMult(ti.n) < 1 ? ' (익숙한 숲 ×0.5)' : ''} · ${curseText(ti)}`;
     Sfx.pickup(); return;
   }
   if (i === items.length + 1) { // 난이도 바꾸기
@@ -1862,6 +1892,15 @@ function drawModeIcon(kind, x, y, size) {
   }
 }
 
+// 결과 화면 보상 내역: 모은 양 × 등급 × 깊이 × 익숙함 = 받은 양
+function drawRewardResult(y) {
+  const P = G.runParts || G.rewardParts(G.state === 'ending');
+  const parts = [`등급 ×${P.tier.toFixed(2)}`, `깊이 ×${P.depth.toFixed(2)}`];
+  if (P.fam < 1) parts.push(`익숙한 숲 ×${P.fam}`);
+  label(`◆ 정령의 조각 ${G.runShards} → +${G.gotShards ?? Math.round(G.runShards * P.total)}    ⚔ 무기의 정수 ${G.runEssence} → +${G.gotEssence ?? Math.round(G.runEssence * P.total)}`, W / 2, y, 15, '#c8a0ff', 'center', '800');
+  label(`보상 ×${P.total.toFixed(2)}  (${parts.join(' · ')})   ·   보유 ◆ ${Meta.data.shards} · ⚔ ${Meta.data.essence}`, W / 2, y + 18, 11, P.fam < 1 ? '#ff9a7a' : '#ccd', 'center', '600');
+}
+
 function overlay(alpha) { ctx.fillStyle = `rgba(5,12,5,${alpha})`; ctx.fillRect(0, 0, W, H); }
 
 function drawBanner() {
@@ -1959,7 +1998,7 @@ function render() {
         const p = G.player;
         label('쓰러졌다...', W / 2, H * 0.32, big * 0.85, '#ff8a8a');
         label(`${G.stage}-${G.sub}까지  ·  처치 ${G.runKills}  ·  축복 ${Object.keys(G.boons).length}개`, W / 2, H * 0.45, 15, '#fff', 'center', '600');
-        label(`◆ 정령의 조각 +${G.runShards}  (보유 ${Meta.data.shards})    ⚔ ${WEAPONS[G.player.weaponId].essence} +${G.runEssence}`, W / 2, H * 0.54, 15, '#c8a0ff', 'center', '700');
+        drawRewardResult(H * 0.54);
         if (G.overT > 1.2 && blink) label(`${tap}해서 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
       }
     } else if (G.state === 'clear' || G.state === 'ending') {
@@ -1969,14 +2008,15 @@ function render() {
       if (G.state === 'clear') {
         label(`세계 ${G.stage} 클리어!`, W / 2, H * 0.3, big * 0.85, '#ffe08a');
         label(stats, W / 2, H * 0.45, 14, '#fff', 'center', '600');
-        label(`이번 런 ◆ ${G.runShards}  ·  ⚔ ${WEAPONS[G.player.weaponId].essence} ${G.runEssence}`, W / 2, H * 0.54, 13, '#c8a0ff', 'center', '700');
+        const rp = G.rewardParts(false);
+        label(`이번 런 ◆ ${G.runShards}  ·  ⚔ ${G.runEssence}   (끝까지 가면 보상 ×${(rp.tier * DEPTH_CLEAR_MULT * rp.fam).toFixed(2)})`, W / 2, H * 0.54, 13, '#c8a0ff', 'center', '700');
         if (G.clearT > 1.2 && blink) label(`${tap}해서 세계 ${G.stage + 1}로 (정령의 힘 · 체력 회복)`, W / 2, H * 0.68, 18, '#ffd24a');
       } else {
         const deep = G.route === 'deep';
         label(deep ? (G.finalWorld < 6 ? '깊은 숲의 봉인을 풀었다!' : '삼룡을 잠재웠다!') : '숲에 평화가 돌아왔다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
         label(deep ? (G.finalWorld < 6 ? `깊은 숲 세계 ${G.finalWorld}까지 클리어했어요. (세계 ${G.finalWorld + 1}부터는 준비 중)` : '깊은 숲을 모두 클리어했어요!') : '모든 스테이지를 클리어했어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
         label(stats, W / 2, H * 0.48, 13, '#fff', 'center', '600');
-        label(`클리어 보너스 ◆ ${SHARD_ALL_CLEAR}  ·  이번 런 ◆ ${G.runShards}  ·  ⚔ ${WEAPONS[G.player.weaponId].essence} ${G.runEssence}`, W / 2, H * 0.57, 14, '#c8a0ff', 'center', '700');
+        drawRewardResult(H * 0.57);
         const ti = G.tierInfo || tierInfo(1);
         if (G.tierFirst) {
           const reward = G.runEmblems ? `✦ 영웅의 증표 +${G.runEmblems} (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요` : `◆ 등급 보너스 +${ti.bonusShards}`;

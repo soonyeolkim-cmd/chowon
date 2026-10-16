@@ -26,7 +26,8 @@ const SHARD_DROP = { // 마물이 많은 만큼 확률은 낮게
   lion: 0.08, trex: 0.14, cyclops2: 0.12, lizard: 0.07,
   demon: 0.12, lantern: 0.08, statue: 0.14, babydragon: 0.08, dragon: 1,
 };
-const SHARD_TOTEM = 2;        // 봉인석 하나
+const SHARD_TOTEM = 2;        // 봉인석 하나 (+ 길 안에서 뒤 세계일수록 2씩 더)
+const KILL_DROP_MULT = 0.5;   // 마물 처치로 나오는 조각은 적게 (보상은 봉인석 · 보스 · 깊이로)
 const SHARD_BOSS = 4;         // × 세계 번호
 const SHARD_ALL_CLEAR = 15;   // 세계 3까지 완주
 

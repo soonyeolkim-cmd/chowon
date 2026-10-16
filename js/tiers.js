@@ -25,8 +25,16 @@ function tierInfo(n) {
   const route = n % 2 === 1 ? 'outer' : 'deep';
   const curses = CURSE_ORDER.slice(0, Math.floor((n - 1) / 2));
   const emblem = n === 1 || route === 'deep';
-  return { n, route, curses, emblem, bonusShards: emblem ? 0 : 20 + 10 * n, rewardMult: 1 + 0.15 * (n - 1) };
+  return { n, route, curses, emblem, bonusShards: emblem ? 0 : 20 + 10 * n, rewardMult: 1 + 0.3 * (n - 1) };
 }
+
+// 익숙한 숲: 내가 처음 깬 가장 높은 등급보다 2단계 이상 낮은 등급을 돌면 보상 절반
+const FAMILIAR_MULT = 0.5;
+const maxClearedTier = () => Object.keys(Meta.data.tierCleared).reduce((m, k) => Math.max(m, +k), 0);
+const familiarMult = n => (maxClearedTier() - n >= 2 ? FAMILIAR_MULT : 1);
+// 깊이 보너스: 이번 런에서 멀리 갈수록 (길 안의 세계 1 · 2 · 3, 완주)
+const DEPTH_MULT = [1.0, 1.25, 1.5];
+const DEPTH_CLEAR_MULT = 1.75;
 
 // 등급이 열렸는가: 바로 아래 등급을 깼거나, 아래가 아직 준비 중인 깊은 숲이면 그 아래를 깼을 때
 function tierOpen(n) {
