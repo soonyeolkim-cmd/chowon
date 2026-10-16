@@ -144,10 +144,14 @@ class Player {
       }
       const lateInAct = !this.act || this.act.t > this.act.dur * 0.6;
       const W = this.weapon;
+      // 마무리 타(검 3타 · 창 2타)가 입력 대기 중이면 특수공격은 그 뒤로 미룬다 → 공격 → 특수 순서대로 나가 삼연이 된다
+      // (앞 타의 역경직 · 쿨타임 때문에 마무리 타가 아직 안 나갔는데 특수가 먼저 나가 버리던 문제)
+      const finQueued = this.atkBuffer > 0 && this.nextIsFinisher && !this.spearOut && !(this.postDashT > 0);
+      if (finQueued && this.specialBuffer > 0) this.specialBuffer = Math.max(this.specialBuffer, INPUT_BUFFER);
       if (this.dashBuffer > 0 && this.dashStock > 0 && !(this.noDashT > 0)) this.startDash(mag);
       else if (W.skill && this.skillBuffer > 0 && this.skillCd <= 0 && lateInAct) {
         this.skillBuffer = 0; this.skillCd = this.skillCdBase; W.skill(this, mag);
-      } else if (this.specialBuffer > 0 && this.specialCd <= 0 && lateInAct && !this.spearOut) {
+      } else if (this.specialBuffer > 0 && this.specialCd <= 0 && lateInAct && !this.spearOut && !finQueued) {
         this.specialBuffer = 0; this.specialCd = this.specialCdBase; W.special(this, mag);
       } else if (this.atkBuffer > 0 && this.atkCd <= 0 && !this.act && !this.spearOut) {
         // 기본공격. 대시 직후엔 대시 공격.
@@ -218,6 +222,9 @@ class Player {
     this.dodgeT = 0.22;
     Sfx.dash();
   }
+
+  // 다음 기본공격이 콤보 마무리 타인가 (검 3타째 · 창 2타째)
+  get nextIsFinisher() { const n = this.weaponId === 'spear' ? 2 : 3; return this.comboT > 0 && (this.combo + 1) % n === n - 1; }
 
   startAttack(mag) {
     this.combo = this.comboT > 0 ? (this.combo + 1) % 3 : 0;
