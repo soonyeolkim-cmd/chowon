@@ -103,6 +103,8 @@ const BOONS = [
   // ── ⚔ 공격: 누적 패시브 (위력 · 범위 · 속도) ──
   { id: 'atk_combo', el: 'might', name: '연격', desc: lv => `기본공격 속도 +${15 * lv}%, 3타째 피해 +${30 * lv}%.` },
   { id: 'atk_spin', el: 'might', name: '일섬 회전', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${15 * lv}%.` },
+  { id: 'atk_multispin', el: 'might', name: '회전 연참', req: () => !G.player || G.player.weaponId !== 'spear', // 창 버전은 아직 (제안 중)
+    desc: lv => `회전베기가 ${1 + lv}번 몰아쳐 벤다. 추가 타격은 피해 ${pct(MULTISPIN_MULT)}, 마지막 타격에만 넉백.` },
   { id: 'atk_wave', el: 'might', name: '거대 검기', desc: lv => `검기 크기·사거리 +${25 * lv}%, 특수공격 쿨타임 -${(0.7 * lv).toFixed(1)}초.` },
   { id: 'atk_thrust', el: 'might', name: '돌진 강화', desc: lv => `대시 찌르기 피해 +${40 * lv}%, 돌진 거리 +${15 * lv}%.` },
   { id: 'sharp', el: 'might', name: '날카로운 검', desc: lv => `모든 피해 +${10 * lv}%.` },

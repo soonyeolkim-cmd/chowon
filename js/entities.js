@@ -45,6 +45,8 @@ const MOVES = {
   spear:    { mult: 1.25, kb: 120, guardBreak: false },   // 창 투척 (갈 때·올 때 한 번씩)
   sweep:    { mult: 1.0, kb: 240, guardBreak: true },   // 후려치기 (창 대시 공격)
 };
+// 회전 연참(공격 축복): 회전베기 추가 타격의 피해 배율
+const MULTISPIN_MULT = 0.5;
 const BASIC_KINDS = ['light', 'finisher', 'thrust', 'poke', 'pokeFin', 'sweep'];
 const DASH_CD = 0.7;        // 대시 1회 충전 시간 (초, 모든 무기 공통)
 const DASH_CHARGES = 2;     // 기본 대시 충전 횟수 (연속 대시)
@@ -231,10 +233,11 @@ class Player {
 
   startSpin(mag) {
     this.aim(mag);
-    this.act = { kind: 'spin', t: 0, dur: 0.36, hit: new Set() };
+    const ms = FX.lv('atk_multispin'); // 회전 연참: 레벨마다 한 바퀴 더 (조금 길어진다)
+    this.act = { kind: 'spin', t: 0, dur: 0.36 + 0.06 * ms, hit: new Set(), hits: 1 + ms, wave: 0 };
     this.atkCd = 0.4; this.charge = 0; this.comboT = 0;
     this.invuln = Math.max(this.invuln, 0.15);
-    G.text(this.x, this.y - 24, '회전베기', '#ffd24a', 12, 0.6);
+    G.text(this.x, this.y - 24, ms ? `회전베기 ×${1 + ms}` : '회전베기', '#ffd24a', 12, 0.6);
     Sfx.spin();
     FX.onSpin(this);
   }
@@ -369,6 +372,10 @@ class Player {
       World.move(this, fx * sp * dt, fy * sp * dt);
       this.hitLine(a, 46, 15);
     } else if (a.kind === 'spin') {
+      const hits = a.hits || 1, k = Math.min(hits - 1, Math.floor(a.t / a.dur * hits));
+      if (k !== a.wave) { a.wave = k; a.hit = new Set(); Sfx.spin(); } // 다음 타격: 같은 적을 다시 벤다
+      // 추가 타격은 피해 절반, 넉백은 마지막 타격에만 (적이 밀려나 다음 타격을 놓치지 않게)
+      a.opts = { mult: k === 0 ? 1 : MULTISPIN_MULT, kb: k < hits - 1 ? 40 : undefined };
       this.hitArc(a, this.spinRange, Math.PI);
     }
   }
@@ -382,7 +389,7 @@ class Player {
       if (d > range + t.r) continue;
       if (half < Math.PI && d > t.r + 6 && Math.abs(angDiff(Math.atan2(dy, dx), this.facing)) > half) continue;
       a.hit.add(t);
-      this.deal(t, a.kind, dx / d, dy / d);
+      this.deal(t, a.kind, dx / d, dy / d, a.opts);
     }
   }
 
@@ -401,7 +408,7 @@ class Player {
   deal(t, kind, nx, ny, o = {}) {
     const m = MOVES[kind];
     let dmg = this.atk * m.mult * (o.mult || 1) * rand(0.9, 1.1) * (1 + G.chainBonus()) * FX.damageMult(this, kind, t);
-    const kb = m.kb;
+    const kb = o.kb !== undefined ? o.kb : m.kb;
     let crit = Math.random() < FX.critChance(), counter = false;
     if (this.counterT > 0) { crit = true; counter = true; this.counterT = 0; }
     if (crit) dmg *= FX.critMult();
