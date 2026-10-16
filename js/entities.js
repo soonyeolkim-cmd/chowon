@@ -12,6 +12,9 @@ const angDiff = (a, b) => {
 const AIM_RANGE = 120, AIM_HALF_ANGLE = Math.PI / 3, AIM_FRONT_BIAS = 40;
 // 검기 조준: 멀리 날아가니 더 멀리(340)까지 찾고, 걸으면서 쏴도 진행 방향 좌우 25° 안의 적에게 살짝 맞춰 준다
 const WAVE_AIM = { range: 340, half: AIM_HALF_ANGLE, moveHalf: 25 * Math.PI / 180 };
+// 창 조준: 판정이 좁은 일직선이라 걸으면서 찔러도 좌우 20° 안의 적에게 맞춰 준다 (투창은 더 멀리)
+const SPEAR_AIM = { range: 110, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
+const THROW_AIM = { range: 200, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 
 function applyKnockback(e, dt) {
   if (!e.kvx && !e.kvy) return;
@@ -43,7 +46,7 @@ const MOVES = {
   // 창
   poke:     { mult: 1.15, kb: 140, guardBreak: false },
   pokeFin:  { mult: 1.75, kb: 340, guardBreak: true },
-  lunge:    { mult: 1.7, kb: 320, guardBreak: true },   // 관통 찌르기 (차지)
+  lunge:    { mult: 2.6, kb: 320, guardBreak: true },   // 관통 찌르기 (차지): 한 줄만 맞히는 대신 회전베기(2.2)보다 세다
   spear:    { mult: 1.25, kb: 120, guardBreak: false },   // 창 투척 (갈 때·올 때 한 번씩)
   sweep:    { mult: 1.0, kb: 240, guardBreak: true },   // 후려치기 (창 대시 공격)
 };
@@ -279,7 +282,7 @@ class Player {
   // 2연 찌르기: 길고 좁은 직선, 최대 3명 관통. 창끝 ×1.8, 창대(가까이) ×0.6
   startPoke(mag) {
     this.combo = this.comboT > 0 ? (this.combo + 1) % 2 : 0;
-    this.aim(mag);
+    this.aim(mag, SPEAR_AIM);
     const fin = this.combo === 1;
     this.act = { kind: fin ? 'pokeFin' : 'poke', t: 0, dur: (fin ? 0.18 : 0.15) / SPEAR_SPEED, hit: new Set(), pierced: 0, len: SPEAR_REACH * (fin ? 1.1 : 1) };
     this.atkCd = (fin ? 0.46 : 0.3) / SPEAR_SPEED * (1 - 0.15 * FX.lv('atk_combo'));
@@ -294,7 +297,7 @@ class Player {
   get pierceLen() { return SPEAR_PIERCE_LEN * (1 + 0.1 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')); }
   startLunge(mag) {
     this.finisherT = 0;
-    this.aim(mag);
+    this.aim(mag, SPEAR_AIM);
     // 연환 꿰뚫기(공격 축복): 찌른 뒤 정령의 창이 같은 줄을 레벨만큼 더 찌른다 (0.1초 간격)
     const ms = FX.lv('atk_multispin');
     this.act = { kind: 'lunge', t: 0, dur: 0.24 + 0.1 * ms, dur0: 0.24, hit: new Set(), pierced: 0, len: this.pierceLen, extra: ms, stabs: 0, opts: ms ? { kb: 40 } : undefined };
@@ -307,7 +310,7 @@ class Player {
   // 창 투척: 갔다가 자동으로 돌아온다. 돌아올 때까지 공격할 수 없다
   // 2타째 직후에 던지면 정령의 힘으로 만든 창 두 자루가 함께 날아간다 (삼연 투척)
   throwSpear(mag) {
-    this.aim(mag);
+    this.aim(mag, THROW_AIM);
     this.spearShot = new SpearShot(this, this.facing);
     G.projectiles.push(this.spearShot);
     const triple = this.finisherT > 0 && G.has('triple');
