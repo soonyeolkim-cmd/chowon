@@ -26,6 +26,7 @@ const SHARD_DROP = { // 마물이 많은 만큼 확률은 낮게
   lion: 0.08, trex: 0.14, cyclops2: 0.12, lizard: 0.07,
   demon: 0.12, lantern: 0.08, statue: 0.14, babydragon: 0.08, dragon: 1,
 };
+const SHARD_RATE = 0.6;       // 정령의 조각 획득 배율 (2026-10-17: 1~6세계 한 번에 가면서 너무 많이 모여서)
 const SHARD_TOTEM = 2;        // 봉인석 하나 (+ 길 안에서 뒤 세계일수록 2씩 더)
 const KILL_DROP_MULT = 0.5;   // 마물 처치로 나오는 조각은 적게 (보상은 봉인석 · 보스 · 깊이로)
 const SHARD_BOSS = 4;         // × 세계 번호

@@ -226,7 +226,7 @@ const G = {
     if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
-    this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0;
+    this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0; this.shardFrac = 0;
     this.reviveLeft = Meta.lv('revive');
     this.rerolls = Meta.lv('choice');
     const worlds = ROUTES[this.tierInfo.route].worlds;
@@ -250,7 +250,9 @@ const G = {
     if (x !== undefined) this.text(x, y, '⚔' + n, '#ffcf6a', 13, 1.2);
   },
   earn(n, x, y) {
-    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck')) * (this.stage >= 4 ? DEEP_SHARD_MULT : 1)));
+    const total = n * SHARD_RATE * (1 + 0.2 * Meta.lv('luck')) * (this.stage >= 4 ? DEEP_SHARD_MULT : 1) + (this.shardFrac || 0);
+    const v = Math.floor(total); this.shardFrac = total - v; // 1이 안 되는 몫은 모아 둔다
+    if (v <= 0) return;
     this.runShards += v; // 런이 끝날 때(쓰러짐 · 완주) 한꺼번에 받는다
     if (x !== undefined) this.text(x + rand(-6, 6), y - 14, '◆' + v, '#c8a0ff', 10, 0.8);
   },
