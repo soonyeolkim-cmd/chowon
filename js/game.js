@@ -4,13 +4,13 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const FONT = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif';
 // 세계 3개 × 스테이지 5개. 각 세계의 마지막 스테이지는 보스전.
-const FINAL_STAGE = 3;            // 마지막 세계
+const FINAL_STAGE = 6;            // 마지막 세계 (한 번의 모험으로 1~6)
 const STAGES_PER_WORLD = 5;
 const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
 const ENEMY_COST = { demon: 2, lantern: 1, statue: 2, babydragon: 1, lion: 1, trex: 2, cyclops2: 2, lizard: 1, kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
-const DEEP_SHARD_MULT = 0.6;          // 깊은 숲: 정령의 조각은 덜
-const DEEP_ESSENCE_MULT = 2;          // 깊은 숲: 무기의 정수는 두 배
+const DEEP_SHARD_MULT = 0.6;          // 깊은 숲(세계 4~6): 정령의 조각은 덜
+const DEEP_ESSENCE_MULT = 2;          // 깊은 숲(세계 4~6): 무기의 정수는 두 배
 const EASY_DMG_TAKEN = 1 / 3;        // 쉬움 모드: 받는 피해 배율 (1/3)
 const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
 const HEART_DROP = 0.035;              // 처치 시 하트 확률
@@ -201,7 +201,7 @@ const G = {
   spawnT: 0, toast: null, banner: null, hintBox: null, seen: store.get('hints') || {},
   unlocks: new Set(), dialog: null, lumi: null, lumiHeals: 0,
   runShards: 0, runKills: 0, reviveLeft: 0, rerolls: 0, runEmblems: 0, runEssence: 0, village: null,
-  firstWorld: 1, finalWorld: FINAL_STAGE, route: 'outer',
+  firstWorld: 1, finalWorld: FINAL_STAGE, route: 'all',
   tier: 1, tierInfo: null, tierCurses: [], tierFirst: false,
 
   // 이번 런 보상을 영구 재화로 옮긴다 (게임오버 · 완주 때 한 번만). 포기하거나 그냥 끄면 받지 못한다.
@@ -243,14 +243,14 @@ const G = {
   },
   // 무기의 정수 (모든 무기 공통)
   earnEssence(n, x, y) {
-    const total = n * ESSENCE_RATE * (this.route === 'deep' ? DEEP_ESSENCE_MULT : 1) + (this.essFrac || 0);
+    const total = n * ESSENCE_RATE * (this.stage >= 4 ? DEEP_ESSENCE_MULT : 1) + (this.essFrac || 0);
     n = Math.floor(total); this.essFrac = total - n; // 1이 안 되는 몫은 모아 둔다
     if (n <= 0) return;
     this.runEssence += n;
     if (x !== undefined) this.text(x, y, '⚔' + n, '#ffcf6a', 13, 1.2);
   },
   earn(n, x, y) {
-    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck')) * (this.route === 'deep' ? DEEP_SHARD_MULT : 1)));
+    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck')) * (this.stage >= 4 ? DEEP_SHARD_MULT : 1)));
     this.runShards += v; // 런이 끝날 때(쓰러짐 · 완주) 한꺼번에 받는다
     if (x !== undefined) this.text(x + rand(-6, 6), y - 14, '◆' + v, '#c8a0ff', 10, 0.8);
   },
@@ -563,6 +563,11 @@ const G = {
     for (const e of this.enemies) if (!e.dead) this.killEnemy(e);
     this.earn(SHARD_BOSS * this.stage, b.x, b.y - 50);
     this.earnEssence(ESSENCE_BOSS[Math.min(this.stage, ESSENCE_BOSS.length) - 1], b.x, b.y - 70);
+    if (this.stage === MID_EMBLEM_WORLD && !Meta.data.midEmblem) { // 세계 3 보스를 처음 쓰러뜨리면 영웅의 증표 (한 번만, 바로 받는다)
+      Meta.data.midEmblem = true; Meta.data.emblems += 1; this.runEmblems += 1;
+      this.text(b.x, b.y - 92, '✦ 영웅의 증표 +1', '#ffd24a', 18, 2.2);
+      this.banner = { title: '영웅의 증표 획득!', sub: '마을에서 새 무기를 해금할 수 있어요', t: 3 };
+    }
     Meta.save();
     this.phase = 'done'; this.clearDelay = 2.2;
   },
@@ -1889,8 +1894,8 @@ function villageAct(i) {
     const list = playableTiers(), k = list.indexOf(Meta.data.tier);
     Meta.data.tier = list[(k + 1) % list.length]; Meta.save();
     const ti = tierInfo(Meta.data.tier);
-    v.msg = list.length < 2 ? '바깥 숲을 끝까지 깨면 다음 등급이 열려요'
-      : `봉인 등급 ${ti.n} · ${ROUTES[ti.route].name} · 보상 ×${(ti.rewardMult * familiarMult(ti.n)).toFixed(2)}${familiarMult(ti.n) < 1 ? ' (익숙한 숲 ×0.5)' : ''} · ${curseText(ti)}`;
+    v.msg = list.length < 2 ? '세계 6까지 완주하면 다음 등급이 열려요'
+      : `봉인 등급 ${ti.n} · 보상 ×${(ti.rewardMult * familiarMult(ti.n)).toFixed(2)}${familiarMult(ti.n) < 1 ? ' (익숙한 숲 ×0.5)' : ''} · ${curseText(ti)}`;
     Sfx.pickup(); return;
   }
   if (i === items.length + 1) { // 난이도 바꾸기
@@ -1903,7 +1908,7 @@ function villageAct(i) {
   if (it.locked) { v.msg = '아직 준비 중인 무기예요'; Sfx.block(); return; }
   if (it.weapon !== undefined) {
     if (!it.owned) {
-      if (Meta.data.emblems < it.unlockCost) { v.msg = `영웅의 증표가 ${it.unlockCost}개 필요해요 (최종 보스를 쓰러뜨리면 얻어요)`; Sfx.block(); return; }
+      if (Meta.data.emblems < it.unlockCost) { v.msg = `영웅의 증표가 ${it.unlockCost}개 필요해요 (세계 3 보스를 처음 쓰러뜨리거나 등급 1을 처음 완주하면 얻어요)`; Sfx.block(); return; }
       Meta.data.emblems -= it.unlockCost; Meta.data.unlocked.push(it.weapon);
       Meta.data.weapon = it.weapon; Meta.save();
       v.flash[it.key] = 0.8; v.msg = `${it.name} 해금! 바로 장착했어요`; Sfx.level();
@@ -2186,7 +2191,7 @@ function render() {
     wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, H * 0.2 + big * 0.9 + i * 20, 14, '#d8e8d0', 'center', '500'));
     const md = Meta.data;
     label(`로그라이트 · 쓰러지면 처음부터 · 정령의 조각으로 영구 강화${md.best ? `   (최고 기록: ${stageLabel(md.best)})` : ''}${md.bestEasy ? `  (쉬움: ${stageLabel(md.bestEasy)})` : ''}`, W / 2, H * 0.45, 12, '#c8b8ff', 'center', '600');
-    label(`봉인 등급 ${md.tier} · ${ROUTES[tierInfo(md.tier).route].name}   ·   난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 1/3)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
+    label(`봉인 등급 ${md.tier}   ·   난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 1/3)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
     const { move, A, P, D } = keyNames();
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
     if (Input.state.device === 'keyboard') label(`조작 방식: ${Input.settings.kbMode === 'mouse' ? '키보드+마우스' : '키보드만'}  ·  마을의 ⚙ 설정 > 키보드에서 바꿀 수 있어요`, W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
@@ -2227,18 +2232,17 @@ function render() {
         label(`이번 런 ◆ ${G.runShards}  ·  ⚔ ${G.runEssence}   (끝까지 가면 보상 ×${(rp.tier * DEPTH_CLEAR_MULT * rp.fam).toFixed(2)})`, W / 2, H * 0.54, 13, '#c8a0ff', 'center', '700');
         if (G.clearT > 1.2 && blink) label(`${tap} 세계 ${G.stage + 1}로 (정령의 힘 · 체력 회복)`, W / 2, H * 0.68, 18, '#ffd24a');
       } else {
-        const deep = G.route === 'deep';
-        label(deep ? (G.finalWorld < 6 ? '깊은 숲의 봉인을 풀었다!' : '삼룡을 잠재웠다!') : '숲에 평화가 돌아왔다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
-        label(deep ? (G.finalWorld < 6 ? `깊은 숲 세계 ${G.finalWorld}까지 클리어했어요. (세계 ${G.finalWorld + 1}부터는 준비 중)` : '깊은 숲을 모두 클리어했어요!') : '모든 스테이지를 클리어했어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
+        label('삼룡을 잠재웠다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
+        label('세계 1부터 6까지, 숲의 모든 봉인을 풀었어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
         label(stats, W / 2, H * 0.48, 13, '#fff', 'center', '600');
         drawRewardResult(H * 0.57);
         const ti = G.tierInfo || tierInfo(1);
         if (G.tierFirst) {
-          const reward = G.runEmblems ? `✦ 영웅의 증표 +${G.runEmblems} (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요` : `◆ 등급 보너스 +${ti.bonusShards}`;
+          const reward = ti.emblem ? `✦ 영웅의 증표 +${EMBLEM_PER_CLEAR} (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요` : `◆ 등급 보너스 +${ti.bonusShards}`;
           label(`봉인 등급 ${ti.n} 첫 돌파!  ${reward}`, W / 2, H * 0.57 + 20, 13, '#ffd24a', 'center', '700');
           const nx = tierInfo(ti.n + 1);
-          if (ti.n < TIER_MAX) label(ROUTES[nx.route].ready ? `다음 도전: 봉인 등급 ${nx.n} · ${ROUTES[nx.route].name}` : `다음 도전: 봉인 등급 ${nx.n} · ${ROUTES[nx.route].name} (준비 중)`, W / 2, H * 0.57 + 40, 12, '#e8d8ff', 'center', '600');
-        } else label(`봉인 등급 ${ti.n} · 이미 깬 등급이라 증표는 없어요`, W / 2, H * 0.57 + 20, 12, '#aab', 'center', '600');
+          if (ti.n < TIER_MAX) label(`다음 도전: 봉인 등급 ${nx.n} · ${curseText(nx)}`, W / 2, H * 0.57 + 40, 12, '#e8d8ff', 'center', '600');
+        } else label(`봉인 등급 ${ti.n} · 이미 완주한 등급이라 첫 돌파 보상은 없어요`, W / 2, H * 0.57 + 20, 12, '#aab', 'center', '600');
         if (G.clearT > 1.5 && blink) label(`${tap} 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
       }
     }

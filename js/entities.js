@@ -723,7 +723,7 @@ const ENEMY_DMG_STEP = 0.5, BOSS_DMG_STEP = 0.5;
 const ENEMY_HP_MULT = 5.6;   // 1.5 → 3.75 → 5.6 (몬스터가 너무 빨리 죽는다는 의견, 2026-10-17 두 번)
 const ENEMY_HP_STEP = 0.6;    // 세계 하나 갈 때마다 체력 +60% (스테이지마다 +12%씩 쌓임). 2026-10-17: 1~3세계가 너무 쉽다는 의견
 // 강해지는 정도는 '이 길에서 얼마나 왔나' 기준 (깊은 숲은 4세계부터 새로 시작하니까), 깊은 숲은 처음부터 이만큼 더 세다
-const DEEP_HP_MULT = 1.5, DEEP_DMG_MULT = 1.8;
+const DEEP_HP_MULT = 1, DEEP_DMG_MULT = 1; // 1~6세계를 한 번에 가므로 깊은 숲 추가 배율 없음
 const routeLevel = stage => Math.max(0, stage - (G.firstWorld || 1)); // 이 길에서 몇 세계째인가 (스테이지마다 0.2씩)
 const deepMult = (stage, m) => (stage >= 4 ? m : 1);
 
@@ -1404,7 +1404,7 @@ const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b',
 // 깊은 숲은 처음부터 BOSS_HP_DEEP 배. 삼룡은 이 체력을 셋이 나눠 가진다. (2026-10-17: 첫 보스 2배 · 성장 가파르게)
 // 바루 둔갑: 숨어 있는 시간, 그중 몇 초가 지나면 루미가 찾아 주는가
 const BARU_HIDE = 7, BARU_LUMI_FIND = 4;
-const BOSS_HP_BASE = 2970, BOSS_HP_GROWTH = 1.6, BOSS_HP_DEEP = 2;
+const BOSS_HP_BASE = 2970, BOSS_HP_GROWTH = 1.6, BOSS_HP_DEEP = 1;
 
 class Boss {
   constructor(x, y, stage) {

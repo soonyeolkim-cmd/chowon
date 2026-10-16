@@ -1,13 +1,13 @@
 'use strict';
-// 봉인 등급: 처음 깨면 다음 등급이 열린다. 바깥 숲과 깊은 숲을 번갈아 오르고,
+// 봉인 등급: 한 번의 모험으로 세계 1~6을 모두 지나야 완주. 처음 완주하면 다음 등급이 열린다.
 // 등급이 오를수록 '봉인의 반발'(불리한 규칙)이 하나씩 더 붙는다. 대신 보상 배율이 오른다.
-//   홀수 등급 = 바깥 숲(세계 1~3), 짝수 등급 = 깊은 숲(세계 4~6)
-//   영웅의 증표는 '처음 깰 때만': 등급 1(바깥 숲)과 모든 깊은 숲 등급. 나머지 바깥 숲 등급은 조각 보너스.
+//   등급 1 = 반발 없음, 등급 7 = 반발 6개 전부
+//   영웅의 증표: 세계 3 보스를 처음 쓰러뜨릴 때 1개 (한 번만), 등급 1을 처음 완주할 때 1개.
+//   다른 등급을 처음 완주하면 조각 보너스.
 // 쉬움 모드로 깨도 모두 인정된다.
 
 const ROUTES = {
-  outer: { name: '바깥 숲', ready: true, worlds: [1, 2, 3] },
-  deep:  { name: '깊은 숲', ready: true, worlds: [4, 5, 6] },
+  all: { name: '봉인의 숲', ready: true, worlds: [1, 2, 3, 4, 5, 6] },
 };
 
 const CURSES = {
@@ -19,33 +19,31 @@ const CURSES = {
   heal:  { name: '메마른 숲',     desc: '회복량 절반' },
 };
 const CURSE_ORDER = ['hp', 'wave', 'dmg', 'swift', 'rage', 'heal'];
-const TIER_MAX = 1 + 2 * CURSE_ORDER.length; // 13
+const TIER_MAX = 1 + CURSE_ORDER.length; // 7
+const MID_EMBLEM_WORLD = 3;              // 이 세계 보스를 처음 쓰러뜨리면 증표 1개
 
 function tierInfo(n) {
-  const route = n % 2 === 1 ? 'outer' : 'deep';
-  const curses = CURSE_ORDER.slice(0, Math.floor((n - 1) / 2));
-  const emblem = n === 1 || route === 'deep';
-  return { n, route, curses, emblem, bonusShards: emblem ? 0 : 20 + 10 * n, rewardMult: 1 + 0.3 * (n - 1) };
+  const curses = CURSE_ORDER.slice(0, n - 1);
+  const emblem = n === 1;
+  return { n, route: 'all', curses, emblem, bonusShards: emblem ? 0 : 30 + 20 * n, rewardMult: 1 + 0.3 * (n - 1) };
 }
 
 // 익숙한 숲: 내가 처음 깬 가장 높은 등급보다 2단계 이상 낮은 등급을 돌면 보상 절반
 const FAMILIAR_MULT = 0.5;
 const maxClearedTier = () => Object.keys(Meta.data.tierCleared).reduce((m, k) => Math.max(m, +k), 0);
 const familiarMult = n => (maxClearedTier() - n >= 2 ? FAMILIAR_MULT : 1);
-// 깊이 보너스: 이번 런에서 멀리 갈수록 (길 안의 세계 1 · 2 · 3, 완주)
-const DEPTH_MULT = [1.0, 1.25, 1.5];
-const DEPTH_CLEAR_MULT = 1.75;
+// 깊이 보너스: 이번 런에서 멀리 갈수록 (세계 1 ~ 6, 완주)
+const DEPTH_MULT = [1.0, 1.15, 1.3, 1.45, 1.6, 1.75];
+const DEPTH_CLEAR_MULT = 2.0;
 
-// 등급이 열렸는가: 바로 아래 등급을 깼거나, 아래가 아직 준비 중인 깊은 숲이면 그 아래를 깼을 때
+// 등급이 열렸는가: 바로 아래 등급을 완주했을 때
 function tierOpen(n) {
   if (n <= 1) return true;
   if (n > TIER_MAX) return false;
-  const c = Meta.data.tierCleared;
-  if (c[n - 1]) return true;
-  return !ROUTES[tierInfo(n - 1).route].ready && !!c[n - 2];
+  return !!Meta.data.tierCleared[n - 1];
 }
-const tierPlayable = n => tierOpen(n) && ROUTES[tierInfo(n).route].ready;
-// 고를 수 있는 등급 목록 (열렸고, 길이 준비된 것)
+const tierPlayable = n => tierOpen(n);
+// 고를 수 있는 등급 목록
 function playableTiers() {
   const list = [];
   for (let n = 1; n <= TIER_MAX; n++) if (tierPlayable(n)) list.push(n);

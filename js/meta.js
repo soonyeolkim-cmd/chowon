@@ -75,6 +75,8 @@ const Meta = {
       tier: d.tier || 1,                           // 고른 봉인 등급
       // 처음 깬 봉인 등급들 { 1: true, ... } (예전 저장: 한 번이라도 완주했으면 등급 1을 깬 것으로)
       tierCleared: d.tierCleared || (d.clears ? { 1: true } : {}),
+      midEmblem: !!d.midEmblem, // 세계 3 보스 증표를 받았나
+      tiers7: !!d.tiers7,      // 7등급(1~6세계 한 번에) 구조로 옮긴 저장인가
       emblems: d.emblems || 0,
       weapon: d.weapon || 'sword', unlocked: d.unlocked || ['sword'],
       wup: d.wup || {},          // 무기별 숙련: { sword: { combo: 2, ... } }
@@ -82,6 +84,14 @@ const Meta = {
       normal1: d.normal1 !== false && !DEV_BUILD, // 로컬 일반 모드로 시작한 저장 표시
       essence: typeof d.essence === 'number' ? d.essence : Object.values(d.essence || {}).reduce((a, b) => a + b, 0),
     };
+    // 예전 구조(바깥 숲 1~3 / 깊은 숲 4~6, 13등급)에서 옮겨 온 저장: 등급 기록은 처음부터, 이미 받은 바깥 숲 증표는 세계 3 증표로 친다
+    if (!this.data.tiers7) {
+      const old = this.data.tierCleared;
+      this.data.midEmblem = !!(old[1] || this.data.emblems || this.data.unlocked.length > 1);
+      this.data.tierCleared = {};
+      this.data.tier = 1;
+      this.data.tiers7 = true;
+    }
     if (DEV_MODE === 'all') this.unlockAll();
     if (DEV_MODE === 'spear' && !this.data.unlocked.includes('spear')) {
       this.data.unlocked.push('spear'); this.data.weapon = 'spear';
