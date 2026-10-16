@@ -2,12 +2,13 @@
 // 입력 통합: 키보드 / 터치(가상 조이스틱 + 버튼) / 게임패드
 const Input = (() => {
   const keys = new Set();
-  const queued = { attack: false, special: false, dash: false, skill: false, start: false, pause: false, tap: null };
+  const queued = { attack: false, special: false, dash: false, skill: false, start: false, pause: false, confirm: false, back: false, tap: null };
   const state = {
     mx: 0, my: 0,            // 이동 방향 (-1 ~ 1)
     attack: false,           // 이번 프레임에 공격을 눌렀는가
     attackHeld: false,       // 공격 버튼을 누르고 있는가 (연속 공격)
     special: false, dash: false, skill: false, start: false, pause: false, tap: null,
+    confirm: false, back: false, // 메뉴용: 결정(Enter · 공격 · 패드 A) / 뒤로(Esc · 일시정지 · 패드 B)
     device: 'keyboard',      // 마지막으로 쓴 입력 장치: keyboard | touch | gamepad
   };
   const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0, radius: 60 };
@@ -17,13 +18,23 @@ const Input = (() => {
   let padHeldAttack = false;
   let lastPad = null;
 
-  // 키보드: 방향키 이동 + 왼손 Z 공격 · X 대시 · C 특수 (Ctrl 공격 · Space 대시 · Alt 특수도 함께 동작)
-  // 기본공격을 길게 눌렀다 떼면 회전베기
-  const ATTACK_KEYS = ['KeyZ', 'ControlLeft'];
-  const SPECIAL_KEYS = ['KeyC', 'AltLeft'];
-  const SKILL_KEYS = [];          // 전용스킬: 무기에 생기면 키를 정한다
-  const DASH_KEYS = ['KeyX', 'Space'];
-  const GAME_KEYS = [...ATTACK_KEYS, ...SPECIAL_KEYS, ...DASH_KEYS];
+  // 조작 설정 (설정 화면에서 바꿀 수 있고, 이 기기에 저장된다)
+  //  키보드: 방향키 이동 · Z/왼쪽 Ctrl 공격(길게 = 차지) · X/Space 대시 · C/왼쪽 Alt 특수 · Esc/P 일시정지
+  //  게임패드: A 공격 · B/RB 대시 · X/Y/LB/RT 특수 · START 일시정지 (이동은 왼쪽 스틱 · 십자키 고정)
+  const DEFAULT_BINDS = {
+    kb: { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],
+          attack: ['KeyZ', 'ControlLeft'], dash: ['KeyX', 'Space'], special: ['KeyC', 'AltLeft'], pause: ['Escape', 'KeyP'] },
+    pad: { attack: [0], dash: [1, 5], special: [2, 3, 4, 7], pause: [9] },
+  };
+  const copy = o => JSON.parse(JSON.stringify(o));
+  const load = (k, def) => { try { const v = JSON.parse(localStorage.getItem('swordsman.' + k)); return v || def; } catch (_) { return def; } };
+  const save = (k, v) => { try { localStorage.setItem('swordsman.' + k, JSON.stringify(v)); } catch (_) {} };
+  const binds = (() => { const b = load('binds', null), d = copy(DEFAULT_BINDS); if (!b) return d;
+    for (const dev of ['kb', 'pad']) for (const a in d[dev]) if (b[dev] && Array.isArray(b[dev][a]) && b[dev][a].length) d[dev][a] = b[dev][a];
+    return d; })();
+  const settings = Object.assign({ rumble: true, shake: true }, load('settings', {}));
+  const kbHas = (action, code) => binds.kb[action].includes(code);
+  const isGameKey = code => Object.values(binds.kb).some(list => list.includes(code));
 
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) state.device = 'touch';
 
@@ -94,20 +105,23 @@ const Input = (() => {
 
   function init(canvas) {
     addEventListener('keydown', e => {
-      keys.add(e.code);
       state.device = 'keyboard';
+      // 키 설정 중: 누른 키를 그대로 넘긴다
+      if (api.capture) { e.preventDefault(); if (!e.repeat) { const f = api.capture; api.capture = null; f('kb', e.code); } return; }
+      keys.add(e.code);
       if (!e.repeat) {
-        if (ATTACK_KEYS.includes(e.code)) queued.attack = true;
-        if (DASH_KEYS.includes(e.code)) queued.dash = true;
-        if (SKILL_KEYS.includes(e.code)) queued.skill = true;
-        if (SPECIAL_KEYS.includes(e.code)) queued.special = true;
-        if (e.code === 'Escape' || e.code === 'KeyP') queued.pause = true;
+        if (kbHas('attack', e.code)) queued.attack = true;
+        if (kbHas('dash', e.code)) queued.dash = true;
+        if (kbHas('special', e.code)) queued.special = true;
+        if (kbHas('pause', e.code)) queued.pause = true;
+        if (e.code === 'Enter' || e.code === 'NumpadEnter' || kbHas('attack', e.code)) queued.confirm = true;
+        if (e.code === 'Escape' || e.code === 'Backspace' || kbHas('pause', e.code)) queued.back = true;
         queued.start = true;
       }
       // 게임 키가 브라우저 기능(스크롤, Alt 메뉴 등)을 건드리지 않게 막는다
-      if (e.code.startsWith('Arrow') || GAME_KEYS.includes(e.code)) e.preventDefault();
+      if (e.code.startsWith('Arrow') || isGameKey(e.code)) e.preventDefault();
     });
-    addEventListener('keyup', e => { keys.delete(e.code); if (GAME_KEYS.includes(e.code)) e.preventDefault(); });
+    addEventListener('keyup', e => { keys.delete(e.code); if (isGameKey(e.code)) e.preventDefault(); });
     addEventListener('blur', () => { keys.clear(); joy.id = null; pointers.clear(); });
 
     canvas.addEventListener('pointerdown', onDown);
@@ -147,20 +161,29 @@ const Input = (() => {
     if (down(12)) ay = -1; if (down(13)) ay = 1;
 
     if (ax || ay || anyButton) state.device = 'gamepad';
-    // 게임패드: A 기본공격(길게 = 회전베기) · X 특수공격 · B 대시
-    if (edge[0]) queued.attack = true;                                 // A
-    if (edge[2] || edge[3] || edge[4] || edge[7]) queued.special = true; // X, Y, LB, RT
-    if (edge[1] || edge[5]) queued.dash = true;                        // B, RB
-    if (edge[9]) queued.pause = true;                                   // START
-    if (edge[0] || edge[1] || edge[2] || edge[3] || edge[9]) queued.start = true;
-    padHeldAttack = down(0);
+    // 키 설정 중: 처음 누른 버튼을 넘긴다
+    if (api.capture) {
+      const i = edge.findIndex(Boolean);
+      if (i >= 0) { const f = api.capture; api.capture = null; f('pad', i); }
+      return { ax: 0, ay: 0 };
+    }
+    const any = list => list.some(i => edge[i]);
+    if (any(binds.pad.attack)) queued.attack = true;
+    if (any(binds.pad.special)) queued.special = true;
+    if (any(binds.pad.dash)) queued.dash = true;
+    if (any(binds.pad.pause)) queued.pause = true;
+    if (edge[0] || any(binds.pad.attack)) queued.confirm = true;   // 메뉴 결정: A
+    if (edge[1] || any(binds.pad.pause)) queued.back = true;       // 메뉴 뒤로: B
+    if (anyButton && edge.some(Boolean)) queued.start = true;
+    padHeldAttack = binds.pad.attack.some(i => down(i));
     return { ax, ay };
   }
 
   function update() {
     const has = c => keys.has(c);
-    let mx = (has('ArrowRight') ? 1 : 0) - (has('ArrowLeft') ? 1 : 0);
-    let my = (has('ArrowDown') ? 1 : 0) - (has('ArrowUp') ? 1 : 0);
+    const held = a => binds.kb[a].some(has);
+    let mx = (held('right') ? 1 : 0) - (held('left') ? 1 : 0);
+    let my = (held('down') ? 1 : 0) - (held('up') ? 1 : 0);
 
     if (joy.id !== null) {
       const dx = joy.x - joy.ox, dy = joy.y - joy.oy, len = Math.hypot(dx, dy);
@@ -180,13 +203,15 @@ const Input = (() => {
     state.start = queued.start;
     state.pause = queued.pause;
     state.tap = queued.tap;
+    state.confirm = queued.confirm; state.back = queued.back;
     queued.tap = null;
-    state.attackHeld = ATTACK_KEYS.some(has) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
-    queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = false;
+    state.attackHeld = binds.kb.attack.some(has) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
+    queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = false;
   }
 
   // 진동: 게임패드는 듀얼 럼블, 휴대폰은 vibrate (안드로이드)
   function rumble(strength, ms) {
+    if (!settings.rumble) return;
     try {
       if (state.device === 'gamepad' && lastPad && lastPad.vibrationActuator) {
         lastPad.vibrationActuator.playEffect('dual-rumble', {
@@ -198,7 +223,21 @@ const Input = (() => {
     } catch (_) {}
   }
 
+  // 행동 하나에 새 키(버튼)를 지정한다. 다른 행동이 쓰던 키면 서로 맞바꾼다.
+  function bind(dev, action, code) {
+    const B = binds[dev], old = B[action][0];
+    for (const a in B) if (a !== action && B[a].includes(code)) {
+      B[a] = B[a].filter(c => c !== code);
+      if (!B[a].length) B[a] = [old];
+    }
+    B[action] = [code];
+    save('binds', binds);
+  }
+  function resetBinds(dev) { binds[dev] = copy(DEFAULT_BINDS[dev]); save('binds', binds); }
+  function saveSettings() { save('settings', settings); }
+
   const api = { init, update, state, joy, buttons, pointers, setButton, rumble, onUi: null, onPadConnect: null,
-    rot: false, physW: innerWidth, viewW: innerWidth, wheel: 0 };
+    rot: false, physW: innerWidth, viewW: innerWidth, wheel: 0,
+    binds, settings, bind, resetBinds, saveSettings, capture: null, clearKeys: () => keys.clear() };
   return api;
 })();

@@ -803,10 +803,10 @@ function toggleFullscreen() {
 Input.onUi = id => {
   if (id === 'skip') G.skipDialog();
   else if (id === 'fullscreen') toggleFullscreen();
-  else if (id === 'pause') G.state = G.state === 'play' ? 'paused' : G.state === 'paused' ? 'play' : G.state;
+  else if (id === 'pause') { if (G.state === 'play') openPause(); else if (G.state === 'paused') G.state = 'play'; }
 };
 Input.onPadConnect = () => { G.toast = { s: '🎮 게임패드 연결됨', t: 2.5 }; };
-document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'play') G.state = 'paused'; });
+document.addEventListener('visibilitychange', () => { if (document.hidden && G.state === 'play') openPause(); });
 
 // ── 그리기: 월드 ────────────────────────────────────────────
 function drawWorld() {
@@ -815,7 +815,7 @@ function drawWorld() {
   cx = World.pw > vw ? clamp(cx, 0, World.pw - vw) : (World.pw - vw) / 2;
   cy = World.ph > vh ? clamp(cy, 0, World.ph - vh) : (World.ph - vh) / 2;
   G.view = { x: cx, y: cy, w: vw, h: vh };
-  const sh = G.state === 'play' ? G.shake : 0; // 축복 선택·대화·일시정지 화면에서는 흔들지 않는다
+  const sh = G.state === 'play' && Input.settings.shake ? G.shake : 0; // 축복 선택·대화·일시정지 화면에서는 흔들지 않는다
   const sx = sh ? rand(-sh, sh) : 0, sy = sh ? rand(-sh, sh) : 0;
   const k = DPR * SCALE;
   const ox = Math.round((-cx + sx) * k) / k, oy = Math.round((-cy + sy) * k) / k;
@@ -1088,11 +1088,216 @@ function drawUiButton(b, kind) {
   ctx.globalAlpha = 1;
 }
 
-function keyNames() {
+// ── 키 이름 ─────────────────────────────────────────────
+const KEY_NAMES = {
+  ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: 'Space', Escape: 'Esc', Enter: 'Enter',
+  ControlLeft: '왼쪽 Ctrl', ControlRight: '오른쪽 Ctrl', AltLeft: '왼쪽 Alt', AltRight: '오른쪽 Alt',
+  ShiftLeft: '왼쪽 Shift', ShiftRight: '오른쪽 Shift', Tab: 'Tab', Backspace: '←Back', CapsLock: 'Caps',
+  Comma: ',', Period: '.', Slash: '/', Semicolon: ';', Quote: "'", BracketLeft: '[', BracketRight: ']', Minus: '-', Equal: '=',
+};
+const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'Back', 'Start', 'L스틱', 'R스틱', '십자↑', '십자↓', '십자←', '십자→', '홈'];
+const kbName = c => KEY_NAMES[c] || c.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, '키패드 ');
+const padName = i => PAD_NAMES[i] || '버튼' + i;
+
+// ── 일시정지 메뉴 (패키지 게임처럼) ─────────────────────────
+// 일시정지 키(Esc · P · START · ⏸)를 누르면 열린다
+const PAUSE_ITEMS = [
+  { id: 'resume', name: '계속하기' },
+  { id: 'moves', name: '기술 · 축복 보기' },
+  { id: 'settings', name: '설정' },
+  { id: 'quit', name: '마을로 돌아가기' },
+];
+function openPause() {
+  G.state = 'paused';
+  G.pm = { sel: 0, view: 'menu', axis: 0, t: 0, qsel: 1 };
+}
+function pauseLayout() {
+  const w = Math.min(320, W - 40), h = 42, gap = 10, n = PAUSE_ITEMS.length;
+  const y0 = H / 2 - (n * (h + gap)) / 2 + 20;
+  return PAUSE_ITEMS.map((it, i) => ({ it, x: W / 2 - w / 2, y: y0 + i * (h + gap), w, h }));
+}
+function quitLayout() {
+  const w = Math.min(200, (W - 60) / 2), h = 42;
+  return [{ id: 'yes', name: '그만두기', x: W / 2 - w - 8, y: H / 2 + 30, w, h }, { id: 'no', name: '계속하기', x: W / 2 + 8, y: H / 2 + 30, w, h }];
+}
+const inRectPt = (pt, r) => pt && pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
+// 위아래 / 좌우 입력을 한 번씩만 받는다
+function menuAxis(o, inp) {
+  const v = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0, h = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
+  const dy = v && v !== o.axis ? v : 0, dx = h && h !== o.axisX ? h : 0;
+  o.axis = v; o.axisX = h;
+  return { dy, dx };
+}
+
+function handlePauseInput(dt, inp) {
+  const m = G.pm || (G.pm = { sel: 0, view: 'menu', axis: 0, t: 0, qsel: 1 });
+  m.t += dt;
+  if (m.t < 0.15) return;
+  const { dy, dx } = menuAxis(m, inp);
+  if (m.view === 'moves') { if (inp.back || inp.confirm || inp.tap) { m.view = 'menu'; Sfx.pickup(); } return; }
+  if (m.view === 'quit') {
+    if (dx) { m.qsel = m.qsel ? 0 : 1; Sfx.pickup(); }
+    const L = quitLayout();
+    let pick = null;
+    if (inp.tap) { const i = L.findIndex(r => inRectPt(inp.tap, r)); if (i >= 0) pick = i; }
+    else if (inp.confirm) pick = m.qsel;
+    if (pick === 0) { G.goVillage(); return; }
+    if (pick === 1 || inp.back) { m.view = 'menu'; Sfx.pickup(); }
+    return;
+  }
+  if (dy) { m.sel = (m.sel + dy + PAUSE_ITEMS.length) % PAUSE_ITEMS.length; Sfx.pickup(); }
+  let pick = null;
+  if (inp.tap) { const i = pauseLayout().findIndex(r => inRectPt(inp.tap, r)); if (i >= 0) { m.sel = i; pick = i; } }
+  else if (inp.confirm) pick = m.sel;
+  if (inp.back && pick === null) { G.state = 'play'; return; }
+  if (pick === null) return;
+  const id = PAUSE_ITEMS[pick].id;
+  Sfx.pickup();
+  if (id === 'resume') G.state = 'play';
+  else if (id === 'moves') m.view = 'moves';
+  else if (id === 'settings') openSettings('paused');
+  else if (id === 'quit') { m.view = 'quit'; m.qsel = 1; }
+}
+
+function drawPauseMenu(big, blink, tap) {
+  const m = G.pm || { sel: 0, view: 'menu' };
+  if (m.view === 'moves') { drawPauseScreen(big, blink, tap); return; }
+  overlay(0.6);
+  if (m.view === 'quit') {
+    label('이번 모험을 그만둘까요?', W / 2, H / 2 - 40, 20, '#fff', 'center', '800');
+    label('지금까지 모은 정령의 조각 · 무기의 정수는 그대로 남아요', W / 2, H / 2 - 10, 12, '#ccd', 'center', '600');
+    quitLayout().forEach((r, i) => {
+      const sel = m.qsel === i;
+      ctx.fillStyle = sel ? (i ? '#3f8a3b' : '#9a3a2a') : 'rgba(30,36,48,0.95)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+      label(r.name, r.x + r.w / 2, r.y + r.h / 2, 15, '#fff', 'center', '800');
+    });
+    return;
+  }
+  label('일시정지', W / 2, pauseLayout()[0].y - 40, big * 0.6, '#ffe08a', 'center', '900');
+  if (G.tier) label(`봉인 등급 ${G.tier} · ${G.stage}-${G.sub}${Meta.data.mode === 'easy' ? ' · 쉬움' : ''}`, W / 2, pauseLayout()[0].y - 14, 12, '#ccd', 'center', '600');
+  pauseLayout().forEach((r, i) => {
+    const sel = m.sel === i;
+    ctx.fillStyle = sel ? 'rgba(70,60,110,0.97)' : 'rgba(24,28,40,0.92)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.18)'; ctx.lineWidth = sel ? 2 : 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    label((sel ? '▶ ' : '') + r.it.name, r.x + r.w / 2, r.y + r.h / 2, 16, r.it.id === 'quit' ? '#ffb0a0' : '#fff', 'center', '800');
+  });
   const d = Input.state.device;
+  const how = d === 'touch' ? '항목을 탭하세요' : d === 'gamepad' ? '↑↓ 고르기 · A 결정 · B 돌아가기' : '↑↓ 고르기 · Enter/Z 결정 · Esc 돌아가기';
+  label(how, W / 2, H - inset.b - 18, 12, '#aab', 'center', '600');
+}
+
+// ── 설정: 키보드 · 게임패드 키 설정, 진동 · 화면 흔들림 ───────
+const SETTING_TABS = ['키보드', '게임패드', '기타'];
+const KB_ACTIONS = [['up', '위로 이동'], ['down', '아래로 이동'], ['left', '왼쪽으로 이동'], ['right', '오른쪽으로 이동'],
+  ['attack', '공격 (길게 누르면 차지)'], ['dash', '대시'], ['special', '특수공격'], ['pause', '일시정지 · 메뉴']];
+const PAD_ACTIONS = [['attack', '공격 (길게 누르면 차지)'], ['dash', '대시'], ['special', '특수공격'], ['pause', '일시정지 · 메뉴']];
+function openSettings(from) {
+  G.settingsFrom = from; G.state = 'settings';
+  G.su = { tab: Input.state.device === 'gamepad' ? 1 : 0, sel: 0, axis: 0, axisX: 0, t: 0, waiting: null, msg: null };
+}
+function closeSettings() {
+  Input.capture = null;
+  G.state = G.settingsFrom === 'village' ? 'village' : G.settingsFrom === 'title' ? 'title' : 'paused';
+  if (G.state === 'paused' && G.pm) G.pm.t = 0;
+  if (G.state === 'village' && G.village) { G.village.t = 0.3; G.village.armed = false; }
+}
+function settingsRows(tab) {
+  const B = Input.binds, S = Input.settings;
+  if (tab === 0) return [...KB_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'kb', action: a, name: n, value: B.kb[a].map(kbName).join(' / ') })),
+    { kind: 'reset', dev: 'kb', name: '키보드 기본값으로 되돌리기', value: '' }];
+  if (tab === 1) return [...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
+    { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
+  return [{ kind: 'toggle', key: 'rumble', name: '진동 (게임패드 · 휴대폰)', value: S.rumble ? '켜짐' : '꺼짐' },
+    { kind: 'toggle', key: 'shake', name: '화면 흔들림', value: S.shake ? '켜짐' : '꺼짐' }];
+}
+function settingsLayout() {
+  const s = G.su, rows = settingsRows(s.tab);
+  const w = Math.min(560, W - 40), x = W / 2 - w / 2, top = inset.t + 92, rh = clamp((H - inset.b - 60 - top) / Math.max(rows.length, 6), 26, 38);
+  const tw = w / SETTING_TABS.length;
+  return {
+    tabs: SETTING_TABS.map((n, i) => ({ x: x + i * tw, y: inset.t + 52, w: tw - 4, h: 30 })),
+    rows: rows.map((r, i) => ({ r, x, y: top + i * rh, w, h: rh - 4 })),
+    back: { x: inset.l + 12, y: inset.t + 10, w: 96, h: 30 },
+  };
+}
+function settingsAct(row) {
+  const s = G.su;
+  if (row.kind === 'reset') { Input.resetBinds(row.dev); s.msg = '기본값으로 되돌렸어요'; Sfx.level(); return; }
+  if (row.kind === 'toggle') { Input.settings[row.key] = !Input.settings[row.key]; Input.saveSettings(); Sfx.pickup(); return; }
+  s.waiting = row; s.msg = null; Sfx.pickup();
+  Input.capture = (kind, code) => {
+    s.waiting = null; Input.clearKeys();
+    if (kind === 'kb' && code === 'Escape') { s.msg = '취소했어요'; return; }
+    if (kind !== row.dev) { s.msg = row.dev === 'kb' ? '키보드 키를 눌러야 해요' : '게임패드 버튼을 눌러야 해요'; return; }
+    if (kind === 'pad' && code >= 12 && code <= 15) { s.msg = '십자키는 이동 전용이에요'; return; }
+    Input.bind(row.dev, row.action, code);
+    s.msg = `${row.name} → ${kind === 'kb' ? kbName(code) : padName(code)}`; Sfx.level();
+    s.t = 0; // 방금 누른 키가 바로 메뉴 결정으로 이어지지 않게
+  };
+}
+function handleSettingsInput(dt, inp) {
+  const s = G.su; s.t += dt;
+  if (s.waiting) { // 키 입력 기다리는 중 (화면을 탭하면 취소)
+    if (inp.tap) { Input.capture = null; s.waiting = null; s.msg = '취소했어요'; }
+    return;
+  }
+  if (s.t < 0.2) { menuAxis(s, inp); return; }
+  const L = settingsLayout(), { dy, dx } = menuAxis(s, inp);
+  if (inp.tap) {
+    if (inRectPt(inp.tap, L.back)) { closeSettings(); return; }
+    const ti = L.tabs.findIndex(r => inRectPt(inp.tap, r));
+    if (ti >= 0) { s.tab = ti; s.sel = 0; s.msg = null; Sfx.pickup(); return; }
+    const ri = L.rows.findIndex(r => inRectPt(inp.tap, r));
+    if (ri >= 0) { s.sel = ri; settingsAct(L.rows[ri].r); }
+    return;
+  }
+  if (inp.back) { closeSettings(); return; }
+  if (dx) { s.tab = (s.tab + dx + SETTING_TABS.length) % SETTING_TABS.length; s.sel = 0; s.msg = null; Sfx.pickup(); return; }
+  if (dy) { s.sel = (s.sel + dy + L.rows.length) % L.rows.length; Sfx.pickup(); }
+  if (inp.confirm && L.rows[s.sel]) settingsAct(L.rows[s.sel].r);
+}
+function drawSettings(blink) {
+  const s = G.su, L = settingsLayout();
+  overlay(0.85);
+  label('설정', W / 2, inset.t + 26, 22, '#ffe08a', 'center', '900');
+  // 뒤로 버튼
+  const b = L.back;
+  ctx.fillStyle = 'rgba(40,46,60,0.95)'; ctx.fillRect(b.x, b.y, b.w, b.h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
+  label('← 돌아가기', b.x + b.w / 2, b.y + b.h / 2, 12, '#fff', 'center', '700');
+  L.tabs.forEach((r, i) => {
+    ctx.fillStyle = i === s.tab ? '#6a3fb0' : 'rgba(40,40,60,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+    label(SETTING_TABS[i], r.x + r.w / 2, r.y + r.h / 2, 13, '#fff', 'center', '800');
+  });
+  L.rows.forEach((row, i) => {
+    const sel = s.sel === i, r = row.r, waiting = s.waiting === r;
+    ctx.fillStyle = waiting ? 'rgba(120,90,20,0.95)' : sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.88)'; ctx.fillRect(row.x, row.y, row.w, row.h);
+    if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(row.x + 1, row.y + 1, row.w - 2, row.h - 2); }
+    label(r.name, row.x + 14, row.y + row.h / 2, 13, r.kind === 'reset' ? '#ffb0a0' : '#fff', 'left', '700');
+    const val = waiting ? (blink ? (r.dev === 'kb' ? '새 키를 누르세요… (Esc 취소)' : '새 버튼을 누르세요…') : '') : r.value;
+    label(val, row.x + row.w - 14, row.y + row.h / 2, 13, waiting ? '#ffe08a' : r.kind === 'toggle' ? (r.value === '켜짐' ? '#8ff0b0' : '#ff9a7a') : '#c8d8ff', 'right', '800');
+  });
+  const d = Input.state.device;
+  const how = s.msg || (s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
+    : d === 'gamepad' ? '←→ 탭 · ↑↓ 고르기 · A 바꾸기 · B 돌아가기' : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
+  label(how, W / 2, H - inset.b - 18, 12, s.msg ? '#ffe08a' : '#aab', 'center', '600');
+}
+
+// 마을의 설정 버튼 (톱니)
+function villageGear() { return { x: W - inset.r - 46, y: inset.t + 30, w: 34, h: 30 }; }
+function drawGear(r) {
+  ctx.fillStyle = 'rgba(30,36,48,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+  label('⚙', r.x + r.w / 2, r.y + r.h / 2 + 1, 16, '#fff', 'center', '700');
+}
+
+function keyNames() {
+  const d = Input.state.device, B = Input.binds;
   if (d === 'touch') return { A: '공격', P: '특수', D: '대시', move: '왼쪽 조이스틱' };
-  if (d === 'gamepad') return { A: 'A', P: 'X', D: 'B', move: '왼쪽 스틱' };
-  return { A: 'Z', P: 'C', D: 'X', move: '방향키' };
+  if (d === 'gamepad') return { A: padName(B.pad.attack[0]), P: padName(B.pad.special[0]), D: padName(B.pad.dash[0]), move: '왼쪽 스틱' };
+  const arrows = B.kb.up[0] === 'ArrowUp' && B.kb.left[0] === 'ArrowLeft';
+  return { A: kbName(B.kb.attack[0]), P: kbName(B.kb.special[0]), D: kbName(B.kb.dash[0]), move: arrows ? '방향키' : [B.kb.up, B.kb.left, B.kb.down, B.kb.right].map(l => kbName(l[0])).join('') };
 }
 
 function moveList() {
@@ -1438,6 +1643,7 @@ function drawVillage(blink) {
   ctx.fillStyle = ssel ? '#3f8a3b' : '#2f6b2f'; ctx.fillRect(st.x, st.y, st.w, st.h);
   ctx.strokeStyle = ssel && blink ? '#ffd24a' : 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.strokeRect(st.x + 1, st.y + 1, st.w - 2, st.h - 2);
   label('모험 떠나기 ▶', st.x + st.w / 2, st.y + st.h / 2, 16, '#fff', 'center', '900');
+  drawGear(villageGear());
   // 난이도 버튼
   const mb = L.mode, msel = v.sel === L.items.length + 1, easy = md.mode === 'easy';
   ctx.fillStyle = easy ? 'rgba(40,110,70,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(mb.x, mb.y, mb.w, mb.h);
@@ -1453,8 +1659,8 @@ function drawVillage(blink) {
   label(`봉인 등급 ${ti.n}`, tb.x + tb.w / 2, tb.y + tb.h / 2 - 6, 13, '#ffd0e0', 'center', '800');
   label(`${ROUTES[ti.route].name} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, '#aab', 'center', '600');
   const d = Input.state.device;
-  const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화'
-    : d === 'gamepad' ? '←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발' : '←→ 탭 전환 · ↑↓ 고르고 Z로 강화 / 장착 / 출발 · 휠로 스크롤';
+  const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
+    : d === 'gamepad' ? '←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발 · START 설정' : '←→ 탭 · ↑↓ 고르고 Z로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정';
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
@@ -1538,7 +1744,9 @@ function handleVillageInput(dt, inp) {
       v.drag = null;
     }
   }
+  if (inp.pause) { openSettings('village'); return; }
   if (inp.tap) {
+    if (inRect(inp.tap, villageGear())) { openSettings('village'); return; }
     const ti = L.tabs.findIndex(r => inRect(inp.tap, r));
     if (ti >= 0) { setTab(ti); return; }
     if (inRect(inp.tap, L.start)) { villageAct(n); return; }
@@ -1730,8 +1938,10 @@ function render() {
     if (Input.state.device === 'keyboard') label('Ctrl 공격 · Space 대시 · Alt 특수도 쓸 수 있어요', W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
     label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, H * 0.56 + 20, 12, '#b8c8b8', 'center', '500');
     if (blink) label(`${tap}해서 시작`, W / 2, H * 0.78, 20, '#ffd24a');
-  } else if (G.state === 'village') {
+  } else if (G.state === 'village' || (G.state === 'settings' && G.settingsFrom === 'village')) {
     drawVillage(blink);
+  } else if (G.state === 'settings' && G.settingsFrom === 'title') {
+    overlay(0.5);
   } else {
     drawHud();
     drawBanner();
@@ -1742,8 +1952,7 @@ function render() {
     drawUiButton(Input.buttons.pause, 'pause');
     drawUiButton(Input.buttons.fullscreen, 'fullscreen');
     if (G.state === 'paused') {
-      overlay(0.72);
-      drawPauseScreen(big, blink, tap);
+      drawPauseMenu(big, blink, tap);
     } else if (G.state === 'over') {
       overlay(clamp(G.overT, 0, 0.65));
       if (G.overT > 0.5) {
@@ -1784,6 +1993,7 @@ function render() {
     label(G.toast.s, W / 2, H - inset.b - 24, 15, '#fff', 'center', '600');
     ctx.globalAlpha = 1;
   }
+  if (G.state === 'settings') drawSettings(blink);
   drawStatusBand();
 }
 
@@ -1814,7 +2024,7 @@ function frame(now) {
     G.cam.y = World.ph / 2 + Math.sin(G.time * 0.2) * 200;
     if (inp.start) G.goVillage();
   } else if (G.state === 'play') {
-    if (inp.pause) G.state = 'paused';
+    if (inp.pause) openPause();
     else {
       if (G.player) G.player.bufferInput(inp);
       G.slowT -= dt;
@@ -1828,7 +2038,9 @@ function frame(now) {
   } else if (G.state === 'boon') {
     handleBoonInput(dt, inp);
   } else if (G.state === 'paused') {
-    if (inp.start || inp.pause) G.state = 'play';
+    handlePauseInput(dt, inp);
+  } else if (G.state === 'settings') {
+    handleSettingsInput(dt, inp);
   } else if (G.state === 'over') {
     G.overT += dt;
     if (G.overT > 1.2 && inp.start) G.goVillage();
@@ -1843,7 +2055,7 @@ function frame(now) {
     G.cam.y = World.ph / 2 + Math.sin(G.time * 0.17) * 140;
     handleVillageInput(dt, inp);
   }
-  if (G.state !== 'paused' && G.state !== 'story' && G.state !== 'boon') G.updateFx(dt * slow);
+  if (G.state !== 'paused' && G.state !== 'settings' && G.state !== 'story' && G.state !== 'boon') G.updateFx(dt * slow);
   if (G.player && G.state !== 'title' && G.state !== 'village') {
     const k = 1 - Math.pow(0.0001, dt);
     G.cam.x += (G.player.x - G.cam.x) * k;
