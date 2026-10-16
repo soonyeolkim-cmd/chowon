@@ -9,6 +9,7 @@ const SPEAKERS = {
   boss2: { name: '숲지기 너구리 바루', color: '#e0b070' },
   boss3: { name: '숲의 군주', color: '#b8f08a' },
   boss4: { name: '늪의 왕 개굴대왕', color: '#8af0c8' },
+  boss5: { name: '도끼황소 우마왕', color: '#ff9a6a' },
   system: { name: '', color: '#ffd24a' },
 };
 
@@ -124,6 +125,33 @@ STORY[4] = {
   ],
 };
 
+STORY[5] = {
+  start: [
+    ['lumi', '붉은 바위 협곡이에요. 바닥에 커다란 발굽 자국이…'],
+    ['rian', '안개는 걷혔는데, 이번엔 사방에서 쿵쿵 울리는 소리가 나.'],
+    ['lumi', '하늘에서 떨어지는 공격이 많아요. 땅에 생기는 그림자를 잘 봐요!'],
+  ],
+  totem1: [
+    ['lumi', '여기 마물들은 마치 누군가에게 훈련받은 것 같아요. 투기장 같은 냄새가 나요.'],
+  ],
+  totem2: [
+    ['rian', '바위마다 도끼 자국이 있어. 엄청난 힘이야.'],
+    ['lumi', '협곡의 주인은 돌진을 좋아한대요. 바위를 등지고 싸우면 유리할지도 몰라요!'],
+  ],
+  bossIntro: [
+    ['boss5', '음머어어어! 내 투기장에 발을 들인 건 네놈이냐!'],
+    ['rian', '황소가… 도끼를 들고 있어?!'],
+    ['boss5', '삼룡님의 잠을 깨우려는 자는 이 도끼로 두 동강을 내주마!'],
+    ['lumi', '돌진하면 바위 쪽으로 유도해요! 뿔이 박히면 기회예요!'],
+  ],
+  bossDown: [
+    ['boss5', '음머… 이 몸이… 지다니…'],
+    ['boss5', '좋다, 인정하마. 하지만 저 너머 봉인의 근원엔… 이 몸보다 훨씬 무서운 것이 있다.'],
+    ['rian', '삼룡… 개굴대왕도 그 이야기를 했었지.'],
+    ['lumi', '이제 거의 다 왔어요. 숲의 가장 깊은 봉인까지!'],
+  ],
+};
+
 const RETRY_LINES = [
   '괜찮아요, 다시 해 봐요! 빨간 표시가 보이면 일단 피하는 게 먼저예요.',
   '포기하지 마요! 방패병은 뒤로 돌아가거나 가드 브레이크 기술로 깨면 돼요.',
@@ -132,11 +160,11 @@ const RETRY_LINES = [
 ];
 
 // 대화창 초상화 (에셋의 얼굴 그림)
-const FACES = { rian: 'heroFace', lumi: 'spiritFace', boss1: 'boss1Face', boss2: 'boss2Face', boss3: 'boss3Face', boss4: 'boss4Face' };
+const FACES = { rian: 'heroFace', lumi: 'spiritFace', boss1: 'boss1Face', boss2: 'boss2Face', boss3: 'boss3Face', boss4: 'boss4Face', boss5: 'beastFace' };
 function drawPortrait(g, who, cx, cy, s) {
   g.save();
   g.beginPath(); g.arc(cx, cy, s / 2, 0, Math.PI * 2); g.clip();
-  g.fillStyle = { lumi: '#1f3d2c', rian: '#1d2a40', boss1: '#1d3340', boss2: '#3d2a16', boss3: '#22361c', boss4: '#16362e' }[who] || '#222';
+  g.fillStyle = { lumi: '#1f3d2c', rian: '#1d2a40', boss1: '#1d3340', boss2: '#3d2a16', boss3: '#22361c', boss4: '#16362e', boss5: '#3a1a10' }[who] || '#222';
   g.fillRect(cx - s / 2, cy - s / 2, s, s);
   const face = FACES[who] && ART.img[FACES[who]];
   if (face) { g.imageSmoothingEnabled = false; g.drawImage(face, cx - s * 0.48, cy - s * 0.48, s * 0.96, s * 0.96); }

@@ -7,7 +7,7 @@
 
 const ROUTES = {
   outer: { name: '바깥 숲', ready: true, worlds: [1, 2, 3] },
-  deep:  { name: '깊은 숲', ready: true, worlds: [4] }, // 세계 5 · 6을 만들면 [4, 5, 6]
+  deep:  { name: '깊은 숲', ready: true, worlds: [4, 5] }, // 세계 6을 만들면 [4, 5, 6]
 };
 
 const CURSES = {

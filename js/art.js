@@ -32,6 +32,13 @@ const ART_FILES = {
   boss4Charge:'Actor/Boss/GiantFrog/Charge.png',
   boss4Hit:  'Actor/Boss/GiantFrog/Hit.png',
   boss4Face: 'Actor/Boss/GiantFrog/Faceset.png',
+  lion:      'Actor/Character/CaveLion/SpriteSheet.png',
+  trex:      'Actor/Monster/TRex/SpriteSheet.png',
+  cyclops2:  'Actor/Monster/Cyclope2/SpriteSheet.png',
+  lizard:    'Actor/Monster/Lizard/Lizard.png',
+  beast:     'Actor/Monster/Beast/Beast.png',
+  beastFace: 'Actor/Monster/Beast/Faceset.png',
+  axe:       'Items/Weapons/Axe/Sprite.png',
   boss1Idle: 'Actor/Boss/GiantSlime/Idle.png',
   boss1Jump: 'Actor/Boss/GiantSlime/Jump.png',
   boss1Hit:  'Actor/Boss/GiantSlime/Hit.png',
@@ -59,6 +66,7 @@ const ART_FILES = {
 const ART_FLASH = ['hero', 'spirit', 'slime', 'bat', 'cyclope', 'skeleton',
   'mushroom', 'mole', 'racoon', 'bear', 'snake', 'owl', 'skull', 'eye', 'flam',
   'kappa', 'axolot', 'spider', 'mollusc', 'boss4Idle', 'boss4Jump', 'boss4Attack', 'boss4Charge', 'boss4Hit',
+  'lion', 'trex', 'cyclops2', 'lizard', 'beast',
   'boss1Idle', 'boss1Jump', 'boss1Hit', 'boss2Idle', 'boss2Attack', 'boss2Charge', 'boss2Jump',
   'boss3Idle', 'boss3Walk', 'boss3Attack', 'boss3Charge', 'boss3Hit'];
 
@@ -128,4 +136,5 @@ const BOSS_ART = [
   { fw: 60, idle: 'boss2Idle', move: 'boss2Idle', wind: 'boss2Charge', attack: 'boss2Attack', hit: 'boss2Jump', face: 'boss2Face', foot: 4 },
   { fw: 62, idle: 'boss3Idle', move: 'boss3Walk', wind: 'boss3Charge', attack: 'boss3Attack', hit: 'boss3Hit', face: 'boss3Face', foot: 2 },
   { fw: 40, idle: 'boss4Idle', move: 'boss4Idle', wind: 'boss4Charge', attack: 'boss4Attack', hit: 'boss4Hit', air: 'boss4Jump', face: 'boss4Face', foot: 2, scale: 1.5 },
+  { custom: 'bull', face: 'beastFace' },   // 우마왕: 황소 마귀 그림을 크게 + 도끼
 ];

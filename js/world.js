@@ -23,6 +23,10 @@ const PALETTES = [
     tree: ['#1f4a3a', '#1c4434', '#245040'], treeHi: '#2f6a52', trunk: '#3a2e20',
     dirt: '#6e6a48', dirtDk: '#5e5a3c', water: '#2a6a6a', waterHi: '#3f8a86', sand: '#9a9468',
     flowers: ['#c8f0e0', '#9ad8c8', '#ffffff'] },
+  { name: '바위 협곡', bg: '#2a1a12', trees: [[14, 0], [18, 0]], tint: 'rgba(240,140,80,0.42)', grass: ['#b0864a', '#a87e44', '#b88e50'], blade: '#8a6434',
+    tree: ['#8a4a2a', '#7a3e22', '#9a5632'], treeHi: '#b86a3a', trunk: '#4a2a18',
+    dirt: '#c08a5a', dirtDk: '#a87648', water: '#3a6a9a', waterHi: '#5a8ab8', sand: '#e0b880',
+    flowers: ['#f0d8a0', '#ffffff', '#e8a060'], rocks: 0.05 },   // 바위가 많다 (우마왕 돌진 → 바위에 뿔이 박힌다)
 ];
 
 function mulberry32(a) {
@@ -89,8 +93,9 @@ const World = {
       for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
         if (tiles[y * w + x] !== T.GRASS || Math.hypot(x - sx, y - sy) < 3.5 || Math.hypot(x - px, y - py) < 2.5) continue;
         const r = rng();
-        if (withBlocks && r < 0.012) tiles[y * w + x] = T.ROCK;
-        else if (withBlocks && r < 0.024) tiles[y * w + x] = T.TREE;
+        const rk = this.pal.rocks || 0.012;
+        if (withBlocks && r < rk) tiles[y * w + x] = T.ROCK;
+        else if (withBlocks && r < rk + 0.012) tiles[y * w + x] = T.TREE;
         else if (r < 0.09) tiles[y * w + x] = T.FLOWER;
       }
     };

@@ -7,7 +7,7 @@ const FONT = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,san
 const FINAL_STAGE = 3;            // 마지막 세계
 const STAGES_PER_WORLD = 5;
 const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
-const ENEMY_COST = { kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
+const ENEMY_COST = { lion: 1, trex: 2, cyclops2: 2, lizard: 1, kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
 const DEEP_SHARD_MULT = 0.6;          // 깊은 숲: 정령의 조각은 덜
 const DEEP_ESSENCE_MULT = 2;          // 깊은 숲: 무기의 정수는 두 배
@@ -74,8 +74,9 @@ const ENEMY_POOLS = [
   [['racoon', 25], ['bear', 15], ['snake', 30], ['owl', 30]],              // 세계 2 · 너구리 패거리
   [['shield', 20], ['skull', 25], ['eye', 25], ['flam', 30]],              // 세계 3 · 봉인의 망령들
   [['kappa', 25], ['axolot', 30], ['spider', 30], ['mollusc', 15]],         // 세계 4 · 늪의 주민들
+  [['lion', 25], ['trex', 15], ['cyclops2', 30], ['lizard', 30]],          // 세계 5 · 우마왕의 투사들
 ];
-const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
+const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
 const MONSTER_HINTS = {
   mushroom: '버섯이 몸을 부풀리면 곧 포자를 뿜어요! 포자 사이로 비켜서 다가가요. 검기나 던진 창은 날아오는 투사체를 지워요.',
   mole: '흙이 들썩이는 건 땅속 두더지예요. 빨간 표시가 보이면 그 자리를 벗어나요!',
@@ -90,6 +91,10 @@ const MONSTER_HINTS = {
   axolot: '도롱뇽의 분홍 침에 맞으면 잠깐 대시를 못 해요!',
   spider: '거미줄이 깔린 곳에 들어가면 느려져요. 돌아가요!',
   mollusc: '달팽이는 단단해요. 지나간 점액 위에서는 느려져요!',
+  lion: '동굴사자가 웅크리면 곧 덮쳐요! 빨간 원 밖으로 피해요!',
+  trex: "티렉스는 '!' 뒤에 길게 돌진하고, 멈추면 꼬리를 휘둘러요!",
+  cyclops2: '외눈 거인이 바위를 던지면 떨어질 자리에 그림자가 생겨요. 바위 뒤에 숨어도 넘어와요!',
+  lizard: '도마뱀은 돌을 세 번 연달아 던져요. 옆으로 크게 피해요!',
 };
 
 // ── 게임 상태 ────────────────────────────────────────────
@@ -1753,8 +1758,8 @@ function render() {
         if (G.clearT > 1.2 && blink) label(`${tap}해서 세계 ${G.stage + 1}로 (정령의 힘 · 체력 회복)`, W / 2, H * 0.68, 18, '#ffd24a');
       } else {
         const deep = G.route === 'deep';
-        label(deep ? '늪의 봉인을 풀었다!' : '숲에 평화가 돌아왔다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
-        label(deep ? '깊은 숲 첫 번째 세계를 클리어했어요. (세계 5 · 6은 준비 중)' : '모든 스테이지를 클리어했어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
+        label(deep ? (G.finalWorld < 6 ? '깊은 숲의 봉인을 풀었다!' : '삼룡을 잠재웠다!') : '숲에 평화가 돌아왔다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
+        label(deep ? (G.finalWorld < 6 ? `깊은 숲 세계 ${G.finalWorld}까지 클리어했어요. (세계 ${G.finalWorld + 1}부터는 준비 중)` : '깊은 숲을 모두 클리어했어요!') : '모든 스테이지를 클리어했어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
         label(stats, W / 2, H * 0.48, 13, '#fff', 'center', '600');
         label(`클리어 보너스 ◆ ${SHARD_ALL_CLEAR}  ·  이번 런 ◆ ${G.runShards}  ·  ⚔ ${WEAPONS[G.player.weaponId].essence} ${G.runEssence}`, W / 2, H * 0.57, 14, '#c8a0ff', 'center', '700');
         const ti = G.tierInfo || tierInfo(1);
