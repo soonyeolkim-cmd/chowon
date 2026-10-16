@@ -717,11 +717,15 @@ class Wave {
 // 적 피해 배율: 높을수록 어렵다. 플레이어 레벨이 오르면 적 피해도 레벨당 5%씩 오른다.
 const ENEMY_DMG_MULT = 2.6;
 // 세계가 바뀔 때마다 적 공격력이 오르는 정도 (같은 세계 안의 스테이지도 조금씩). 0.25 → 0.4 (2026-10-17)
-const ENEMY_DMG_STEP = 0.4, BOSS_DMG_STEP = 0.45;
+const ENEMY_DMG_STEP = 0.5, BOSS_DMG_STEP = 0.5;
 // 몬스터 체력: 처음부터 단단하게(기본 배율 ↑), 뒤로 갈수록 덜 오르게(상승폭 ↓)
 // → 초반엔 어렵고, 축복이 잘 붙을수록 후반이 쉬워진다고 느껴지게. 세계 3 후반 체력은 예전과 비슷.
 const ENEMY_HP_MULT = 5.6;   // 1.5 → 3.75 → 5.6 (몬스터가 너무 빨리 죽는다는 의견, 2026-10-17 두 번)
-const ENEMY_HP_STEP = 0.10;   // 난이도 1 오를 때마다 체력 +10% (예전 +25%)
+const ENEMY_HP_STEP = 0.6;    // 세계 하나 갈 때마다 체력 +60% (스테이지마다 +12%씩 쌓임). 2026-10-17: 1~3세계가 너무 쉽다는 의견
+// 강해지는 정도는 '이 길에서 얼마나 왔나' 기준 (깊은 숲은 4세계부터 새로 시작하니까), 깊은 숲은 처음부터 이만큼 더 세다
+const DEEP_HP_MULT = 1.5, DEEP_DMG_MULT = 1.8;
+const routeLevel = stage => Math.max(0, stage - (G.firstWorld || 1)); // 이 길에서 몇 세계째인가 (스테이지마다 0.2씩)
+const deepMult = (stage, m) => (stage >= 4 ? m : 1);
 
 // shot: 투사체 피해(배율 전), keep: 유지하려는 거리, rate: 공격 간격(초), wind: 쏘기 전 예고(초)
 const ENEMY = {
@@ -766,9 +770,9 @@ class Enemy {
     const d = ENEMY[type];
     this.type = type; this.x = x; this.y = y;
     this.r = d.r; this.speed = d.speed; this.xp = d.xp;
-    this.dmg = Math.round(d.dmg * ENEMY_DMG_MULT * (1 + ENEMY_DMG_STEP * (stage - 1)) * (1 + 0.05 * (lv - 1)));
+    this.dmg = Math.round(d.dmg * ENEMY_DMG_MULT * (1 + ENEMY_DMG_STEP * routeLevel(stage)) * deepMult(stage, DEEP_DMG_MULT) * (1 + 0.05 * (lv - 1)));
     this.color = d.color; this.flying = !!d.flying; this.heavy = !!d.heavy;
-    this.maxHp = this.hp = Math.round(d.hp * ENEMY_HP_MULT * (1 + ENEMY_HP_STEP * (stage - 1)) * (1 + 0.08 * (lv - 1)) * (curse('hp') ? 1.2 : 1));
+    this.maxHp = this.hp = Math.round(d.hp * ENEMY_HP_MULT * (1 + ENEMY_HP_STEP * routeLevel(stage)) * deepMult(stage, DEEP_HP_MULT) * (1 + 0.08 * (lv - 1)) * (curse('hp') ? 1.2 : 1));
     if (curse('dmg')) this.dmg = Math.round(this.dmg * 1.15);
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
     this.t = Math.random() * 10; this.hop = 0;
@@ -777,7 +781,7 @@ class Enemy {
     this.facing = 0; this.guard = type === 'shield'; this.brokenT = 0;
     this.spawnT = 0.5; this.dead = false;
     this.def = d; this.ranged = !!d.ranged;
-    this.shotDmg = Math.round((d.shot || 0) * ENEMY_DMG_MULT * (1 + ENEMY_DMG_STEP * (stage - 1)) * (1 + 0.05 * (lv - 1)) * (curse('dmg') ? 1.15 : 1));
+    this.shotDmg = Math.round((d.shot || 0) * ENEMY_DMG_MULT * (1 + ENEMY_DMG_STEP * routeLevel(stage)) * deepMult(stage, DEEP_DMG_MULT) * (1 + 0.05 * (lv - 1)) * (curse('dmg') ? 1.15 : 1));
     this.cd = rand(1.0, 2.2); this.aimDir = 0; this.strafe = Math.random() < 0.5 ? 1 : -1;
     if (type === 'mole') { this.state = 'up'; this.st = 0.8; }
     if (d.turret) this.superArmor = true; // 석상: 밀리지 않는다
@@ -1410,7 +1414,7 @@ class Boss {
     this.colors = BOSS_COLORS[i];
     const k = Math.max(0, stage - (G.firstWorld || 1)); // 이 길에서 몇 번째 보스인가 (0부터)
     this.maxHp = this.hp = Math.round(BOSS_HP_BASE * Math.pow(BOSS_HP_GROWTH, k) * (stage >= 4 ? BOSS_HP_DEEP : 1));
-    this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + BOSS_DMG_STEP * (stage - 1)) * (1 + 0.05 * (G.player.lv - 1)));
+    this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + BOSS_DMG_STEP * routeLevel(stage)) * deepMult(stage, DEEP_DMG_MULT) * (1 + 0.05 * (G.player.lv - 1)));
     this.speed = 46; this.superArmor = true; this.scale = 1;
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
     this.state = 'intro'; this.st = 1.5; this.t = 0; this.dir = 0;
