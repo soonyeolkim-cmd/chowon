@@ -34,6 +34,7 @@ const SHARD_ALL_CLEAR = 15;   // 세계 3까지 완주
 // 영웅의 증표: 최종 보스(세계 3)를 쓰러뜨릴 때마다 1개. 새 무기를 해금하는 데 쓴다.
 const EMBLEM_PER_CLEAR = 1;
 // 무기의 정수: 모든 무기의 숙련 강화에 쓰는 공통 재화 (어떤 무기로 플레이해도 모인다)
+const ESSENCE_RATE = 0.1;           // 무기의 정수 획득 배율 (2026-10-17: 10분의 1로). 소수점은 모아 뒀다가 1이 되면 준다
 const ESSENCE_STAGE = 1;            // 스테이지 클리어
 const ESSENCE_BOSS = [3, 5, 8, 8, 11, 15]; // 세계 1~6 보스
 const ESSENCE_ALL_CLEAR = 5;        // 완주 보너스

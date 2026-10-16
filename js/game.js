@@ -218,7 +218,7 @@ const G = {
     if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
-    this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0;
+    this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0;
     this.reviveLeft = Meta.lv('revive');
     this.rerolls = Meta.lv('choice');
     const worlds = ROUTES[this.tierInfo.route].worlds;
@@ -235,7 +235,9 @@ const G = {
   },
   // 무기의 정수 (모든 무기 공통)
   earnEssence(n, x, y) {
-    n = Math.max(1, Math.round(n * (this.route === 'deep' ? DEEP_ESSENCE_MULT : 1)));
+    const total = n * ESSENCE_RATE * (this.route === 'deep' ? DEEP_ESSENCE_MULT : 1) + (this.essFrac || 0);
+    n = Math.floor(total); this.essFrac = total - n; // 1이 안 되는 몫은 모아 둔다
+    if (n <= 0) return;
     this.runEssence += n;
     if (x !== undefined) this.text(x, y, '⚔' + n, '#ffcf6a', 13, 1.2);
   },
@@ -1726,17 +1728,10 @@ const V_ROW = 38, V_HEAD = 30;
 function villageItems(tab) {
   const md = Meta.data;
   if (tab === 0) {
-    const list = UPGRADES.map(u => ({
+    return UPGRADES.map(u => ({
       key: u.id, name: u.name, desc: u.desc, max: u.max,
       lv: () => Meta.lv(u.id), cost: () => Meta.nextCost(u), buy: () => Meta.buy(u),
     }));
-    const wid = md.weapon, W0 = WEAPONS[wid];
-    list.push({ header: true, name: `⚔ 무기 숙련 · ${W0.name}  (${W0.essence} ${Meta.ess(wid)})` });
-    for (const m of W0.mastery) list.push({
-      key: wid + '.' + m.id, name: m.name, desc: m.desc, max: m.max, essence: wid,
-      lv: () => Meta.wlv(wid, m.id), cost: () => Meta.wNextCost(wid, m), buy: () => Meta.buyMastery(wid, m),
-    });
-    return list;
   }
   const list = WEAPON_ORDER.map(id => {
     const W0 = WEAPONS[id], m = W0.moves;
@@ -1747,6 +1742,13 @@ function villageItems(tab) {
   for (const u of UPCOMING_WEAPONS) {
     list.push({ key: 'next', name: `🔒 ${u.name}`, desc: () => `준비 중 · 해금: 영웅의 증표 ${u.cost}개`, locked: true });
   }
+  // 지금 장착한 무기의 숙련 (무기의 정수로 강화)
+  const wid = md.weapon, W0 = WEAPONS[wid];
+  list.push({ header: true, name: `⚔ 무기 숙련 · ${W0.name}  (${W0.essence} ${Meta.ess(wid)})` });
+  for (const m of W0.mastery) list.push({
+    key: wid + '.' + m.id, name: m.name, desc: m.desc, max: m.max, essence: wid,
+    lv: () => Meta.wlv(wid, m.id), cost: () => Meta.wNextCost(wid, m), buy: () => Meta.buyMastery(wid, m),
+  });
   return list;
 }
 

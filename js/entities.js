@@ -717,7 +717,7 @@ class Wave {
 const ENEMY_DMG_MULT = 2.6;
 // 몬스터 체력: 처음부터 단단하게(기본 배율 ↑), 뒤로 갈수록 덜 오르게(상승폭 ↓)
 // → 초반엔 어렵고, 축복이 잘 붙을수록 후반이 쉬워진다고 느껴지게. 세계 3 후반 체력은 예전과 비슷.
-const ENEMY_HP_MULT = 1.5;
+const ENEMY_HP_MULT = 3.75;  // 1.5 → ×2.5 (몬스터가 너무 빨리 죽는다는 의견, 2026-10-17)
 const ENEMY_HP_STEP = 0.10;   // 난이도 1 오를 때마다 체력 +10% (예전 +25%)
 
 // shot: 투사체 피해(배율 전), keep: 유지하려는 거리, rate: 공격 간격(초), wind: 쏘기 전 예고(초)
@@ -1393,8 +1393,9 @@ const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b',
 //  말랑(슬라임): 통통 점프 연타 · 내려찍기 · 슬라임 소환 / 격노 시 분열(큰 슬라임 둘)
 //  바루(너구리): 배 두드리기 충격파 · 나뭇잎 표창 · 배치기 돌진 / 격노 후 둔갑술(그루터기 사이에 숨기)
 //  숲의 군주(대나무): 뿌리 솟구침 · 대나무 창비 · 망령 소환 · 내려찍기 / 격노 시 숲이 시든다(시야 어두워짐)
-// 보스 체력 배율 (너무 쉽다는 의견으로 3배, 2026-10-16). 삼룡은 이 체력을 셋이 나눠 가진다.
-const BOSS_HP_MULT = 3;
+// 보스 체력: 길의 첫 보스 BOSS_HP_BASE, 뒤 세계로 갈수록 BOSS_HP_GROWTH 배씩 (플레이어도 세계마다 강해지니 그보다 가파르게)
+// 깊은 숲은 처음부터 BOSS_HP_DEEP 배. 삼룡은 이 체력을 셋이 나눠 가진다. (2026-10-17: 첫 보스 2배 · 성장 가파르게)
+const BOSS_HP_BASE = 2970, BOSS_HP_GROWTH = 1.6, BOSS_HP_DEEP = 2;
 
 class Boss {
   constructor(x, y, stage) {
@@ -1402,7 +1403,8 @@ class Boss {
     const i = this.kind = Math.min(stage, BOSS_NAMES.length) - 1;
     this.name = BOSS_NAMES[i];
     this.colors = BOSS_COLORS[i];
-    this.maxHp = this.hp = Math.round(450 * 1.1 * (1 + 0.5 * (stage - 1)) * BOSS_HP_MULT);
+    const k = Math.max(0, stage - (G.firstWorld || 1)); // 이 길에서 몇 번째 보스인가 (0부터)
+    this.maxHp = this.hp = Math.round(BOSS_HP_BASE * Math.pow(BOSS_HP_GROWTH, k) * (stage >= 4 ? BOSS_HP_DEEP : 1));
     this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + 0.3 * (stage - 1)) * (1 + 0.05 * (G.player.lv - 1)));
     this.speed = 46; this.superArmor = true; this.scale = 1;
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
