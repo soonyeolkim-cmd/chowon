@@ -51,7 +51,7 @@ const WEAPONS = {
     essence: '무기의 정수',
     unlockCost: 1,             // 영웅의 증표
     moves: { basic: '2연 찌르기', charged: '관통 찌르기', special: '창 투척', dashAttack: '후려치기' },
-    chargeTime: 0.65, // 0.8 → 0.65 (너무 길다는 의견, 2026-10-16)
+    chargeTime: 0.55, // 검과 같은 차지 시간 (0.8 → 0.55, 2026-10-16)
     specialCd: 1.18, // 1.3 → 10% 빠르게 (2026-10-16)
     // 민첩하지 않은 무기: 이동이 조금 느리고, 대시는 짧은 거리 · 긴 쿨타임
     speedMult: 0.92,
