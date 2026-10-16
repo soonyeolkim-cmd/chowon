@@ -626,7 +626,8 @@ class Enemy {
     this.r = d.r; this.speed = d.speed; this.xp = d.xp;
     this.dmg = Math.round(d.dmg * ENEMY_DMG_MULT * (1 + 0.25 * (stage - 1)) * (1 + 0.05 * (lv - 1)));
     this.color = d.color; this.flying = !!d.flying; this.heavy = !!d.heavy;
-    this.maxHp = this.hp = Math.round(d.hp * ENEMY_HP_MULT * (1 + ENEMY_HP_STEP * (stage - 1)) * (1 + 0.08 * (lv - 1)));
+    this.maxHp = this.hp = Math.round(d.hp * ENEMY_HP_MULT * (1 + ENEMY_HP_STEP * (stage - 1)) * (1 + 0.08 * (lv - 1)) * (curse('hp') ? 1.2 : 1));
+    if (curse('dmg')) this.dmg = Math.round(this.dmg * 1.15);
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
     this.t = Math.random() * 10; this.hop = 0;
     this.state = 'chase'; this.st = 0; this.lungeDir = 0; this.attacking = false;
@@ -634,7 +635,7 @@ class Enemy {
     this.facing = 0; this.guard = type === 'shield'; this.brokenT = 0;
     this.spawnT = 0.5; this.dead = false;
     this.def = d; this.ranged = !!d.ranged;
-    this.shotDmg = Math.round((d.shot || 0) * ENEMY_DMG_MULT * (1 + 0.25 * (stage - 1)) * (1 + 0.05 * (lv - 1)));
+    this.shotDmg = Math.round((d.shot || 0) * ENEMY_DMG_MULT * (1 + 0.25 * (stage - 1)) * (1 + 0.05 * (lv - 1)) * (curse('dmg') ? 1.15 : 1));
     this.cd = rand(1.0, 2.2); this.aimDir = 0; this.strafe = Math.random() < 0.5 ? 1 : -1;
     if (type === 'mole') { this.state = 'up'; this.st = 0.8; }
   }
@@ -701,13 +702,13 @@ class Enemy {
       if (this.st <= 0) {
         this.fire();
         if (this.type === 'eye') { this.state = 'beam'; this.st = 0.28; this.beamHit = false; }
-        else { this.state = 'chase'; this.cd = D.rate * rand(0.85, 1.15); }
+        else { this.state = 'chase'; this.cd = D.rate * rand(0.85, 1.15) * (curse('swift') ? 0.8 : 1); }
       }
       return;
     }
     if (this.state === 'beam') {
       this.beamCheck(p);
-      if (this.st <= 0) { this.state = 'chase'; this.cd = D.rate * rand(0.85, 1.15); }
+      if (this.st <= 0) { this.state = 'chase'; this.cd = D.rate * rand(0.85, 1.15) * (curse('swift') ? 0.8 : 1); }
       return;
     }
     this.cd -= dt;
@@ -1067,6 +1068,9 @@ class Boss {
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
     this.state = 'intro'; this.st = 1.5; this.t = 0; this.dir = 0;
     this.enraged = false; this.attacking = false; this.dead = false;
+    if (curse('hp')) this.maxHp = this.hp = Math.round(this.hp * 1.2);
+    if (curse('dmg')) this.dmg = Math.round(this.dmg * 1.15);
+    if (curse('rage')) { this.enraged = true; this.speed *= 1.3; } // 분노한 주인: 처음부터 격노
   }
   get vulnerable() { return this.state === 'stun'; }
 

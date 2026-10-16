@@ -625,7 +625,7 @@ const FX = {
   // 스테이지 클리어: 생명의 샘
   onStageClear(stats) {
     const sp = this.lv('spring');
-    if (sp) stats.hp = Math.min(stats.maxHp, (stats.hp || stats.maxHp) + Math.round(stats.maxHp * (0.1 + 0.05 * sp)));
+    if (sp) stats.hp = Math.min(stats.maxHp, (stats.hp || stats.maxHp) + Math.round(stats.maxHp * (0.1 + 0.05 * sp) * (curse('heal') ? 0.5 : 1)));
   },
 
   // 공격 쪽 배율들 (Player 가 사용)

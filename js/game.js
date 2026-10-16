@@ -97,9 +97,12 @@ const G = {
   spawnT: 0, toast: null, banner: null, hintBox: null, seen: store.get('hints') || {},
   unlocks: new Set(), dialog: null, lumi: null, lumiHeals: 0,
   runShards: 0, runKills: 0, reviveLeft: 0, rerolls: 0, runEmblems: 0, runEssence: 0, village: null,
+  tier: 1, tierInfo: null, tierCurses: [], tierFirst: false,
 
   // ── 로그라이트: 런 시작 / 마을 ──
   startRun() {
+    if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
+    this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save();
     this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0;
     this.reviveLeft = Meta.lv('revive');
@@ -115,11 +118,12 @@ const G = {
   },
   // 무기의 정수 (모든 무기 공통)
   earnEssence(n, x, y) {
+    n = Math.max(1, Math.round(n * (this.tierInfo ? this.tierInfo.rewardMult : 1)));
     Meta.data.essence += n; this.runEssence += n;
     if (x !== undefined) this.text(x, y, '⚔' + n, '#ffcf6a', 13, 1.2);
   },
   earn(n, x, y) {
-    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck'))));
+    const v = Math.max(1, Math.round(n * (1 + 0.2 * Meta.lv('luck')) * (this.tierInfo ? this.tierInfo.rewardMult : 1)));
     this.runShards += v; Meta.data.shards += v;
     if (x !== undefined) this.text(x + rand(-6, 6), y - 14, '◆' + v, '#c8a0ff', 10, 0.8);
   },
@@ -258,7 +262,7 @@ const G = {
     this.projectiles = []; this.eshots = []; this.rings = []; this.fxRings = [];
     const isBoss = sub === STAGES_PER_WORLD;
     this.totems = isBoss ? [] : World.totemSpots.map(s => new Totem(s.x, s.y, this.diff));
-    this.setupWaves(isBoss ? 0 : WAVES_PER_STAGE[sub - 1]);
+    this.setupWaves(isBoss ? 0 : WAVES_PER_STAGE[sub - 1] + (curse('wave') ? 1 : 0));
     this.boss = null; this.phase = isBoss ? 'boss' : 'totems'; this.clearDelay = 0;
     this.stageTime = 0; this.stageKills = 0; this.chain = 0; this.maxChain = 0;
     this.spawnT = 2; this.slowT = 0; this.hitstop = 0;
@@ -391,7 +395,7 @@ const G = {
     if (Math.random() < (SHARD_DROP[e.type] || 0.2)) this.earn(1, e.x, e.y);
     this.burst(e.x, e.y, 14, [e.color, '#fff'], 180);
     Sfx.kill();
-    if (Math.random() < HEART_DROP) this.pickups.push(new Pickup('heart', e.x, e.y, 20));
+    if (Math.random() < HEART_DROP) this.pickups.push(new Pickup('heart', e.x, e.y, curse('heal') ? 10 : 20));
     FX.onKill(e);
   },
 
@@ -401,7 +405,7 @@ const G = {
     this.fxRing(t.x, t.y, sealTheme().hex, 90);
     this.shake = 9; this.hitstop = 0.12; Sfx.totem(); Input.rumble(0.8, 250);
     this.earn(SHARD_TOTEM, t.x, t.y - 20);
-    this.pickups.push(new Pickup('heart', t.x, t.y, 25));
+    this.pickups.push(new Pickup('heart', t.x, t.y, curse('heal') ? 12 : 25));
     const left = this.totems.filter(x => !x.dead).length;
     if (left > 0) { this.banner = { title: '봉인석 파괴!', sub: `남은 봉인석 ${left}개`, t: 2.2 }; return; }
     // 마지막 봉인석 → 스테이지 클리어. 갇혀 있던 정령이 축복을 준다.
@@ -445,7 +449,7 @@ const G = {
     Sfx.hurt(); Input.rumble(0.9, 200);
     if (p.hp > 0 && p.hp < p.maxHp * 0.25 && this.lumiHeals > 0) {
       this.lumiHeals--;
-      const heal = Math.round(p.maxHp * 0.35);
+      const heal = Math.round(p.maxHp * 0.35 * (curse('heal') ? 0.5 : 1));
       p.hp += heal;
       this.lumi.say('버텨요, 리안! 제 빛을 나눠 줄게요!');
       this.text(p.x, p.y - 30, '+' + heal, '#e8ff9c', 14, 1);
@@ -639,7 +643,16 @@ const G = {
           this.clearT = 0;
           if (this.stage === FINAL_STAGE) {
             Meta.data.clears++; this.earn(SHARD_ALL_CLEAR); this.earnEssence(ESSENCE_ALL_CLEAR);
-            Meta.data.emblems += EMBLEM_PER_CLEAR; this.runEmblems += EMBLEM_PER_CLEAR;
+            const info = this.tierInfo || tierInfo(1);
+            this.tierFirst = !Meta.data.tierCleared[info.n];
+            if (this.tierFirst) {
+              Meta.data.tierCleared[info.n] = true;
+              if (info.emblem) { Meta.data.emblems += EMBLEM_PER_CLEAR; this.runEmblems += EMBLEM_PER_CLEAR; }
+              else if (info.bonusShards) this.earn(info.bonusShards);
+              // 다음에 고를 등급을 새로 열린 등급으로
+              const next = playableTiers().filter(n => n > info.n)[0];
+              if (next) Meta.data.tier = next;
+            }
           }
           Meta.save();
         };
@@ -866,7 +879,7 @@ function drawHud() {
   if (G.phase === 'totems') {
     const seal = G.totems[0];
     const goal = seal && seal.shielded ? `웨이브 ${Math.max(1, G.waveIdx + 1)} / ${G.waves.length}` : '봉인석을 부숴라!';
-    label(`${G.stage}-${G.sub}  ·  ${goal}`, cxm, inset.t + 22, 14, '#e8d8ff', 'center', '700');
+    label(`${G.tier > 1 ? `등급 ${G.tier} · ` : ''}${G.stage}-${G.sub}  ·  ${goal}`, cxm, inset.t + 22, 14, '#e8d8ff', 'center', '700');
   }
   else if (boss) {
     label(boss.name, cxm, inset.t + 20, 14, boss.enraged ? '#ff8a6a' : '#ffe08a', 'center', '700');
@@ -1310,7 +1323,8 @@ function villageLayout() {
   const tabs = [0, 1].map(i => ({ x: x0 + i * tw, y: inset.t + 58, w: tw - 4, h: 28 }));
   const start = { x: W / 2 - 110, y: H - inset.b - 48, w: 220, h: 38 };
   const mode = { x: start.x - 132, y: start.y, w: 120, h: 38 };
-  return { rows, tabs, start, mode, items, view, maxScroll: Math.max(0, contentH - view.h) };
+  const tier = { x: start.x + start.w + 12, y: start.y, w: 132, h: 38 };
+  return { rows, tabs, start, mode, tier, items, view, maxScroll: Math.max(0, contentH - view.h) };
 }
 
 function drawVillage(blink) {
@@ -1385,6 +1399,12 @@ function drawVillage(blink) {
   ctx.strokeStyle = msel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(mb.x + 1, mb.y + 1, mb.w - 2, mb.h - 2);
   label(`난이도: ${easy ? '쉬움' : '일반'}`, mb.x + mb.w / 2, mb.y + mb.h / 2 - 6, 13, easy ? '#8ff0b0' : '#fff', 'center', '800');
   label(easy ? '받는 피해 절반' : '눌러서 바꾸기', mb.x + mb.w / 2, mb.y + mb.h / 2 + 9, 9, '#aab', 'center', '600');
+  // 봉인 등급 버튼
+  const tb = L.tier, tsel = v.sel === L.items.length + 2, ti = tierInfo(md.tier);
+  ctx.fillStyle = ti.curses.length ? 'rgba(110,40,60,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
+  ctx.strokeStyle = tsel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(tb.x + 1, tb.y + 1, tb.w - 2, tb.h - 2);
+  label(`봉인 등급 ${ti.n}`, tb.x + tb.w / 2, tb.y + tb.h / 2 - 6, 13, '#ffd0e0', 'center', '800');
+  label(`${ROUTES[ti.route].name} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화'
     : d === 'gamepad' ? '←→ 탭 전환 · ↑↓ 고르고 A로 강화 / 장착 / 출발' : '←→ 탭 전환 · ↑↓ 고르고 Z로 강화 / 장착 / 출발 · 휠로 스크롤';
@@ -1394,6 +1414,14 @@ function drawVillage(blink) {
 function villageAct(i) {
   const v = G.village, items = villageItems(v.tab);
   if (i === items.length) { G.startRun(); return; }
+  if (i === items.length + 2) { // 봉인 등급 바꾸기 (열린 등급을 차례로)
+    const list = playableTiers(), k = list.indexOf(Meta.data.tier);
+    Meta.data.tier = list[(k + 1) % list.length]; Meta.save();
+    const ti = tierInfo(Meta.data.tier);
+    v.msg = list.length < 2 ? '바깥 숲을 끝까지 깨면 다음 등급이 열려요'
+      : `봉인 등급 ${ti.n} · ${ROUTES[ti.route].name} · 보상 ×${ti.rewardMult.toFixed(2)} · ${curseText(ti)}`;
+    Sfx.pickup(); return;
+  }
   if (i === items.length + 1) { // 난이도 바꾸기
     Meta.data.mode = Meta.data.mode === 'easy' ? 'normal' : 'easy'; Meta.save();
     v.msg = Meta.data.mode === 'easy' ? '쉬움 모드: 받는 피해가 절반이에요 (보상은 같아요)' : '일반 모드로 바꿨어요';
@@ -1440,7 +1468,7 @@ function handleVillageInput(dt, inp) {
   let L = villageLayout();
   const n = L.items.length;
   const inRect = (pt, r) => pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
-  const selectable = i => i === n || i === n + 1 || (L.items[i] && !L.items[i].header);
+  const selectable = i => i === n || i === n + 1 || i === n + 2 || (L.items[i] && !L.items[i].header);
   const setTab = t => { if (t !== v.tab) { v.tab = t; v.sel = villageItems(t).length; v.scroll = 0; v.msg = null; Sfx.pickup(); } };
 
   // 휠 스크롤
@@ -1468,6 +1496,7 @@ function handleVillageInput(dt, inp) {
     if (ti >= 0) { setTab(ti); return; }
     if (inRect(inp.tap, L.start)) { villageAct(n); return; }
     if (inRect(inp.tap, L.mode)) { v.sel = n + 1; villageAct(n + 1); return; }
+    if (inRect(inp.tap, L.tier)) { v.sel = n + 2; villageAct(n + 2); return; }
     if (inRect(inp.tap, L.view)) {
       let id = null;
       for (const [pid, pt] of Input.pointers) if (Math.abs(pt.x - inp.tap.x) < 1 && Math.abs(pt.y - inp.tap.y) < 1) id = pid;
@@ -1481,7 +1510,7 @@ function handleVillageInput(dt, inp) {
   const dir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0;
   if (dir && dir !== v.axis) {
     let i = v.sel;
-    do { i = (i + dir + n + 2) % (n + 2); } while (!selectable(i));
+    do { i = (i + dir + n + 3) % (n + 3); } while (!selectable(i));
     v.sel = i; v.msg = null; Sfx.pickup();
     if (i < n) villageScrollTo(i);
   }
@@ -1547,7 +1576,7 @@ function render() {
     wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, H * 0.2 + big * 0.9 + i * 20, 14, '#d8e8d0', 'center', '500'));
     const md = Meta.data;
     label(`로그라이트 · 쓰러지면 처음부터 · 정령의 조각으로 영구 강화${md.best ? `   (최고 기록: ${stageLabel(md.best)})` : ''}${md.bestEasy ? `  (쉬움: ${stageLabel(md.bestEasy)})` : ''}`, W / 2, H * 0.45, 12, '#c8b8ff', 'center', '600');
-    label(`난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 절반)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
+    label(`봉인 등급 ${md.tier} · ${ROUTES[tierInfo(md.tier).route].name}   ·   난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 절반)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
     const { move, A, P, D } = keyNames();
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
     if (Input.state.device === 'keyboard') label('Ctrl 공격 · Space 대시 · Alt 특수도 쓸 수 있어요', W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
@@ -1590,7 +1619,13 @@ function render() {
         label('모든 스테이지를 클리어했어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
         label(stats, W / 2, H * 0.48, 13, '#fff', 'center', '600');
         label(`클리어 보너스 ◆ ${SHARD_ALL_CLEAR}  ·  이번 런 ◆ ${G.runShards}  ·  ⚔ ${WEAPONS[G.player.weaponId].essence} ${G.runEssence}`, W / 2, H * 0.57, 14, '#c8a0ff', 'center', '700');
-        label(`✦ 영웅의 증표 +${G.runEmblems}  (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요`, W / 2, H * 0.57 + 20, 13, '#ffd24a', 'center', '700');
+        const ti = G.tierInfo || tierInfo(1);
+        if (G.tierFirst) {
+          const reward = G.runEmblems ? `✦ 영웅의 증표 +${G.runEmblems} (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요` : `◆ 등급 보너스 +${ti.bonusShards}`;
+          label(`봉인 등급 ${ti.n} 첫 돌파!  ${reward}`, W / 2, H * 0.57 + 20, 13, '#ffd24a', 'center', '700');
+          const nx = tierInfo(ti.n + 1);
+          if (ti.n < TIER_MAX) label(ROUTES[nx.route].ready ? `다음 도전: 봉인 등급 ${nx.n} · ${ROUTES[nx.route].name}` : `다음 도전: 봉인 등급 ${nx.n} · ${ROUTES[nx.route].name} (준비 중)`, W / 2, H * 0.57 + 40, 12, '#e8d8ff', 'center', '600');
+        } else label(`봉인 등급 ${ti.n} · 이미 깬 등급이라 증표는 없어요`, W / 2, H * 0.57 + 20, 12, '#aab', 'center', '600');
         if (G.clearT > 1.5 && blink) label(`${tap}해서 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
       }
     }
