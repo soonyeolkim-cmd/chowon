@@ -603,6 +603,8 @@ const ENEMY_HP_STEP = 0.10;   // 난이도 1 오를 때마다 체력 +10% (예�
 const ENEMY = {
   // 세계 1 · 슬라임 대왕의 들판
   slime:    { hp: 26, speed: 55, dmg: 8, xp: 4, r: 10, color: '#5ccf6a' },
+  bigslime: { hp: 85, speed: 50, dmg: 11, xp: 10, r: 15, color: '#7ad8ff' },   // 말랑이 분열할 때
+  stump:    { hp: 1, speed: 0, dmg: 0, xp: 0, r: 14, color: '#a88a52', decoy: true }, // 바루의 가짜 그루터기
   bat:      { hp: 14, speed: 88, dmg: 6, xp: 5, r: 8, color: '#7a5bb5', flying: true },
   mushroom: { hp: 22, speed: 32, dmg: 6, xp: 5, r: 10, color: '#c86a8a', ranged: true, shot: 7, keep: 140, rate: 2.6, wind: 0.6 },
   mole:     { hp: 30, speed: 70, dmg: 9, xp: 6, r: 10, color: '#c0504a' },
@@ -642,6 +644,7 @@ class Enemy {
 
   update(dt, p) {
     this.t += dt; this.flash -= dt; this.stun -= dt; this.spawnT -= dt;
+    if (this.def.decoy) return; // 가짜 그루터기: 가만히 있는다
     applyKnockback(this, dt);
     const dx = p.x - this.x, dy = p.y - this.y, d = Math.hypot(dx, dy) || 1;
     if (this.type === 'shield' && !this.guard) {
@@ -655,7 +658,7 @@ class Enemy {
     if (!chase && Math.random() < dt * 0.5) this.wander = Math.random() * Math.PI * 2;
     this.st -= dt;
 
-    if (this.type === 'slime') {
+    if (this.type === 'slime' || this.type === 'bigslime') {
       const ph = this.t % 1;
       this.hop = ph < 0.5 ? Math.sin(ph / 0.5 * Math.PI) : 0;
       if (ph < 0.5) {
@@ -845,12 +848,15 @@ class Enemy {
     const look = Math.atan2(p.y - this.y, p.x - this.x);
     const lx = Math.cos(look), ly = Math.sin(look);
 
-    if (this.type === 'slime') {
-      const h = this.hop, x = this.x, y = this.y - h * 9;
+    if (this.type === 'stump') {
+      drawStump(g, this.x, this.y, this.t);
+    } else if (this.type === 'slime' || this.type === 'bigslime') {
+      const big = this.type === 'bigslime' ? 1.6 : 1;
+      const h = this.hop, x = this.x, y = this.y - h * 9 * big;
       g.fillStyle = 'rgba(0,0,0,0.25)';
-      g.beginPath(); g.ellipse(this.x, this.y + 8, 10 - h * 3, 4 - h, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(this.x, this.y + 8 * big, (10 - h * 3) * big, (4 - h) * big, 0, 0, Math.PI * 2); g.fill();
       const ph = this.t % 1, row = h > 0.6 ? 2 : h > 0 ? 1 : ph > 0.5 && ph < 0.62 ? 3 : 0;
-      drawCell(g, 'slime', dirCol(look), row, x, y + 11, { white });
+      drawCell(g, 'slime', dirCol(look), row, x, y + 11 * big, { white, scale: PIX * big });
     } else if (this.type === 'bat') {
       const x = this.x, y = this.y - 10 + Math.sin(this.t * 6) * 2;
       g.fillStyle = 'rgba(0,0,0,0.2)';
@@ -962,9 +968,10 @@ class EnemyShot {
   draw(g) {
     const a = clamp(this.life / 0.3, 0, 1), c = Math.cos(this.dir), s = Math.sin(this.dir);
     g.globalAlpha = a;
-    if (this.kind === 'feather' || this.kind === 'dart') {
+    if (this.kind === 'feather' || this.kind === 'dart' || this.kind === 'leaf') {
       g.save(); g.translate(this.x, this.y); g.rotate(this.dir);
-      g.fillStyle = this.kind === 'dart' ? '#7ad84a' : '#e8dcc0';
+      if (this.kind === 'leaf') g.rotate(this.t * 14);
+      g.fillStyle = this.kind === 'dart' ? '#7ad84a' : this.kind === 'leaf' ? '#8ad84a' : '#e8dcc0';
       g.fillRect(-7, -1.5, 12, 3);
       g.fillStyle = this.kind === 'dart' ? '#c8ff8a' : '#8a6a4a'; g.fillRect(3, -2, 4, 4);
       g.restore();
@@ -980,7 +987,7 @@ class EnemyShot {
     g.globalAlpha = 1;
   }
 }
-const SHOT_COLOR = { spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c' };
+const SHOT_COLOR = { spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c', leaf: '#8ad84a' };
 
 // 플레이어의 검기 · 던진 창이 지나가며 적 투사체를 지운다
 function clearShotsNear(x, y, r) {
@@ -1055,34 +1062,102 @@ class Totem {
 const BOSS_NAMES = ['슬라임 대왕 말랑', '숲지기 너구리 바루', '숲의 군주'];
 const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b', '#6d4a92']];
 
-// 보스: 돌진(벽에 부딪히면 기절), 내려찍기(범위 예고), 소환, 체력 절반 이하에서 격노
+// 보스: 세계마다 고유 패턴. 공통으로 체력 절반 이하에서 격노, 벽에 부딪히는 돌진은 기절(반격 기회).
+//  말랑(슬라임): 통통 점프 연타 · 내려찍기 · 슬라임 소환 / 격노 시 분열(큰 슬라임 둘)
+//  바루(너구리): 배 두드리기 충격파 · 나뭇잎 표창 · 배치기 돌진 / 격노 후 둔갑술(그루터기 사이에 숨기)
+//  숲의 군주(대나무): 뿌리 솟구침 · 대나무 창비 · 망령 소환 · 내려찍기 / 격노 시 숲이 시든다(시야 어두워짐)
 class Boss {
   constructor(x, y, stage) {
     this.type = 'boss'; this.x = x; this.y = y; this.r = 28; this.stage = stage;
-    const i = (stage - 1) % 3;
+    const i = this.kind = (stage - 1) % 3;
     this.name = stage > 3 ? BOSS_NAMES[i] + ' +' + (stage - 3) : BOSS_NAMES[i];
     this.colors = BOSS_COLORS[i];
     this.maxHp = this.hp = Math.round(450 * 1.1 * (1 + 0.5 * (stage - 1)));
     this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + 0.3 * (stage - 1)) * (1 + 0.05 * (G.player.lv - 1)));
-    this.speed = 46; this.superArmor = true;
+    this.speed = 46; this.superArmor = true; this.scale = 1;
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
     this.state = 'intro'; this.st = 1.5; this.t = 0; this.dir = 0;
     this.enraged = false; this.attacking = false; this.dead = false;
+    this.hz = [];            // 예고 후 터지는 공격들 (원 · 직선)
+    this.decoys = [];        // 바루의 가짜 그루터기
+    this.disguiseCd = 0;
     if (curse('hp')) this.maxHp = this.hp = Math.round(this.hp * 1.2);
     if (curse('dmg')) this.dmg = Math.round(this.dmg * 1.15);
     if (curse('rage')) { this.enraged = true; this.speed *= 1.3; } // 분노한 주인: 처음부터 격노
   }
   get vulnerable() { return this.state === 'stun'; }
+  get fast() { return this.enraged ? 0.7 : 1; }
+
+  // 다음 패턴 고르기
+  choose(d) {
+    const r = Math.random();
+    if (this.kind === 0) {
+      if (r < 0.2 && G.enemies.length < 6) return 'summon';
+      if (r < 0.65) return 'hop';
+      return d < 120 ? 'slamWind' : 'chargeWind';
+    }
+    if (this.kind === 1) {
+      if (this.enraged && this.disguiseCd <= 0 && r < 0.3) return 'disguise';
+      if (r < 0.4) return 'drumWind';
+      if (r < 0.7) return 'leafWind';
+      return 'chargeWind';
+    }
+    if (r < 0.18 && G.enemies.length < 5) return 'summon';
+    if (r < 0.5) return 'rootWind';
+    if (r < 0.8) return 'bamboo';
+    return d < 120 ? 'slamWind' : 'rootWind';
+  }
+
+  enrage() {
+    this.enraged = true; this.speed *= 1.3;
+    G.text(this.x, this.y - 40, '격노!', '#ff5a3c', 20, 1.2); G.shake = 8; Sfx.roar();
+    if (this.kind === 0) { // 분열: 큰 슬라임 둘을 떼어 내고 작고 빨라진다
+      this.scale = 0.8; this.r = 22; this.speed *= 1.15;
+      for (const o of [-1, 1]) {
+        const e = new Enemy('bigslime', this.x + o * 40, this.y + 10, G.diff, G.player.lv);
+        e.kvx = o * 260; G.enemies.push(e);
+      }
+      G.burst(this.x, this.y, 30, ['#7ad8ff', '#fff'], 240);
+      G.text(this.x, this.y - 58, '분열!', '#9fd8ff', 18, 1.2);
+      G.lumi.say('갈라졌어요! 작은 쪽이 진짜 대왕이에요!');
+    } else if (this.kind === 1) {
+      G.lumi.say('둔갑술을 쓸지도 몰라요! 진짜 바루를 찾아요!');
+    } else {
+      G.lumi.say('숲이 시들고 있어요… 어두워도 정신 차려요!');
+    }
+  }
+
+  // 원형 예고 공격: delay 뒤 반경 r 안이면 맞는다
+  hzCircle(x, y, r, delay, dmg, look) { this.hz.push({ kind: 'circle', x, y, r, t: delay, max: delay, dmg, look, fired: false, life: 0.4 }); }
+  // 직선 예고 공격: (x, y)에서 a 방향으로 len, 폭 w
+  hzLine(x, y, a, len, w, delay, dmg, look) { this.hz.push({ kind: 'line', x, y, a, len, w, t: delay, max: delay, dmg, look, fired: false, life: 0.5 }); }
+  updateHazards(dt, p) {
+    for (const h of this.hz) {
+      if (!h.fired) {
+        h.t -= dt;
+        if (h.t > 0) continue;
+        h.fired = true;
+        let hit = false;
+        if (h.kind === 'circle') hit = Math.hypot(p.x - h.x, p.y - h.y) < h.r + p.r;
+        else {
+          const c = Math.cos(h.a), s = Math.sin(h.a), dx = p.x - h.x, dy = p.y - h.y, along = dx * c + dy * s;
+          hit = along > -10 && along < h.len && Math.abs(dx * s - dy * c) < h.w + p.r;
+        }
+        if (h.look === 'bamboo') { G.burst(h.x, h.y, 8, ['#8ad84a', '#d8f0a0'], 120); Sfx.thrust(); }
+        else if (h.look === 'root') { G.shake = Math.max(G.shake, 5); Sfx.slam(); }
+        else { G.burst(h.x, h.y + 6, 14, ['#c9b48a', '#fff'], 180); G.shake = Math.max(G.shake, 6); Sfx.slam(); }
+        if (hit && p.alive) G.hurtPlayer(h.dmg, { x: h.x, y: h.y, attacking: true });
+      } else h.life -= dt;
+    }
+    this.hz = this.hz.filter(h => !h.fired || h.life > 0);
+  }
 
   update(dt, p) {
-    this.t += dt; this.flash -= dt; this.st -= dt;
+    this.t += dt; this.flash -= dt; this.st -= dt; this.disguiseCd -= dt;
     const dx = p.x - this.x, dy = p.y - this.y, d = Math.hypot(dx, dy) || 1;
-    const fast = this.enraged ? 0.7 : 1;
-    if (!this.enraged && this.hp < this.maxHp / 2) {
-      this.enraged = true; this.speed *= 1.3;
-      G.text(this.x, this.y - 40, '격노!', '#ff5a3c', 20, 1.2); G.shake = 8; Sfx.roar();
-      G.lumi.say('화가 났어요! 충격파를 조심해요!');
-    }
+    const fast = this.fast;
+    if (!this.enraged && this.hp < this.maxHp / 2 && this.state !== 'hidden') this.enrage();
+    this.updateHazards(dt, p);
     this.attacking = false;
     switch (this.state) {
       case 'intro':
@@ -1090,13 +1165,10 @@ class Boss {
         break;
       case 'chase':
         if (p.alive) { const sl = 1 - 0.075 * (this.chill || 0); this.steer(dx / d * this.speed * sl, dy / d * this.speed * sl, dt); }
-        if (this.st <= 0 && p.alive) {
-          const r = Math.random();
-          if (r < 0.2 && G.enemies.length < 6) { this.state = 'summon'; this.st = 0.7; }
-          else if (d < 120 && r < 0.75) { this.state = 'slamWind'; this.st = 0.9 * fast; }
-          else { this.state = 'chargeWind'; this.st = 0.8 * fast; }
-        }
+        if (this.st <= 0 && p.alive) this.begin(this.choose(d), p, dx, dy, d);
         break;
+
+      // ── 공통: 돌진 · 내려찍기 · 소환 ──
       case 'chargeWind':
         if (this.st > 0.22) this.dir = Math.atan2(dy, dx);
         if (this.st <= 0) { this.state = 'charge'; this.st = 1.0; Sfx.lunge(); }
@@ -1126,24 +1198,168 @@ class Boss {
         break;
       case 'summon':
         if (this.st <= 0) {
-          for (let i = 0; i < 3; i++) G.spawnNear(this.x, this.y, 40, 80, BOSS_MINION[(G.stage || 1) - 1] || 'slime');
+          const kinds = BOSS_SUMMON[this.kind];
+          for (let i = 0; i < 3; i++) G.spawnNear(this.x, this.y, 40, 90, kinds[i % kinds.length]);
           Sfx.roar(); this.state = 'recover'; this.st = 0.5;
         }
         break;
+
+      // ── 말랑: 통통 점프 연타 ──
+      case 'hopWind':
+        if (this.st <= 0) { this.state = 'hopAir'; this.st = 0.38; this.hopFrom = { x: this.x, y: this.y }; Sfx.dash(); }
+        break;
+      case 'hopAir': {
+        const k = clamp(1 - this.st / 0.38, 0, 1), tg = this.hopTo;
+        const nx = this.hopFrom.x + (tg.x - this.hopFrom.x) * k, ny = this.hopFrom.y + (tg.y - this.hopFrom.y) * k;
+        World.move(this, nx - this.x, ny - this.y);
+        this.air = Math.sin(k * Math.PI) * 40;
+        if (this.st <= 0) {
+          this.air = 0; this.hops--;
+          if (this.hops > 0) this.startHop(p, 0.32 * fast);
+          else { this.state = 'recover'; this.st = 0.9; }
+        }
+        break;
+      }
+
+      // ── 바루: 배 두드리기 · 나뭇잎 표창 · 둔갑술 ──
+      case 'drumWind':
+        if (this.st <= 0) { this.state = 'drum'; this.st = 0; this.beats = this.enraged ? 4 : 3; }
+        break;
+      case 'drum':
+        if (this.st <= 0) {
+          G.rings.push({ x: this.x, y: this.y, r: 30, max: 280, dmg: Math.round(this.dmg * 0.7), hit: false });
+          G.shake = Math.max(G.shake, 4); Sfx.slam(); G.text(this.x, this.y - 46, '둥!', '#ffd28a', 14, 0.5);
+          this.beats--; this.st = 0.42;
+          if (this.beats <= 0) { this.state = 'recover'; this.st = 0.8; }
+        }
+        break;
+      case 'leafWind':
+        if (this.st > 0.15) this.dir = Math.atan2(dy, dx);
+        if (this.st <= 0) { this.state = 'leaves'; this.st = 0; this.volleys = this.enraged ? 3 : 2; }
+        break;
+      case 'leaves':
+        if (this.st <= 0) {
+          const a = Math.atan2(dy, dx), n = 5;
+          for (let i = 0; i < n; i++) G.eshots.push(new EnemyShot(this.x, this.y - 10, a - 0.6 + i * 0.3, { kind: 'leaf', speed: 170, r: 5, life: 2.4, dmg: Math.round(this.dmg * 0.5) }));
+          Sfx.wave(false); this.volleys--; this.st = 0.38;
+          if (this.volleys <= 0) { this.state = 'recover'; this.st = 0.7; }
+        }
+        break;
+      case 'hidden':
+        // 진짜 바루를 때리면 들킨다 → 기절. 시간이 다 되면 튀어나와 내려찍는다
+        if (this.struck) {
+          this.reveal(); this.state = 'stun'; this.st = 1.4;
+          G.text(this.x, this.y - 40, '찾았다!', '#ffd24a', 18, 1.2); G.lumi.say('진짜를 찾았어요! 지금이에요!', 1.4);
+        } else if (this.st <= 0) { this.reveal(); this.state = 'slamWind'; this.st = 0.45; }
+        break;
+
+      // ── 숲의 군주: 뿌리 · 대나무 창비 ──
+      case 'rootWind':
+        if (this.st <= 0) { this.state = 'recover'; this.st = 1.0; }
+        break;
+      case 'cast':
+        if (this.st <= 0) { this.state = 'recover'; this.st = 0.8; }
+        break;
+
       case 'stun':
       case 'recover':
         if (this.st <= 0) { this.state = 'chase'; this.st = rand(0.8, 1.6) * fast; }
         break;
     }
-    if (p.alive && this.state !== 'intro' && d < this.r + p.r - 2) {
+    const noTouch = this.state === 'intro' || this.state === 'hopAir' || this.state === 'hidden';
+    if (p.alive && !noTouch && d < this.r + p.r - 2) {
       G.hurtPlayer(this.attacking ? this.dmg : Math.round(this.dmg * 0.6), this);
     }
   }
 
+  begin(pat, p, dx, dy, d) {
+    const fast = this.fast;
+    if (pat === 'hop') { this.hops = this.enraged ? 4 : 3; this.startHop(p, 0.45 * fast); return; }
+    if (pat === 'disguise') { this.disguise(); return; }
+    if (pat === 'rootWind') {
+      const a = Math.atan2(dy, dx), spread = this.enraged ? [-0.55, -0.27, 0, 0.27, 0.55] : [-0.4, 0, 0.4];
+      for (const o of spread) this.hzLine(this.x, this.y, a + o, 340, 14, 0.9 * fast, Math.round(this.dmg * 0.9), 'root');
+      this.state = 'rootWind'; this.st = 0.9 * fast; Sfx.roar(); return;
+    }
+    if (pat === 'bamboo') {
+      const n = this.enraged ? 9 : 6;
+      this.hzCircle(p.x, p.y, 26, 1.0 * fast, Math.round(this.dmg * 0.8), 'bamboo');
+      for (let i = 1; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, r = rand(30, 130);
+        this.hzCircle(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, 26, (0.9 + i * 0.08) * fast, Math.round(this.dmg * 0.8), 'bamboo');
+      }
+      this.state = 'cast'; this.st = 0.6; return;
+    }
+    const st = { slamWind: 0.9, chargeWind: 0.8, summon: 0.7, drumWind: 0.8, leafWind: 0.5 }[pat] || 0.8;
+    this.state = pat; this.st = st * (pat === 'summon' ? 1 : fast);
+  }
+
+  startHop(p, wind) {
+    // 착지 지점: 플레이어가 있는 곳 (걸어갈 수 있는 곳으로)
+    let tx = p.x, ty = p.y;
+    if (!World.reachable(tx, ty)) { tx = this.x; ty = this.y; }
+    this.hopTo = { x: tx, y: ty };
+    this.hzCircle(tx, ty, 58, wind + 0.38, Math.round(this.dmg * 1.1), 'hop');
+    this.state = 'hopWind'; this.st = wind;
+  }
+
+  disguise() {
+    // 연기와 함께 사라지고, 그루터기 셋 중 하나로 숨는다
+    G.burst(this.x, this.y, 26, ['#ddd', '#a88a52', '#fff'], 200); Sfx.dash();
+    const spots = [];
+    for (let i = 0; i < 3; i++) {
+      const s = World.findSpawn(G.player.x, G.player.y, 110, 230);
+      if (s) spots.push(s);
+    }
+    if (spots.length < 2) { this.state = 'drumWind'; this.st = 0.8; return; }
+    const me = spots.pop();
+    this.x = me.x; this.y = me.y;
+    for (const s of spots) { const e = new Enemy('stump', s.x, s.y, G.diff, 1); e.spawnT = 0; this.decoys.push(e); G.enemies.push(e); G.burst(s.x, s.y, 14, ['#ddd', '#a88a52'], 160); }
+    this.state = 'hidden'; this.st = 5; this.flash = 0; this.struck = false; this.disguiseCd = 9;
+    G.text(G.player.x, G.player.y - 40, '둔갑술!', '#e0b070', 16, 1.0);
+  }
+  reveal() {
+    for (const e of this.decoys) if (!e.dead) { e.dead = true; G.burst(e.x, e.y, 10, ['#ddd', '#a88a52'], 120); }
+    this.decoys = [];
+    G.burst(this.x, this.y, 22, ['#ddd', '#e0b070', '#fff'], 200);
+  }
+
   drawTelegraph(g) {
     const pulse = 0.18 + Math.sin(this.t * 25) * 0.07;
+    // 예고 공격들
+    for (const h of this.hz) {
+      if (!h.fired) {
+        const prog = clamp(1 - h.t / h.max, 0, 1);
+        g.fillStyle = `rgba(255,50,30,${pulse})`; g.strokeStyle = 'rgba(255,80,50,0.85)'; g.lineWidth = 2;
+        if (h.kind === 'circle') {
+          g.beginPath(); g.ellipse(h.x, h.y, h.r, h.r * 0.7, 0, 0, Math.PI * 2); g.fill();
+          g.beginPath(); g.ellipse(h.x, h.y, h.r * prog, h.r * 0.7 * prog, 0, 0, Math.PI * 2); g.stroke();
+        } else {
+          const c = Math.cos(h.a), s = Math.sin(h.a);
+          g.beginPath();
+          g.moveTo(h.x - s * h.w, h.y + c * h.w); g.lineTo(h.x + c * h.len - s * h.w, h.y + s * h.len + c * h.w);
+          g.lineTo(h.x + c * h.len + s * h.w, h.y + s * h.len - c * h.w); g.lineTo(h.x + s * h.w, h.y - c * h.w);
+          g.closePath(); g.fill();
+          g.beginPath(); g.moveTo(h.x, h.y); g.lineTo(h.x + c * h.len * prog, h.y + s * h.len * prog); g.stroke();
+        }
+      } else if (h.look === 'bamboo') { // 땅에 꽂힌 대나무 창
+        g.globalAlpha = clamp(h.life / 0.4, 0, 1);
+        g.fillStyle = '#6ab040'; g.fillRect(h.x - 2, h.y - 22, 4, 24); g.fillStyle = '#c8f08a'; g.fillRect(h.x - 2, h.y - 26, 4, 5);
+        g.fillStyle = '#3a6a20'; g.fillRect(h.x - 2, h.y - 12, 4, 1);
+        g.globalAlpha = 1;
+      } else if (h.look === 'root') { // 솟구친 뿌리 가시
+        g.globalAlpha = clamp(h.life / 0.5, 0, 1);
+        const c = Math.cos(h.a), s = Math.sin(h.a);
+        for (let k = 20; k < h.len; k += 18) {
+          const x = h.x + c * k, y = h.y + s * k, hgt = 12 + (k % 36 ? 6 : 0);
+          g.fillStyle = '#5a3a1e'; g.beginPath(); g.moveTo(x - 5, y + 4); g.lineTo(x, y - hgt); g.lineTo(x + 5, y + 4); g.fill();
+          g.fillStyle = '#8ab04a'; g.fillRect(x - 1, y - hgt + 2, 2, 3);
+        }
+        g.globalAlpha = 1;
+      }
+    }
     if (this.state === 'slamWind') {
-      const prog = 1 - this.st / (0.9 * (this.enraged ? 0.7 : 1));
+      const prog = 1 - this.st / (0.9 * this.fast);
       g.fillStyle = `rgba(255,50,30,${pulse})`;
       g.beginPath(); g.arc(this.x, this.y, 84, 0, Math.PI * 2); g.fill();
       g.strokeStyle = 'rgba(255,80,50,0.8)'; g.lineWidth = 2;
@@ -1155,29 +1371,35 @@ class Boss {
       g.moveTo(this.x - s * w, this.y + c * w); g.lineTo(this.x + c * len - s * w, this.y + s * len + c * w);
       g.lineTo(this.x + c * len + s * w, this.y + s * len - c * w); g.lineTo(this.x + s * w, this.y - c * w);
       g.closePath(); g.fill();
+    } else if (this.state === 'drumWind') {
+      g.strokeStyle = `rgba(255,120,60,${0.4 + pulse})`; g.lineWidth = 3;
+      g.beginPath(); g.arc(this.x, this.y, 40 + (1 - this.st / 0.8) * 20, 0, Math.PI * 2); g.stroke();
     }
   }
 
   draw(g) {
-    const x = this.x, y = this.y, white = this.flash > 0;
-    const wind = this.state === 'slamWind' || this.state === 'chargeWind' || this.state === 'summon';
+    const x = this.x, y = this.y, white = this.flash > 0 && this.state !== 'hidden';
+    if (this.state === 'hidden') { drawStump(g, x, y, this.t); FX.drawStatus(g, this); return; }
+    const winds = ['slamWind', 'chargeWind', 'summon', 'hopWind', 'drumWind', 'leafWind', 'rootWind', 'cast'];
+    const wind = winds.includes(this.state);
     const shake = wind ? Math.sin(this.t * 50) * 1.5 : 0;
-    const lift = this.state === 'slamWind' ? 6 * (1 - this.st) : 0;
+    const lift = (this.state === 'slamWind' ? 6 * (1 - this.st) : 0) + (this.air || 0);
     g.globalAlpha = this.state === 'intro' ? clamp(1.5 - this.st, 0, 1) : 1;
+    const sh = 1 - (this.air || 0) / 80;
     g.fillStyle = 'rgba(0,0,0,0.35)';
-    g.beginPath(); g.ellipse(x, y + 20, 24, 8, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(x, y + 20, 24 * this.scale * sh, 8 * this.scale * sh, 0, 0, Math.PI * 2); g.fill();
     const bx = x + shake, by = y - lift;
     const art = BOSS_ART[(this.stage - 1) % 3];
     let key = art.idle, fr = Math.floor(this.t * 8);
     if (this.state === 'chase') key = art.move;
-    else if (this.state === 'chargeWind' || this.state === 'summon') key = art.wind;
+    else if (wind && this.state !== 'slamWind') key = art.wind;
     else if (this.state === 'slamWind') {
       key = art.attack;
-      fr = Math.min(stripFrames(key, art.fw) - 1, Math.floor((1 - this.st / (0.9 * (this.enraged ? 0.7 : 1))) * stripFrames(key, art.fw)));
-    } else if (this.state === 'charge') key = art.attack;
+      fr = Math.min(stripFrames(key, art.fw) - 1, Math.floor((1 - this.st / (0.9 * this.fast)) * stripFrames(key, art.fw)));
+    } else if (['charge', 'hopAir', 'drum', 'leaves'].includes(this.state)) key = art.attack;
     else if (this.state === 'stun') key = art.hit;
     const red = wind ? (((this.t * 14) | 0) % 2 ? 0.45 : 0.15) : this.enraged ? 0.15 : 0;
-    drawStrip(g, key, art.fw, fr, bx, by + 22 + art.foot, { white, red });
+    drawStrip(g, key, art.fw, fr, bx, by + 22 + art.foot, { white, red, scale: PIX * this.scale });
     if (this.state === 'stun') {
       for (let i = 0; i < 4; i++) {
         const a = this.t * 4 + i * 1.57;
@@ -1186,12 +1408,25 @@ class Boss {
     }
     if (wind) {
       g.fillStyle = '#ff5a3c'; g.font = 'bold 20px sans-serif'; g.textAlign = 'center';
-      g.fillText('!', x, y - 40);
+      g.fillText('!', x, y - 40 - lift);
     }
     FX.drawStatus(g, this);
     g.globalAlpha = 1;
   }
 }
+
+// 바루의 둔갑술 그루터기 (진짜도 가짜도 똑같이 보인다)
+function drawStump(g, x, y, t) {
+  g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(x, y + 12, 20, 7, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#6a4424'; g.fillRect(x - 16, y - 10, 32, 22);
+  g.fillStyle = '#7a5230'; g.fillRect(x - 16, y - 10, 6, 22); g.fillRect(x + 4, y - 10, 4, 22);
+  g.fillStyle = '#c8a070'; g.beginPath(); g.ellipse(x, y - 10, 16, 6, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#8a6a40'; g.lineWidth = 1;
+  g.beginPath(); g.ellipse(x, y - 10, 10, 3.5, 0, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.ellipse(x, y - 10, 4, 1.5, 0, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = '#5a9a3a'; g.fillRect(x + 8, y - 16 + Math.sin(t * 3) * 1, 4, 5); // 새싹
+}
+const BOSS_SUMMON = [['slime'], ['racoon'], ['skull', 'eye']];
 
 Boss.prototype.steer = Enemy.prototype.steer;
 

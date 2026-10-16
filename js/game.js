@@ -357,6 +357,7 @@ const G = {
       }
     }
     let dmg = info.dmg;
+    t.struck = true;
     if (t.type === 'boss' && t.vulnerable) dmg = Math.round(dmg * 1.5);
     t.hp -= dmg; t.flash = 0.1;
     const armored = t.superArmor || (t.heavy && (t.state === 'windup' || t.state === 'lunge'));
@@ -391,6 +392,13 @@ const G = {
 
 
   killEnemy(e) {
+    if (e.def && e.def.decoy) {
+      e.dead = true;
+      this.burst(e.x, e.y, 14, ['#ddd', '#a88a52'], 160); this.text(e.x, e.y - 24, '가짜!', '#e0b070', 14, 0.8);
+      const p = this.player, a = Math.atan2(p.y - e.y, p.x - e.x);
+      for (const o of [-0.3, 0, 0.3]) this.eshots.push(new EnemyShot(e.x, e.y - 8, a + o, { kind: 'leaf', speed: 160, r: 5, life: 2, dmg: Math.round((this.boss ? this.boss.dmg : 30) * 0.4) }));
+      return;
+    }
     e.dead = true; this.stageKills++; this.runKills++;
     if (Math.random() < (SHARD_DROP[e.type] || 0.2)) this.earn(1, e.x, e.y);
     this.burst(e.x, e.y, 14, [e.color, '#fff'], 180);
@@ -1645,6 +1653,11 @@ function render() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.textBaseline = 'middle';
 
+  if (G.boss && !G.boss.dead && G.boss.kind === 2 && G.boss.enraged) { // 숲의 군주 격노: 숲이 시든다
+    const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.22, W / 2, H / 2, Math.max(W, H) * 0.55);
+    gr.addColorStop(0, 'rgba(30,0,10,0)'); gr.addColorStop(1, 'rgba(30,0,10,0.6)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  }
   if (World.pal === PALETTES[2]) { // 어둠의 숲: 시야를 좁힌다
     const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.65);
     gr.addColorStop(0, 'rgba(0,0,10,0)'); gr.addColorStop(1, 'rgba(0,0,10,0.55)');
