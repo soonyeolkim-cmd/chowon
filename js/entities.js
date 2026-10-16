@@ -274,8 +274,8 @@ class Player {
     this.combo = this.comboT > 0 ? (this.combo + 1) % 2 : 0;
     this.aim(mag);
     const fin = this.combo === 1;
-    this.act = { kind: fin ? 'pokeFin' : 'poke', t: 0, dur: fin ? 0.18 : 0.15, hit: new Set(), pierced: 0, len: SPEAR_REACH * (fin ? 1.1 : 1) };
-    this.atkCd = (fin ? 0.46 : 0.3) * (1 - 0.15 * FX.lv('atk_combo'));
+    this.act = { kind: fin ? 'pokeFin' : 'poke', t: 0, dur: (fin ? 0.18 : 0.15) / SPEAR_SPEED, hit: new Set(), pierced: 0, len: SPEAR_REACH * (fin ? 1.1 : 1) };
+    this.atkCd = (fin ? 0.46 : 0.3) / SPEAR_SPEED * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
     this.atkBuffer = 0;
     Sfx.thrust();
@@ -318,8 +318,8 @@ class Player {
   startSweep() {
     this.finisherT = 0;
     this.aim(Math.hypot(Input.state.mx, Input.state.my));
-    this.act = { kind: 'sweep', t: 0, dur: 0.24, hit: new Set(), half: SWEEP_HALF, len: this.sweepLen };
-    this.atkCd = 0.6; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
+    this.act = { kind: 'sweep', t: 0, dur: 0.24 / SPEAR_SPEED, hit: new Set(), half: SWEEP_HALF, len: this.sweepLen };
+    this.atkCd = 0.6 / SPEAR_SPEED; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
     G.text(this.x, this.y - 24, '후려치기', '#9cdcff', 11, 0.5);
     Sfx.swing(true);
   }
@@ -616,7 +616,7 @@ class SpearShot {
     const k = 1 + 0.2 * FX.lv('atk_wave');
     this.phantom = !!phantom; // 삼연 투척의 정령 창: 돌아오면 사라진다 (손이 비는 건 진짜 창만)
     this.x = p.x; this.y = p.y - 2; this.dir = dir;
-    this.range = SPEAR_THROW_RANGE * k; this.speed = 520 * k; this.backSpeed = 640 * k;
+    this.range = SPEAR_THROW_RANGE * k; this.speed = 520 * k * SPEAR_SPEED; this.backSpeed = 640 * k * SPEAR_SPEED;
     this.dist = 0; this.back = false; this.hit = new Set(); this.done = false; this.t = 0;
   }
   update(dt) {

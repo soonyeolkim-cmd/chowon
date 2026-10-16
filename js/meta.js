@@ -43,7 +43,7 @@ const ESSENCE_ALL_CLEAR = 5;        // 완주 보너스
 //   'spear' — 처음 상태 그대로, 창만 해금 (창으로 장착해서 시작)
 //   null    — 끄기
 const DEV_LOCAL = /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(location.hostname);
-const DEV_MODE = null; // 테스트 끝: 로컬도 일반 모드 (다시 켜려면 DEV_LOCAL ? 'spear' : null)
+const DEV_MODE = DEV_LOCAL ? 'spear' : null; // 로컬에서만 창 해금 (끄려면 null)
 // 시험 빌드: 로컬에서 주소 뒤에 ?build=spin 을 붙이면 런을 그 축복들을 가진 채로 시작한다
 const TEST_BUILDS = {
   // 회전베기 최강: 회전 연참 · 일섬 회전 · 빙결 회오리 · 파쇄 · 수호의 회전 · 날카로운 검 · 급소 · 연속 타격 (+ 회전베기 숙련 3)
