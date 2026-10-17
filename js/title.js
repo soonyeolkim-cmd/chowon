@@ -5,6 +5,7 @@ const TITLE_H = 180;              // 배경을 그리는 작은 캔버스의 세
 const TITLE_STAR_N = 70;          // 별 개수
 const TITLE_FIREFLY_N = 18;       // 반딧불 개수
 const TITLE_LEAF_N = 5;           // 떨어지는 나뭇잎 개수
+const TITLE_WALK_T = 4.5;        // 리안이 화면 왼쪽 아래에서 봉인석 앞까지 걸어오는 시간 (초)
 const TITLE_GOLD = [255, 206, 74];  // 봉인석 빛 (1세계 황금 봉인석과 같은 색)
 const tRand = i => { const v = Math.sin(i * 127.1 + 31.7) * 43758.5453; return v - Math.floor(v); };
 
@@ -33,6 +34,11 @@ const TitleArt = {
     const h = TITLE_H, w = Math.ceil(h * W / H);
     if (!this.buf || this.buf.width !== w) { this.buf = document.createElement('canvas'); this.buf.width = w; this.buf.height = h; this.g = this.buf.getContext('2d'); }
     const g = this.g, cx = Math.round(w / 2);
+    // 리안이 걸어와 봉인석 앞에 선다: 시작 화면을 열 때마다 한 번 (잠깐이라도 안 그렸으면 처음부터)
+    if (!(this.lastT > t - 0.5)) this.walk0 = t;
+    this.lastT = t;
+    const wt = t - this.walk0, wk = clamp(wt / TITLE_WALK_T, 0, 1);
+    const arrive = wt >= TITLE_WALK_T ? clamp(1 - (wt - TITLE_WALK_T) / 1.2, 0, 1) : 0; // 도착하면 봉인석이 한 번 크게 빛난다
     g.imageSmoothingEnabled = false;
     g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     // 하늘: 깊은 밤 → 지평선 쪽 보랏빛
@@ -61,7 +67,7 @@ const TitleArt = {
     gr.addColorStop(0, '#16301f'); gr.addColorStop(1, '#0b1a10');
     g.fillStyle = gr; g.fillRect(0, 126, w, h - 126);
     // 봉인석 빛이 비친 땅
-    const [r0, g0, b0] = TITLE_GOLD, pulse = 0.5 + 0.5 * Math.sin(t * 2);
+    const [r0, g0, b0] = TITLE_GOLD, pulse = 0.5 + 0.5 * Math.sin(t * 2) + arrive;
     const lg = g.createRadialGradient(cx, 140, 2, cx, 140, 70);
     lg.addColorStop(0, `rgba(${r0},${g0},${b0},${0.28 + 0.1 * pulse})`); lg.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
     g.fillStyle = lg; g.fillRect(cx - 70, 90, 140, 90);
@@ -73,8 +79,15 @@ const TitleArt = {
     // 봉인석
     this.stone(g, cx, 140, t, pulse);
     // 리안과 루미: 봉인석을 올려다본다 (뒷모습)
-    drawCell(g, 'hero', 1, 0, cx - 16, 154, { scale: 1 });
-    drawCell(g, 'spirit', 1, Math.floor(t * 4) % 4, cx - 30, 144 + Math.round(Math.sin(t * 2.5) * 2), { scale: 1 });
+    if (arrive > 0) { // 도착 순간 퍼지는 빛 고리
+      const rr = 6 + (1 - arrive) * 40; g.strokeStyle = `rgba(${r0},${g0},${b0},${arrive * 0.8})`; g.lineWidth = 1;
+      g.beginPath(); g.ellipse(cx, 138, rr, rr * 0.45, 0, 0, Math.PI * 2); g.stroke();
+    }
+    const sx = cx - 52, sy = h + 18, ex = cx - 16, ey = 154, moving = wk < 1;
+    const hx = Math.round(sx + (ex - sx) * wk), hy = Math.round(sy + (ey - sy) * wk);
+    drawCell(g, 'hero', 1, moving ? Math.floor(wt * 8) % 4 : 0, hx, hy, { scale: 1 }); // 화면 아래에서 뒷모습으로 걸어 올라와 봉인석 앞에 선다
+    const lk = clamp((wt - 0.5) / TITLE_WALK_T, 0, 1); // 루미는 조금 늦게 따라온다
+    drawCell(g, 'spirit', 1, Math.floor(t * 4) % 4, Math.round(sx - 14 + (cx - 30 - sx + 14) * lk), Math.round(sy - 12 + (144 - sy + 12) * lk + Math.sin(t * 2.5) * 2), { scale: 1 });
     // 가장 가까운 나무: 양옆에서 화면을 감싼다 (어둡게)
     for (const [x, y, s] of [[-12, 150, 1.8], [w - 48, 148, 1.9], [22, 172, 1.4], [w - 66, 174, 1.3]]) {
       g.drawImage(this.tinted(0, 0, '#0a140e'), Math.round(x), Math.round(y - 32 * s), Math.round(32 * s), Math.round(32 * s));
