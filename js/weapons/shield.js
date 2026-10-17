@@ -61,11 +61,11 @@ addWeapon('shield', {
   skill: null,
   rows: (A, P, D) => [
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
-    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다'],
+    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
     ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
-    ['후려치기', `${D} → ${A}`, '돌진 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다', 'thrust'],
+    ['후려치기', `${D} → ${A}`, '대시 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음', 'thrust'],
   ],
   notesTitle: '방패 특성 · 막기',
   notes: [
@@ -154,6 +154,7 @@ extendPlayer({
   // ── 방패 ──
   // 정면에서 온 공격인가 (막을 수 있나)
   shieldFront(src) {
+    if (this.act && (this.act.kind === 'quake' || this.act.kind === 'shieldSlam')) return false; // 땅을 찍는 동안은 방패가 내려가 있어 못 막는다 (2026-10-17)
     const f = this.dashT > 0 ? this.dashDir : this.facing;
     return Math.abs(angDiff(Math.atan2(src.y - this.y, src.x - this.x), f)) < SHIELD_FRONT;
   },
@@ -194,6 +195,7 @@ extendPlayer({
     this.finisherT = 0;
     this.aim(mag);
     const ms = FX.lv('atk_multispin');
+    this.guardT = 0; // 방패를 내려 땅을 찍는다: 막기 없음
     this.act = { kind: 'quake', t: 0, dur: 0.34 + 0.12 * ms, dur0: 0.34, hit: new Set(), r: this.quakeR, extra: ms, shocks: 0 };
     this.atkCd = 0.55 + 0.12 * ms; this.charge = 0; this.comboT = 0;
     G.text(this.x, this.y - 24, '방패 강타', '#ffd24a', 12, 0.6);
@@ -221,6 +223,7 @@ extendPlayer({
   startShieldSlam() {
     this.finisherT = 0;
     this.aim(Math.hypot(Input.state.mx, Input.state.my));
+    this.guardT = 0; // 방패를 내려찍는다: 막기 없음
     this.act = { kind: 'shieldSlam', t: 0, dur: 0.3, hit: new Set(), r: SHIELD_SLAM_R * (1 + 0.1 * FX.lv('atk_thrust')) };
     this.atkCd = 0.55; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
     G.text(this.x, this.y - 24, '후려치기', '#9cdcff', 11, 0.5);
