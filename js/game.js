@@ -1798,6 +1798,11 @@ function drawBoonScreen() {
     : d === 'gamepad' ? `십자키로 고르고 ${keyNames().A}를 길게 눌러서 선택`
     : `← → 로 고르고 ${keyNames().A}를 길게 눌러서 선택`;
   if (!o.auto) label(how + '  ·  시간이 지나면 무작위로 결정', W / 2, H - inset.b - 16, 12, '#ddd', 'center', '600');
+  // 이번 모험의 봉인 등급과 반발 (불리한 규칙): 축복을 고를 때 늘 보이게 (2026-10-17)
+  const ti = G.tierInfo || tierInfo(1);
+  const curseLine = ti.curses.length ? '봉인 등급 ' + ti.n + ' · 반발: ' + ti.curses.map(id => CURSES[id].name + ' (' + CURSES[id].desc + ')').join(' · ') : '봉인 등급 ' + ti.n + ' · 반발 없음';
+  const cl = wrap(curseLine, Math.min(W - 40, 760), 11, '600');
+  cl.forEach((l, i) => label(l, W / 2, H - inset.b - 34 - (cl.length - 1 - i) * 15, 11, ti.curses.length ? '#ff9a7a' : '#8a96a0', 'center', '600'));
   const rb = L.reroll;
   if (rb && Meta.lv('choice') > 0) {
     // 다시 뽑기: 카드와 같은 어두운 판 + 금빛 테두리, 남은 횟수는 마름모, 키는 작은 키캡 (2026-10-17)
