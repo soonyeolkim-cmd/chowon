@@ -94,7 +94,12 @@ const TEST_BUILDS = {
   parry: { weapon: 'sai', mastery: { wave: 3 }, boons: { elec_special: 3, atk_wave: 3, heal_wave: 3, vital: 3, overcharge: 3, sharp: 3 } },
   bolt: { weapon: 'sword', mastery: { combo: 3 }, boons: { elec_basic: 3, elec_chain: 3, static: 3, overcharge: 3, atk_combo: 3, sharp: 3, vital: 3, ambush: 3 } },
 };
-const GIFT_CODE = 'lumi1017', GIFT_EMBLEMS = 10;
+// 선물 링크 (?gift=코드): 프로필마다 코드 하나에 한 번만 받는다
+//   sealpass: 동료용 '전체 해금' 자원 (2026-10-17) — 공통 강화 전부(조각 약 1,955) · 무기 해금(증표 4) · 숙련 전부(정수 290)를 살 수 있는 양
+const GIFTS = {
+  lumi1017: { emblems: 10 },
+  sealpass: { shards: 2000, essence: 300, emblems: 5 },
+};
 // 시험 빌드 (?build=sai 등): 로컬과 배포 사이트 모두. 배포 사이트에서는 진짜 저장을 건드리지 않게 따로 저장한다 (2026-10-17, 휴대폰 시험용)
 const DEV_BUILD = TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null;
 const TEST_SAVE = !!DEV_BUILD && !DEV_LOCAL;
@@ -177,10 +182,16 @@ const Meta = {
       this.data.tier = 1;
       this.data.tiers7 = true;
     }
-    // 선물 코드 (?gift=코드): 이 기기의 진짜 저장에 영웅의 증표를 한 번만 넣는다 (2026-10-17, 휴대폰 시험용)
-    if (!TEST_SAVE && new URLSearchParams(location.search).get('gift') === GIFT_CODE && !this.data.gifts.includes(GIFT_CODE)) {
-      this.data.gifts.push(GIFT_CODE); this.data.emblems += GIFT_EMBLEMS; this.data.totEmblems += GIFT_EMBLEMS;
-      this.giftNote = `선물: 영웅의 증표 ${GIFT_EMBLEMS}개를 받았어요!`;
+    // 선물 코드 (?gift=코드): 이 기기의 진짜 저장(지금 프로필)에 한 번만 넣는다
+    const giftCode = new URLSearchParams(location.search).get('gift'), gift = GIFTS[giftCode];
+    if (!TEST_SAVE && gift && !this.data.gifts.includes(giftCode)) {
+      const d = this.data;
+      d.gifts.push(giftCode);
+      d.shards += gift.shards || 0; d.totShards += gift.shards || 0;
+      d.essence += gift.essence || 0; d.totEssence += gift.essence || 0;
+      d.emblems += gift.emblems || 0; d.totEmblems += gift.emblems || 0;
+      const got = [gift.shards && `◆ 정령의 조각 ${gift.shards}`, gift.essence && `⚔ 무기의 정수 ${gift.essence}`, gift.emblems && `✦ 영웅의 증표 ${gift.emblems}`].filter(Boolean).join(' · ');
+      this.giftNote = `선물을 받았어요! ${got}`;
       this.save();
       try { history.replaceState(null, '', location.pathname); } catch (_) {}
     }
