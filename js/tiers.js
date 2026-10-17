@@ -2,8 +2,7 @@
 // 봉인 등급: 한 번의 모험으로 세계 1~6을 모두 지나야 완주. 처음 완주하면 다음 등급이 열린다.
 // 등급이 오를수록 '봉인의 반발'(불리한 규칙)이 하나씩 더 붙는다. 대신 보상 배율이 오른다.
 //   등급 1 = 반발 없음, 등급 7 = 반발 6개 전부
-//   영웅의 증표: 세계 3 보스를 처음 쓰러뜨릴 때 1개 (한 번만), 등급 1을 처음 완주할 때 1개.
-//   다른 등급을 처음 완주하면 조각 보너스.
+//   영웅의 증표: 봉인 등급을 처음 완주할 때마다 1개 (등급 1~7, 모두 7개). 2026-10-17
 // 쉬움 모드로 깨도 모두 인정된다.
 
 const ROUTES = {
@@ -20,12 +19,10 @@ const CURSES = {
 };
 const CURSE_ORDER = ['hp', 'wave', 'dmg', 'swift', 'rage', 'heal'];
 const TIER_MAX = 1 + CURSE_ORDER.length; // 7
-const MID_EMBLEM_WORLD = 3;              // 이 세계 보스를 처음 쓰러뜨리면 증표 1개
 
 function tierInfo(n) {
   const curses = CURSE_ORDER.slice(0, n - 1);
-  const emblem = n === 1;
-  return { n, route: 'all', curses, emblem, bonusShards: emblem ? 0 : 30 + 20 * n, rewardMult: 1 + 0.3 * (n - 1) };
+  return { n, route: 'all', curses, emblem: true, bonusShards: 0, rewardMult: 1 + 0.3 * (n - 1) };
 }
 
 // 익숙한 숲: 내가 처음 깬 가장 높은 등급보다 2단계 이상 낮은 등급을 돌면 보상 절반

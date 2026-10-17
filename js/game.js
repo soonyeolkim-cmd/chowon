@@ -13,7 +13,7 @@ const DEEP_SHARD_MULT = 0.6;          // 깊은 숲(세계 4~6): 정령의 조�
 const DEEP_ESSENCE_MULT = 2;          // 깊은 숲(세계 4~6): 무기의 정수는 두 배
 const EASY_DMG_TAKEN = 1 / 3;        // 쉬움 모드: 받는 피해 배율 (1/3)
 const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
-const HEART_DROP = 0.035;              // 처치 시 하트 확률
+// 회복 하트는 몬스터가 아니라 봉인석을 부술 때만 나온다 (2026-10-17)
 const STAGE_DIFF_STEP = 0.2;      // 스테이지마다 적이 강해지는 정도
 const stageLabel = idx => `${Math.ceil(idx / STAGES_PER_WORLD)}-${(idx - 1) % STAGES_PER_WORLD + 1}`;
 
@@ -543,7 +543,6 @@ const G = {
     if (Math.random() < (SHARD_DROP[e.type] || 0.2) * KILL_DROP_MULT) this.earn(1, e.x, e.y);
     this.burst(e.x, e.y, 14, [e.color, '#fff'], 180);
     Sfx.kill();
-    if (Math.random() < HEART_DROP) this.pickups.push(new Pickup('heart', e.x, e.y, curse('heal') ? 10 : 20));
     FX.onKill(e);
   },
 
@@ -573,11 +572,6 @@ const G = {
     for (const e of this.enemies) if (!e.dead) this.killEnemy(e);
     this.earn(SHARD_BOSS * this.stage, b.x, b.y - 50);
     this.earnEssence(ESSENCE_BOSS[Math.min(this.stage, ESSENCE_BOSS.length) - 1], b.x, b.y - 70, (this.stage - 1) * STAGES_PER_WORLD + this.sub);
-    if (this.stage === MID_EMBLEM_WORLD && !Meta.data.midEmblem) { // 세계 3 보스를 처음 쓰러뜨리면 영웅의 증표 (한 번만, 바로 받는다)
-      Meta.data.midEmblem = true; Meta.data.emblems += 1; this.runEmblems += 1;
-      this.text(b.x, b.y - 92, '✦ 영웅의 증표 +1', '#ffd24a', 18, 2.2);
-      this.banner = { title: '영웅의 증표 획득!', sub: '마을에서 새 무기를 해금할 수 있어요', t: 3 };
-    }
     Meta.save();
     this.phase = 'done'; this.clearDelay = 2.2;
   },
@@ -1918,7 +1912,7 @@ function villageAct(i) {
   if (it.locked) { v.msg = '아직 준비 중인 무기예요'; Sfx.block(); return; }
   if (it.weapon !== undefined) {
     if (!it.owned) {
-      if (Meta.data.emblems < it.unlockCost) { v.msg = `영웅의 증표가 ${it.unlockCost}개 필요해요 (세계 3 보스를 처음 쓰러뜨리거나 등급 1을 처음 완주하면 얻어요)`; Sfx.block(); return; }
+      if (Meta.data.emblems < it.unlockCost) { v.msg = `영웅의 증표가 ${it.unlockCost}개 필요해요 (봉인 등급을 처음 완주할 때마다 1개씩 얻어요)`; Sfx.block(); return; }
       Meta.data.emblems -= it.unlockCost; Meta.data.unlocked.push(it.weapon);
       Meta.data.weapon = it.weapon; Meta.save();
       v.flash[it.key] = 0.8; v.msg = `${it.name} 해금! 바로 장착했어요`; Sfx.level();
