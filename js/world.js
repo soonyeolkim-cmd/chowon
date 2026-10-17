@@ -1,6 +1,7 @@
 'use strict';
 // 타일 맵: 생성, 미리 그려두기, 충돌 판정
 const TILE = 32;
+const SEAL_ROCK_R = 4.2; // 봉인석 둘레 바위까지 거리 (칸)
 const T = { GRASS: 0, WATER: 1, TREE: 2, ROCK: 3, DIRT: 4, FLOWER: 5 };
 const SOLID = [false, true, true, true, false, false];
 
@@ -89,6 +90,24 @@ const World = {
     // 4) 봉인석 주변 흙바닥
     for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
       if (tiles[y * w + x] === T.GRASS && Math.hypot(x - sx, y - sy) < 2.4) tiles[y * w + x] = T.DIRT;
+    }
+    // 4-1) 봉인석 둘레 바위 (벽꿍 자리): 봉인석에서 SEAL_ROCK_R 칸쯤, 고르게 흩어 2칸씩. 보스 아레나는 빼고
+    const sealRocks = [];
+    if (!opt.boss) {
+      const n = 3 + (rng() < 0.5 ? 1 : 0), a0 = rng() * Math.PI * 2;
+      for (let k = 0; k < n; k++) {
+        const ang = a0 + k * Math.PI * 2 / n + (rng() - 0.5) * 0.5, d = SEAL_ROCK_R + rng() * 1.2;
+        const cx = Math.round(sx + Math.cos(ang) * d), cy = Math.round(sy + Math.sin(ang) * d);
+        const tx = Math.round(-Math.sin(ang)), ty = Math.round(Math.cos(ang)); // 둘레 방향으로 한 칸 더
+        for (const [x, y] of [[cx, cy], [cx + tx, cy + ty]]) {
+          if (x < 3 || y < 3 || x >= w - 3 || y >= h - 3) continue;
+          const t = tiles[y * w + x];
+          if ((t !== T.GRASS && t !== T.DIRT) || Math.hypot(x - px, y - py) < 2.5 || Math.hypot(x - sx, y - sy) < 2.5) continue;
+          tiles[y * w + x] = T.ROCK; sealRocks.push(y * w + x);
+        }
+      }
+      // 봉인석까지 못 가게 막으면 둘레 바위는 뺀다
+      if (!this.computeReach(px, py, sx, sy)) for (const i of sealRocks) tiles[i] = T.GRASS;
     }
     // 5) 장식: 봉인석·출발 근처는 비우고, 막히면 장식 없이 다시
     const base = tiles.slice();
