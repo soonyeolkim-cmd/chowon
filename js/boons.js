@@ -167,6 +167,33 @@ const BOON_FORMS = {
     guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
     heal_wave:      { name: '치유의 회수', desc: lv => `돌아오는 창에 맞은 적 하나마다 체력 ${lv} 회복.` },
   },
+  // 마법봉: 기본 = 2연타, 차지 = 마법진, 특수 = 마력탄(구슬마다), 대시 공격 = 마력 파동
+  staff: {
+    fire_basic:     { name: '불꽃 마법봉' },
+    fire_bolt:      { name: '화염구 휘두르기', desc: lv => `휘두를 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 2타째는 3발.` },
+    fire_charge:    { name: '화염 마법진', desc: lv => `마법진 폭발에 맞은 적에게 화상 2중첩, 그 자리에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
+    fire_special:   { name: '화염 마력탄', desc: lv => `마력탄이 맞으면 작게 폭발한다 (주변에 공격력의 ${pct(0.25 + 0.1 * lv)} + 화상).` },
+    ice_basic:      { name: '서리 마법봉' },
+    ice_shard:      { name: '얼음 파편 휘두르기', desc: lv => `휘두를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
+    ice_charge:     { name: '빙결 마법진', desc: lv => `마법진 폭발에 맞은 적에게 냉기 ${1 + lv}중첩.` },
+    ice_special:    { name: '서리 마력탄', desc: lv => `마력탄에 맞은 적에게 냉기 ${lv >= 3 ? 2 : 1}중첩.` },
+    elec_basic:     { name: '번개 마법봉' },
+    elec_chain:     { name: '연쇄 번개 마법봉' },
+    elec_charge:    { name: '뇌전 마법진', desc: lv => `마법진이 터진 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+    elec_special:   { name: '뇌격 마력탄', desc: lv => `마력탄이 맞으면 감전 + 번개가 옆의 적에게 한 번 튄다 (공격력의 ${pct(0.25 + 0.1 * lv)}).` },
+    poison_basic:   { name: '독 마법봉' },
+    poison_charge:  { name: '독안개 마법진', desc: lv => `마법진이 터진 자리에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
+    poison_special: { name: '독 마력탄', desc: lv => `마력탄에 맞은 적에게 독 ${1 + Math.floor(lv / 2)}중첩.` },
+    atk_combo:      { name: '연속 휘두르기', desc: lv => `기본공격 속도 +${15 * lv}%, 2타째 피해 +${30 * lv}%.` },
+    atk_spin:       { name: '마법진 강화', desc: lv => `차지 시간 -${15 * lv}%, 마법진 범위 +${15 * lv}%.` },
+    atk_multispin:  { name: '연쇄 마법진', desc: lv => `마법진이 터진 뒤 주변에 작은 마법진 ${lv}개가 이어서 터진다 (피해 ${pct(MULTISPIN_MULT)}).` },
+    atk_wave:       { name: '마력 증폭', desc: lv => `마력 구슬 최대 개수 +${lv} (기본 ${ORB_BASE}개).` },
+    atk_thrust:     { name: '마력 파동 강화', desc: lv => `마력 파동 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
+    sharp:          { name: '예리한 마력' },
+    lifesteal:      { name: '흡혈 마법봉' },
+    guard_spin:     { name: '수호의 마법진', desc: lv => `마법진을 그릴 때 잠깐 무적, 그 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
+    heal_wave:      { name: '치유의 마력탄', desc: lv => `마력탄이 적에게 맞을 때마다 체력 ${0.5 * lv} 회복.` },
+  },
   // 쌍검: 기본 = 3연타, 차지 = 그림자 연참, 특수 = 받아치기, 대시 공격 = 선풍 베기
   sai: {
     fire_basic:     { name: '불꽃 쌍검' },
@@ -502,7 +529,7 @@ const FX = {
         const pss = this.lv('poison_spray');
         if (pss && info.tip && !t.dead) this.poison(t, 1 + pss);
       }
-    } else if (kind === 'spin' || kind === 'lunge' || kind === 'rush') {
+    } else if (kind === 'spin' || kind === 'lunge' || kind === 'rush' || kind === 'circle') {
       if (this.lv('fire_charge')) this.burn(t, 2);
       const ic = this.lv('ice_charge');
       if (ic) this.chill(t, 1 + ic);
@@ -623,6 +650,49 @@ const FX = {
       for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
     }
   },
+  // ── 마법봉 ──
+  // 마력탄 한 발이 맞았을 때 (구슬이 많으니 한 발의 속성 효과는 작게)
+  onOrbHit(t) {
+    const atk = G.player.atk;
+    const fs = this.lv('fire_special');
+    if (fs && !t.dead) { this.burn(t, 1); for (const e of this.near(t.x, t.y, 30, t)) { this.burn(e, 1); this.damage(e, atk * (0.25 + 0.1 * fs), '#ff9a4a', 10); } G.burst(t.x, t.y, 6, ['#ff7a3c', '#ffd24a'], 110); }
+    const is = this.lv('ice_special');
+    if (is && !t.dead) this.chill(t, is >= 3 ? 2 : 1);
+    const es = this.lv('elec_special');
+    if (es) {
+      this.shock(t);
+      let next = null, bd = 120;
+      for (const e of this.near(t.x, t.y, 120, t)) { const d = Math.hypot(e.x - t.x, e.y - t.y); if (d < bd) { bd = d; next = e; } }
+      if (next) { this.bolt(t.x, t.y - 6, next.x, next.y - 6); this.shock(next); this.damage(next, atk * (0.25 + 0.1 * es) * this.lightningMult(next), '#ffe14a', 10); }
+    }
+    const ps = this.lv('poison_special');
+    if (ps && !t.dead) this.poison(t, 1 + Math.floor(ps / 2));
+    const hw = this.lv('heal_wave'), p = G.player;
+    if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + 0.5 * hw);
+  },
+  // 마법진을 그릴 때: 수호의 마법진
+  onCircleCast(p) {
+    const gs = this.lv('guard_spin');
+    if (gs) { p.invuln = Math.max(p.invuln, 0.3); p.spinGuardT = 0.3 + 0.5 + 0.5 * gs; }
+  },
+  // 마법진이 터졌을 때: 불길 · 독안개 · 낙뢰
+  onCircle(p, x, y, r) {
+    const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
+    if (fc || pc) {
+      if (pc) this.zone(x, y + 4, 'poison', 2 + 0.5 * pc);
+      for (let i = 0; i < 8; i++) {
+        const a = i / 8 * Math.PI * 2, d = r * 0.55;
+        if (fc) this.zone(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8 + 4, 'fire', 1.5 + 0.5 * fc);
+        if (pc) this.zone(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8 + 4, 'poison', 2 + 0.5 * pc);
+      }
+    }
+    const ec = this.lv('elec_charge');
+    if (ec) {
+      const list = this.near(x, y, r + 50).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, 2 + ec);
+      for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
+    }
+  },
+
   // ── 쌍검 ──
   // 그림자 연참이 끝났을 때: 지나간 길에 불길 · 독안개, 끝난 자리 낙뢰, 수호의 연참
   onRush(p, x0, y0, x1, y1) {
@@ -783,8 +853,8 @@ const FX = {
   // 공격 쪽 배율들 (Player 가 사용)
   damageMult(p, kind, t) {
     let m = 1 + 0.1 * this.lv('sharp');
-    if (kind === 'finisher' || kind === 'pokeFin' || kind === 'saiFin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
-    if (kind === 'thrust' || kind === 'sweep' || kind === 'whirl') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
+    if (kind === 'finisher' || kind === 'pokeFin' || kind === 'saiFin' || kind === 'bonkFin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
+    if (kind === 'thrust' || kind === 'sweep' || kind === 'whirl' || kind === 'pulse') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
     const am = this.lv('ambush');
     if (am && t && offGuard(t, p)) { m *= 1 + 0.1 + 0.2 * am; t.ambushHit = true; } // 기습: 옆 · 뒤에서, 또는 무방비

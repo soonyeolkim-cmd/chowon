@@ -64,6 +64,9 @@ const TEST_BUILDS = {
   throw: { weapon: 'spear', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
   // 투창 마스터: 피뢰 창(Lv5) · 투척 강화 · 과충전 · 치유의 회수 · 날카로운 창 · 급소 · 기습 (+ 투척 숙련 3)
   javelin: { weapon: 'spear', mastery: { wave: 3 }, boons: { elec_special: 5, atk_wave: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3, ambush: 3 } },
+  // 마법봉 첫 손맛 / 난사 빌드: 마력 증폭 · 뇌격 마력탄(Lv5) · 마력탄 숙련 3 · 과충전
+  staff: { weapon: 'staff', mastery: {}, boons: {} },
+  barrage: { weapon: 'staff', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 5, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
   // 쌍검 첫 손맛: 축복 없이 무기만 (숙련도 0)
   sai: { weapon: 'sai', mastery: {}, boons: {} },
   // 쌍검 연참 빌드: 화염 연참 · 그림자 분신 · 연참 강화 · 불꽃 쌍검 · 연속 베기 · 수호의 연참

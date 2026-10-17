@@ -73,6 +73,9 @@ const ART_FILES = {
   spear:     'Items/Weapons/Lance/Sprite.png',
   slash:     'FX/Attack/SlashCurved/SpriteSheet.png',
   sai:       'Items/Weapons/Sai/Sprite.png',
+  wand:      'Items/Weapons/MagicWand/Sprite.png',
+  orb:       'FX/Projectile/EnergyBall.png',           // 마력탄 (16x16 4장)
+  magicCircle: 'FX/Magic/Circle/SpriteSheetWhite.png', // 마법진 (32x32 4장)
   cutX:      'FX/Attack/CutX/SpriteSheet.png',          // 쌍검 3타째 X자 베기 (32x32 4장)
   circSlash: 'FX/Attack/CircularSlash/SpriteSheet.png', // 쌍검 선풍 베기
   smoke:     'FX/Smoke/Smoke/SpriteSheet.png',

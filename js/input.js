@@ -20,7 +20,7 @@ const Input = (() => {
   const buttons = {};        // id -> { x, y, r, visible, pointer, held }
   const pointers = new Map(); // 지금 눌려 있는 손가락·마우스: id -> { x, y }
   const padPrev = [];
-  let padHeldAttack = false, padHeldA = false;
+  let padHeldAttack = false, padHeldA = false, padHeldSpecial = false;
   let lastPad = null;
 
   // 조작 설정 (설정 화면에서 바꿀 수 있고, 이 기기에 저장된다)
@@ -181,7 +181,7 @@ const Input = (() => {
   }
 
   function pollPad() {
-    padHeldAttack = padHeldA = false;
+    padHeldAttack = padHeldA = padHeldSpecial = false;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     let gp = null;
     for (const p of pads) if (p && p.connected) { gp = p; break; }
@@ -236,6 +236,7 @@ const Input = (() => {
     if (edge[3]) queued.reroll = true;                             // 축복 다시 뽑기: 위 버튼 (엑박 Y · 스위치 X)
     if (anyButton && edge.some(Boolean)) queued.start = true;
     padHeldAttack = binds.pad.attack.some(i => down(i));
+    padHeldSpecial = binds.pad.special.some(i => down(i));
     padHeldA = down(padOk());
     return { ax, ay };
   }
@@ -271,6 +272,7 @@ const Input = (() => {
     state.mouseMode = settings.kbMode === 'mouse' && state.device === 'keyboard';
     state.mouseAim = state.mouseMode && settings.cursorAim;
     state.attackHeld = binds.kb.attack.some(has) || (state.mouseMode && !!(mouseBtns & 1)) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
+    state.specialHeld = binds.kb.special.some(has) || (state.mouseMode && !!(mouseBtns & 2)) || !!(buttons.special && buttons.special.held) || padHeldSpecial;
     queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = queued.reroll = false;
   }
 

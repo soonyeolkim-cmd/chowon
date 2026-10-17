@@ -78,6 +78,7 @@ const WEAPONS = {
       ['삼연 투척', `2타째 직후 ${P}`, '창 세 자루가 부채꼴로', 'triple'],
       ['벽꿍', '2타째 · 관통 찌르기로 벽에 밀기', '추가 피해 + 기절'],
     ],
+    comboLen: 2,
     shieldHint: '저 방패병은 정면 공격을 막아요! 2타째 찌르기나 관통 찌르기는 방패를 뚫어요. 뒤로 돌아가도 돼요.',
     mastery: [
       { id: 'combo',  name: '연속 찌르기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `2타째 찌르기 피해 +${15 * lv}%` },
@@ -117,6 +118,7 @@ const WEAPONS = {
       ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 반격 치명타', 'dodge'],
       ['교차 받아치기', `3타째 직후 ${P}`, '막는 시간 0.6초 · 반격이 주변 적 모두에게', 'triple'],
     ],
+    comboLen: 3,
     shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 X자 베기나 그림자 연참은 방패를 깨요. 받아치기로 공격을 막아도 기절해요.',
     mastery: [
       { id: 'combo',  name: '교차 베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `3타째 X자 베기 피해 +${15 * lv}%` },
@@ -125,7 +127,58 @@ const WEAPONS = {
       { id: 'thrust', name: '선풍 베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `선풍 베기 피해 +${20 * lv}%` },
     ],
   },
+
+  // 마법봉: 기본공격은 약하지만 마력 구슬을 모아 쏜다. 키울수록 구슬이 늘어 난사가 된다 (2026-10-17)
+  // 특수공격은 쿨타임 대신 탄창(마력 구슬). specialCd 는 연사 간격으로만 쓴다
+  staff: {
+    name: '정령의 마법봉',
+    style: '마법형 · 기본공격은 약하지만 마력 구슬을 모아 난사, 키울수록 탄막',
+    essence: '무기의 정수',
+    unlockCost: 1,
+    moves: { basic: '2연타', charged: '마법진', special: '마력탄', dashAttack: '마력 파동' },
+    chargeTime: 0.55,
+    specialCd: 0.12,     // = ORB_INTERVAL (아래 상수는 이 표보다 뒤에 있어서 숫자로)
+    cdPerLv: 0, cdPerMastery: 0, cdFloor: 0.12,
+    orbs: true,          // 마력 구슬을 쓰는 무기
+    holdSpecial: true,   // 특수 버튼을 누르고 있으면 연사
+    comboLen: 2,
+    skillCd: 0,
+    basic: (p, mag) => p.startBonk(mag),
+    basicAfterDash: p => p.startPulse(),
+    charged: (p, mag) => p.startCircle(mag),
+    special: (p, mag) => p.castOrb(mag),
+    skill: null,
+    rows: (A, P, D) => [
+      ['기본 · 2연타', `${A} ${A}`, '약하고 짧다 · 맞힐 때마다 구슬 충전 0.25초 빨라짐'],
+      ['마력 구슬', `최대 ${ORB_BASE}개 · ${ORB_RECHARGE}초마다 1개`, '머리 위에 떠 있는 탄창 · 마력 증폭 축복으로 늘어난다'],
+      ['특수 · 마력탄', `${P} (누르고 있으면 연사)`, '구슬 1개로 살짝 유도되는 마력탄 · 사거리 220'],
+      ['차지 · 마법진', `${A} 길게 눌렀다 떼기`, '앞쪽(가까운 적 발밑)에 마법진 · 0.5초 뒤 폭발'],
+      ['대시', `${D} (쿨타임 ${DASH_CD}초)`, '짧은 무적 이동'],
+      ['마력 파동', `${D} → ${A}`, '주변을 크게 밀어낸다', 'thrust'],
+      ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 반격 치명타 + 구슬 가득', 'dodge'],
+      ['삼연 마력탄', `2타째 직후 ${P}`, '구슬 1개로 세 발이 부채꼴로', 'triple'],
+    ],
+    shieldHint: '저 방패병은 정면 공격을 막아요! 2타째 휘두르기나 마법진은 방패를 깨요. 마력탄으로 등 뒤를 노려도 돼요.',
+    mastery: [
+      { id: 'combo',  name: '휘두르기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `2타째 피해 +${15 * lv}%` },
+      { id: 'spin',   name: '마법진 숙련',     max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 마법진 범위 +${8 * lv}%` },
+      { id: 'wave',   name: '마력탄 숙련',     max: 3, cost: [3, 5, 8], desc: lv => `구슬 충전 ${ORB_RECHARGE}초 → -${(ORB_MASTERY_CUT * lv).toFixed(2)}초` },
+      { id: 'thrust', name: '마력 파동 숙련',  max: 3, cost: [2, 4, 7], desc: lv => `마력 파동 피해 +${20 * lv}%` },
+    ],
+  },
 };
+
+// 마법봉 수치 (2026-10-17)
+const ORB_BASE = 3;             // 마력 구슬 기본 최대 개수 (마력 증폭 레벨마다 +1)
+const ORB_RECHARGE = 1.0;       // 구슬 1개 충전 시간
+const ORB_MASTERY_CUT = 0.15;   // 마력탄 숙련 한 단계마다 충전 시간 감소
+const ORB_INTERVAL = 0.12;      // 누르고 있을 때 연사 간격
+const ORB_REFUND = 0.25;        // 기본공격이 맞으면 충전이 이만큼 빨라진다
+const ORB_RANGE = 220;          // 마력탄 사거리
+const STAFF_REACH = 34;         // 마법봉 휘두르기 사거리
+const CIRCLE_R = 55;            // 마법진 반경
+const CIRCLE_DELAY = 0.5;       // 마법진이 터지기까지
+const PULSE_R = 50;             // 마력 파동 반경
 
 // 쌍검 수치 (2026-10-17)
 const SAI_REACH = 32;           // 찌르기 사거리 (검 37 · 창 74) — 가장 짧다
@@ -160,5 +213,5 @@ const SPEAR_SPEED = 1.1;       // 창 공격 속도 배율 (찌르기 · 투척 
 const WALL_SLAM_MULT = 0.8;    // 벽꿍 추가 피해 (공격력 배율)
 
 // 마을 무기고에 보이는 순서. 아직 만들지 않은 무기는 '준비 중'으로 표시된다.
-const WEAPON_ORDER = ['sword', 'spear', 'sai'];
+const WEAPON_ORDER = ['sword', 'spear', 'sai', 'staff'];
 const UPCOMING_WEAPONS = []; // 해금 비용: 영웅의 증표
