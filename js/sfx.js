@@ -61,3 +61,13 @@ Sfx.register = (key, def) => {
   Sfx[key] = () => { const now = performance.now(); if (now - last < SFX_MIN_GAP) return; last = now; Sfx.chip(def); };
 };
 for (const [k, c] of Object.entries(SFX_PICK)) Sfx.register(k, SFX_CANDS[k][c.charCodeAt(0) - 65]);
+// 정령의 첫 선물 (2026-10-17): 내려오는 빛 · 터지는 팡파르
+Sfx.register('giftRise', { layers: [
+  { wave: 'sq', duty: 0.125, f0: 330, f1: 1760, curve: 'exp', dur: 0.85, vol: 0.06, vib: [14, 0.25], sus: 0.8 },
+  { wave: 'tri', notes: [[523, 0.11], [659, 0.11], [784, 0.11], [1047, 0.11], [1319, 0.11], [1568, 0.16]], vol: 0.24, sus: 0.6 },
+] });
+Sfx.register('giftOpen', { layers: [
+  { wave: 'sq', duty: 0.5, notes: [[784, 0.07], [1047, 0.07], [1319, 0.07], [1568, 0.32]], vol: 0.11 },
+  { wave: 'tri', notes: [[392, 0.07], [523, 0.07], [659, 0.07], [784, 0.32]], vol: 0.3 },
+  { wave: 'noise', f0: 3000, f1: 9000, dur: 0.3, vol: 0.07, delay: 0.21 },
+] });

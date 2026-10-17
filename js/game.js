@@ -754,12 +754,22 @@ const G = {
   update(dt) {
     const p = this.player;
     this.stageTime += dt;
-    if (this.giftPending && this.stageTime > 1.2) { // 정령의 첫 선물: 알림 → 카드 고르기
+    if (this.giftPending && this.stageTime > 1.2) { // 정령의 첫 선물: 하늘에서 빛 구슬이 내려와 터진 뒤 카드 고르기
       this.giftPending = false; this.banner = null; // 스테이지 이름 띠는 치우고
+      this.giftFx = { t: 0, burst: false };
       this.lumi.say('리안! 정령들이 출발 선물을 보냈어요!');
-      this.fxRing(p.x, p.y, '#ffd24a', 60); this.burst(p.x, p.y - 8, 20, ['#ffd24a', '#fff', '#ffe08a'], 180);
-      this.openBoon(null, null);
-      if (this.offer) this.offer.gift = true;
+      Sfx.giftRise();
+    }
+    if (this.giftFx) { // 연출 동안 싸움은 멈춘다
+      const f = this.giftFx; f.t += dt;
+      if (Math.random() < 0.6) this.particles.push({ x: p.x + rand(-22, 22), y: p.y - rand(0, 70), vx: 0, vy: -rand(20, 50), life: 0.7, max: 0.7, color: Math.random() < 0.5 ? '#ffd24a' : '#fff', size: 2, grav: 0 });
+      if (!f.burst && f.t >= GIFT_FX_DROP) {
+        f.burst = true; this.giftFlash = 0.45;
+        this.fxRing(p.x, p.y - 20, '#ffffff', 50); this.fxRing(p.x, p.y - 20, '#ffd24a', 110);
+        this.burst(p.x, p.y - 20, 40, ['#ffd24a', '#fff', '#ffe08a', '#ff9a3c'], 260);
+        this.shake = Math.max(this.shake, 6); Sfx.giftOpen(); Input.rumble(0.6, 200);
+      }
+      if (f.t >= GIFT_FX_DROP + 0.45) { this.giftFx = null; this.openBoon(null, null); if (this.offer) this.offer.gift = true; }
       return;
     }
     p.update(dt);
@@ -1010,6 +1020,7 @@ function drawWorld() {
   list.sort((a, b) => a.y - b.y);
   for (const e of list) e.draw(ctx);
   for (const wv of G.projectiles) wv.draw(ctx);
+  if (G.giftFx) drawGiftFx(G.giftFx, G.player);
   for (const s of G.eshots) s.draw(ctx);
   G.lumi.draw(ctx);
   for (const q of G.particles) {
@@ -2407,6 +2418,38 @@ function drawProfiles(blink) {
   const d = Input.state.device;
   if (d !== 'touch' && b.y + b.h + 14 < H - inset.b - 4) label(d === 'gamepad' ? '←→ 고르기 · A 결정 · Y 지우기 · B 돌아가기' : '←→ 고르기 · Enter/Z 결정 · 특수 키 지우기 · Esc 돌아가기', W / 2, b.y + b.h + 14, 12, '#aab', 'center', '600');
 }
+// 정령의 첫 선물 연출 (월드 좌표): 하늘에서 금빛 기둥이 내려오고, 그 안으로 빛 구슬이 떨어져 리안 머리 위에서 터진다
+const GIFT_FX_DROP = 1.0; // 빛 구슬이 내려와 터지기까지 (초)
+function drawGiftFx(f, p) {
+  if (!p) return;
+  const t = f.t, k = Math.min(1, t / GIFT_FX_DROP), x = p.x, top = p.y - 220, gy = p.y - 20;
+  const open = Math.min(1, t / 0.25), fade = f.burst ? Math.max(0, 1 - (t - GIFT_FX_DROP) / 0.4) : 1;
+  // 빛기둥
+  const w = 26 * open * (0.85 + 0.15 * Math.sin(t * 20));
+  const gr = ctx.createLinearGradient(0, top, 0, p.y + 6);
+  gr.addColorStop(0, 'rgba(255,224,138,0)'); gr.addColorStop(0.6, `rgba(255,224,138,${0.35 * fade})`); gr.addColorStop(1, `rgba(255,255,230,${0.55 * fade})`);
+  ctx.fillStyle = gr; ctx.fillRect(x - w / 2, top, w, p.y + 6 - top);
+  ctx.fillStyle = `rgba(255,255,255,${0.5 * fade})`; ctx.fillRect(x - w * 0.15, top, w * 0.3, p.y + 6 - top);
+  // 발밑 빛 고리
+  ctx.strokeStyle = `rgba(255,210,74,${0.8 * fade})`; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x, p.y + 4, 16 + 4 * Math.sin(t * 8), 5, 0, 0, Math.PI * 2); ctx.stroke();
+  if (f.burst) return;
+  // 내려오는 빛 구슬 + 도는 별빛
+  const e = 1 - Math.pow(1 - k, 2), oy = top + 30 + (gy - top - 30) * e, r = 5 + 3 * k;
+  const glow = ctx.createRadialGradient(x, oy, 1, x, oy, r * 4);
+  glow.addColorStop(0, 'rgba(255,255,240,1)'); glow.addColorStop(0.3, 'rgba(255,210,74,0.8)'); glow.addColorStop(1, 'rgba(255,210,74,0)');
+  ctx.fillStyle = glow; ctx.fillRect(x - r * 4, oy - r * 4, r * 8, r * 8);
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 4; i++) { // 십자 반짝임
+    const a = t * 4 + i * Math.PI / 2, L = r * 2.6;
+    ctx.save(); ctx.translate(x, oy); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(0, -1.2); ctx.lineTo(L, 0); ctx.lineTo(0, 1.2); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  for (let i = 0; i < 6; i++) { // 둘레를 도는 작은 빛
+    const a = t * 6 + i * Math.PI / 3, rr = r * 3.2 * (1 - k * 0.4);
+    ctx.fillStyle = i % 2 ? '#ffd24a' : '#fff'; ctx.fillRect(Math.round(x + Math.cos(a) * rr) - 1, Math.round(oy + Math.sin(a) * rr * 0.6) - 1, 2, 2);
+  }
+}
 function overlay(alpha) { ctx.fillStyle = `rgba(5,12,5,${alpha})`; ctx.fillRect(0, 0, W, H); }
 
 function drawBanner() {
@@ -2472,6 +2515,7 @@ function render() {
     ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
   }
   if (G.slowT > 0) { ctx.fillStyle = `rgba(127,224,255,${Math.min(0.12, G.slowT * 0.2)})`; ctx.fillRect(0, 0, W, H); }
+  if (G.giftFlash > 0) { ctx.fillStyle = `rgba(255,248,220,${Math.min(0.75, G.giftFlash * 1.7)})`; ctx.fillRect(0, 0, W, H); G.giftFlash -= 1 / 60; } // 첫 선물이 터질 때
 
   const blink = Math.sin(G.time * 4) > -0.2;
   const big = clamp(Math.min(W, H) * 0.1, 28, 54);
