@@ -259,8 +259,9 @@ class Player {
     Sfx.dash();
   }
 
-  get orbMax() { return this.weapon.orbs ? ORB_BASE + FX.lv('atk_wave') : 0; }
-  get orbRecharge() { return ORB_RECHARGE - ORB_MASTERY_CUT * this.mastery('wave'); }
+  // 최대 구슬: 기본 + 마력 증폭 축복 레벨 + 마력탄 숙련 단계 (2026-10-17: 숙련은 충전 시간 → 최대 개수)
+  get orbMax() { return this.weapon.orbs ? ORB_BASE + FX.lv('atk_wave') + this.mastery('wave') : 0; }
+  get orbRecharge() { return ORB_RECHARGE; }
   get momSpeed() { return 1 + MOMENTUM_SPEED * this.momentum; } // 기세: 공격 · 이동 속도
 
   // 다음 기본공격이 콤보 마무리 타인가 (검 3타째 · 창 2타째)
