@@ -62,6 +62,8 @@ const TEST_BUILDS = {
   // 기본공격 번개: 번개 칼날 · 연쇄 번개 · 정전기 · 과충전 · 연격 · 날카로운 검 · 급소 · 연속 타격 (+ 연속베기 숙련 3)
   // 창 투척: 투척 강화 · 피뢰 창 · 과충전 · 치유의 회수 · 날카로운 창 · 급소 (+ 투척 숙련 3)
   throw: { weapon: 'spear', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
+  // 투창 마스터: 피뢰 창(Lv5) · 투척 강화 · 과충전 · 치유의 회수 · 날카로운 창 · 급소 · 기습 (+ 투척 숙련 3)
+  javelin: { weapon: 'spear', mastery: { wave: 3 }, boons: { elec_special: 5, atk_wave: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3, ambush: 3 } },
   bolt: { weapon: 'sword', mastery: { combo: 3 }, boons: { elec_basic: 3, elec_chain: 3, static: 3, overcharge: 3, atk_combo: 3, sharp: 3, vital: 3, ambush: 3 } },
 };
 const DEV_BUILD = DEV_LOCAL ? TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null : null;

@@ -234,6 +234,18 @@ class Player {
   // 다음 기본공격이 콤보 마무리 타인가 (검 3타째 · 창 2타째)
   get nextIsFinisher() { const n = this.weaponId === 'spear' ? 2 : 3; return this.comboT > 0 && (this.combo + 1) % n === n - 1; }
 
+  // 바라보는 쪽 공격 범위 안에 이미 적이 있나 → 있으면 기본공격의 전진을 멈춘다 (보스 앞에서 파고들다 맞지 않게)
+  enemyInReach(range, half) {
+    const list = G.boss && !G.boss.dead ? [...G.enemies, G.boss] : G.enemies;
+    for (const e of list) {
+      if (e.dead || e.hidden) continue;
+      const dx = e.x - this.x, dy = e.y - this.y, d = Math.hypot(dx, dy);
+      if (d - (e.r || 10) > range) continue;
+      if (d < 1 || Math.abs(angDiff(Math.atan2(dy, dx), this.facing)) <= half) return true;
+    }
+    return false;
+  }
+
   startAttack(mag) {
     this.combo = this.comboT > 0 ? (this.combo + 1) % 3 : 0;
     this.aim(mag);
@@ -242,6 +254,7 @@ class Player {
       kind: fin ? 'finisher' : 'light', t: 0, dur: fin ? 0.22 : 0.15, hit: new Set(),
       range: fin ? 46 : 37, half: fin ? 1.4 : 1.05, swingDir: this.combo === 1 ? -1 : 1,
     };
+    this.act.noStep = this.enemyInReach(this.act.range, this.act.half);
     this.atkCd = (fin ? 0.42 : 0.24) * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
     this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 삼연 검기 (다른 행동을 하면 끊긴다)
@@ -290,6 +303,7 @@ class Player {
     this.aim(mag, SPEAR_AIM);
     const fin = this.combo === 1;
     this.act = { kind: fin ? 'pokeFin' : 'poke', t: 0, dur: (fin ? 0.18 : 0.15) / SPEAR_SPEED, hit: new Set(), pierced: 0, len: SPEAR_REACH * (fin ? 1.1 : 1) };
+    this.act.noStep = this.enemyInReach(this.act.len, 0.35);
     this.atkCd = (fin ? 0.46 : 0.3) / SPEAR_SPEED * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
     this.atkBuffer = 0;
@@ -383,7 +397,7 @@ class Player {
   updateAct(dt) {
     const a = this.act, fx = Math.cos(this.facing), fy = Math.sin(this.facing);
     if (a.kind === 'poke' || a.kind === 'pokeFin') {
-      if (a.t < a.dur * 0.4) World.move(this, fx * 60 * dt, fy * 60 * dt);
+      if (a.t < a.dur * 0.4 && !a.noStep) World.move(this, fx * 60 * dt, fy * 60 * dt);
       if (a.t > a.dur * 0.2) this.hitSpear(a, a.len, SPEAR_WIDTH, SPEAR_PIERCE);
       return;
     }
@@ -406,7 +420,7 @@ class Player {
       return;
     }
     if (a.kind === 'light' || a.kind === 'finisher') {
-      if (a.t < a.dur * 0.5) World.move(this, fx * 130 * dt, fy * 130 * dt);
+      if (a.t < a.dur * 0.5 && !a.noStep) World.move(this, fx * 130 * dt, fy * 130 * dt);
       this.hitArc(a, a.range, a.half);
     } else if (a.kind === 'thrust') {
       const sp = 300 * (1 + 0.15 * FX.lv('atk_thrust'));
