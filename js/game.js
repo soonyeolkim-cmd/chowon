@@ -1087,7 +1087,9 @@ function drawHud() {
   // 연속 타격
   if (G.chain >= 2) {
     const s = 1 + Math.max(0, G.chainPulse) * 2;
-    const lx = inset.l + 16, ly = inset.t + 84;
+    // 축복 아이콘 줄 아래에 (아이콘이 늘어나면 그만큼 내려간다)
+    const rows = Math.ceil(BOONS.filter(b => G.boons[b.id]).length / 8);
+    const lx = inset.l + 16, ly = inset.t + 66 + Math.max(1, rows) * 27 + 4;
     label(`${G.chain} HIT`, lx, ly, 22 * s, '#ffd24a', 'left', '900');
   }
   { // 이번 런에서 모은 조각 (끝나야 받는다)과 지금 받을 배율
