@@ -228,7 +228,6 @@ const G = {
     if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
-    this.lumiCd = 0; // 루미 회복은 처음엔 준비된 상태
     this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0; this.shardFrac = 0; this.essRunBest = 0;
     this.reviveLeft = Meta.lv('revive');
     this.rerolls = Meta.lv('choice');
@@ -389,6 +388,7 @@ const G = {
 
   // world: 세계 (1~3), sub: 그 세계의 스테이지 (1~5, 5는 보스전)
   startStage(world, sub, stats, newRun) {
+    if (sub === 1) this.lumiHeals = 1; // 루미의 위기 회복: 세계마다 1번
     const n = world;
     this.stage = world; this.sub = sub;
     this.diff = world + (sub - 1) * STAGE_DIFF_STEP;
@@ -599,9 +599,11 @@ const G = {
     this.shake = 7; this.hurtFlash = 0.35; this.hitstop = 0.06;
     this.text(p.x, p.y - 20, '-' + dmg, '#ff6b6b', 14);
     Sfx.hurt(); Input.rumble(0.9, 200);
-    if (p.hp > 0 && p.hp < p.maxHp * 0.25 && !(this.lumiCd > 0)) {
-      this.lumiCd = LUMI_HEAL_CD - LUMI_BOND_CUT * Meta.lv('bond'); // 다음 회복까지 대기
-      const heal = Math.round(p.maxHp * 0.35 * (curse('heal') ? 0.5 : 1));
+    if (p.hp > 0 && p.hp < p.maxHp * 0.25 && this.lumiHeals > 0) {
+      this.lumiHeals--;
+      const bond = Meta.lv('bond');
+      const heal = Math.round(p.maxHp * LUMI_HEAL[Math.min(bond, LUMI_HEAL.length - 1)] * (curse('heal') ? 0.5 : 1));
+      if (bond >= LUMI_GUARD_LV) p.invuln = Math.max(p.invuln, LUMI_GUARD_T);
       p.hp += heal;
       this.lumi.say('버텨요, 리안! 제 빛을 나눠 줄게요!');
       this.text(p.x, p.y - 30, '+' + heal, '#e8ff9c', 14, 1);
@@ -791,7 +793,6 @@ const G = {
     }
     this.enemies = es.filter(e => !e.dead && (e.keep || Math.hypot(e.x - p.x, e.y - p.y) < 900));
     this.chainT -= dt;
-    if (this.lumiCd > 0) this.lumiCd -= dt;
     if (this.chainT <= 0) this.chain = 0;
     this.updateWaves(dt);
     this.checkHints();
@@ -1136,15 +1137,11 @@ function drawCdNumber(b, t) {
 }
 
 // 키보드·게임패드용 쿨타임 표시 (체력바 아래)
-// 루미 회복 대기: 하트 아래 작은 원. 차오르는 동안은 흐리게, 준비되면 빛난다
+// 루미 회복: 하트 아래 작은 원. 이번 세계에 남아 있으면 빛나고, 쓰면 비어 있다
 function drawLumiHeal(cx, cy) {
-  const max = LUMI_HEAL_CD - LUMI_BOND_CUT * Meta.lv('bond'), left = Math.max(0, G.lumiCd || 0), ready = left <= 0;
-  const r = 8;
+  const ready = G.lumiHeals > 0, r = 8;
   ctx.fillStyle = 'rgba(20,26,22,0.75)'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-  if (!ready) { // 시계 방향으로 차오르는 부채꼴
-    ctx.fillStyle = 'rgba(232,255,156,0.35)';
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - left / max)); ctx.closePath(); ctx.fill();
-  } else {
+  if (ready) {
     const glow = 0.25 + Math.sin(G.time * 3) * 0.12;
     ctx.fillStyle = `rgba(232,255,156,${glow})`; ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, Math.PI * 2); ctx.fill();
   }
