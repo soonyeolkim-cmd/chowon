@@ -15,7 +15,10 @@ const SHIELD_COUNTER_MULT = 1.6; // 막은 뒤 다음 밀치기 피해 배율
 const SHIELD_SPIN_R = 62;       // 돌려치기 반경 (46 → 62, 2026-10-17)
 const SHIELD_QUAKE_R = 72;      // 방패 강타 충격파 거리
 const SHIELD_QUAKE_HALF = 0.8;  // 충격파 부채꼴 반각 (약 ±46°)
-const SHIELD_QUAKE_STUN = 0.6;  // 강타에 맞은 적 기절 (보스 제외)
+const SHIELD_QUAKE_STUN = 0.6;
+const QUAKE_WAVE_SPEED = 380;   // 충격파가 부채꼴로 퍼져 나가는 속도 (2026-10-17)
+const QUAKE_WAVE_REACH = 1.7;   // 충격파가 가는 거리 = 강타 거리 × 이 값 (약 120)
+const QUAKE_NEAR = 30;          // 내려친 바로 앞은 그 자리에서 맞는다  // 강타에 맞은 적 기절 (보스 제외)
 const SHIELD_SLAM_R = 40;       // 후려치기 범위
 const SHIELD_SLAM_STUN = 0.5;
 const SHIELD_BUMP = 14;         // 돌진 중 이 거리 안의 적에 부딪히면 멈춘다
@@ -61,7 +64,7 @@ addWeapon('shield', {
   skill: null,
   rows: (A, P, D) => [
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
-    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
+    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 120까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
     ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
@@ -288,16 +291,10 @@ extendPlayer({
     } else if (a && a.kind === 'quake') {
       const p = clamp(a.t / a.dur0, 0, 1), lift = p < 0.3 ? p / 0.3 : 0, down = p >= 0.3;
       shieldSprite(g, x + c * (down ? 14 : 8), cy + s * (down ? 10 : 6) - lift * 14, 1.1, glow);
-      if (down) { // 충격파: 앞쪽 부채꼴로 퍼진다
-        const q = clamp((p - 0.3) / 0.7, 0, 1), cs = ElFx.slot('charge');
-        for (const r of [a.r * q, a.r * q * 0.7]) {
-          if (cs) ElFx.arc(g, cs, x, y, r, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF, 4, 0.8 * (1 - q));
-          else { g.strokeStyle = `rgba(255,220,140,${0.8 * (1 - q)})`; g.lineWidth = 4; g.beginPath(); g.arc(x, y, r, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF); g.stroke(); }
-        }
-      }
-      if (a.shockAt !== undefined && a.t - a.shockAt < 0.12) { // 여진
-        const q = (a.t - a.shockAt) / 0.12;
-        g.strokeStyle = `rgba(127,224,255,${0.8 * (1 - q)})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, a.r * (0.4 + 0.6 * q), f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF); g.stroke();
+      if (down && p < 0.55) { // 내려친 자리: 땅이 갈라진 자국
+        const q = (p - 0.3) / 0.25;
+        g.strokeStyle = `rgba(90,60,30,${0.8 * (1 - q)})`; g.lineWidth = 2;
+        for (const o of [-0.5, 0, 0.5]) { g.beginPath(); g.moveTo(x + c * 14, y + s * 10); g.lineTo(x + Math.cos(f + o) * 30, y + Math.sin(f + o) * 22); g.stroke(); }
       }
     } else if (a && a.kind === 'shieldSlam') {
       const p = clamp(a.t / a.dur, 0, 1), lift = p < 0.4 ? p / 0.4 : Math.max(0, 1 - (p - 0.4) / 0.12);
@@ -325,8 +322,9 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
     if (a.kind === 'quake') {
       if (!a.hitDone && a.t >= a.dur0 * 0.3) { // 내려친 순간
         a.hitDone = true;
-        this.unearth(a.r, SHIELD_QUAKE_HALF); // 땅속에 숨은 적을 끌어낸다
-        this.hitFan(a, this.x, this.y, a.r, SHIELD_QUAKE_HALF, 'quake', SHIELD_QUAKE_STUN, a.extra ? { kb: 60 } : undefined);
+        this.unearth(a.r * QUAKE_WAVE_REACH, SHIELD_QUAKE_HALF); // 충격파가 닿는 곳의 땅속 적을 끌어낸다
+        this.hitFan(a, this.x, this.y, QUAKE_NEAR, SHIELD_QUAKE_HALF, 'quake', SHIELD_QUAKE_STUN, a.extra ? { kb: 60 } : undefined);
+        G.projectiles.push(new QuakeWave(this, a.r * QUAKE_WAVE_REACH, a.hit, SHIELD_QUAKE_STUN, a.extra ? { kb: 60 } : undefined)); // 부채꼴 충격파
         G.shake = Math.max(G.shake, 6); Sfx.slam();
         G.burst(this.x + fx * 16, this.y + fy * 10, 12, ['#d8c8a8', '#ffe08a', '#fff'], 160);
         FX.onQuake(this, this.x + fx * a.r * 0.6, this.y + fy * a.r * 0.6);
@@ -334,7 +332,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       // 여진: 같은 부채꼴을 다시 울린다
       if (a.hitDone && a.shocks < (a.extra || 0) && a.t >= a.dur0 * 0.3 + 0.12 * (a.shocks + 1)) {
         a.shocks++; a.hit = new Set(); a.shockAt = a.t;
-        this.hitFan(a, this.x, this.y, a.r, SHIELD_QUAKE_HALF, 'quake', 0, { mult: MULTISPIN_MULT, kb: a.shocks < a.extra ? 40 : undefined });
+        G.projectiles.push(new QuakeWave(this, a.r * QUAKE_WAVE_REACH, a.hit, 0, { mult: MULTISPIN_MULT, kb: a.shocks < a.extra ? 40 : undefined }, true)); // 여진도 충격파로
         G.shake = Math.max(G.shake, 3); Sfx.slam();
       }
       return true;
@@ -409,6 +407,45 @@ Object.assign(FX, {
     if (es) { const list = this.near(x, y, 120).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, 2 + es); for (const e of list) this.skyBolt(e, atk * (0.8 + 0.4 * es)); }
   },
 });
+
+// 방패 강타 충격파: 플레이어 앞에서 부채꼴로 퍼져 나가며, 앞머리가 지나가는 적을 한 번씩 맞힌다 (2026-10-17)
+class QuakeWave {
+  constructor(p, maxR, hit, stun, opts, after) {
+    this.x = p.x; this.y = p.y; this.dir = p.facing; this.r = QUAKE_NEAR - 6; this.maxR = maxR;
+    this.hit = hit; this.stun = stun; this.opts = opts; this.after = !!after; this.done = false; this.t = 0;
+  }
+  update(dt) {
+    const p = G.player;
+    this.t += dt; this.r += QUAKE_WAVE_SPEED * dt;
+    for (const t of G.targets()) {
+      if (this.hit.has(t)) continue;
+      const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
+      if (d > this.r + t.r || d < this.r - 22 - t.r) continue; // 앞머리 근처만
+      if (Math.abs(angDiff(Math.atan2(dy, dx), this.dir)) > SHIELD_QUAKE_HALF + 0.1) continue;
+      this.hit.add(t);
+      p.deal(t, 'quake', dx / d, dy / d, this.opts);
+      if (this.stun && !t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, this.stun);
+      G.burst(t.x, t.y + 2, 6, ['#d8c8a8', '#ffe08a'], 120);
+    }
+    if (Math.random() < 0.7) { // 앞머리를 따라 흙먼지
+      const a = this.dir + (Math.random() * 2 - 1) * SHIELD_QUAKE_HALF;
+      G.dust(this.x + Math.cos(a) * this.r, this.y + Math.sin(a) * this.r * 0.75 + 6);
+    }
+    if (this.r >= this.maxR) this.done = true;
+  }
+  draw(g) {
+    const k = 1 - clamp((this.r - QUAKE_NEAR) / (this.maxR - QUAKE_NEAR), 0, 1), f = this.dir, cs = ElFx.slot('charge');
+    const col = this.after ? '127,224,255' : '255,220,140';
+    const vis = 0.35 + 0.65 * k; // 끝까지 잘 보이게, 멀어질수록 조금 흐리게
+    for (const [rr, w, al, white] of [[this.r, 7, vis], [this.r - 10, 4, vis * 0.55], [this.r, 2, vis, true]]) {
+      if (rr <= 0) continue;
+      g.save(); g.translate(this.x, this.y); g.scale(1, 0.75); // 땅 위를 퍼지는 느낌으로 살짝 납작하게
+      if (cs && !this.after && !white) ElFx.arc(g, cs, 0, 0, rr, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF, w, al);
+      else { g.strokeStyle = white ? `rgba(255,255,255,${al})` : `rgba(${col},${al})`; g.lineWidth = w; g.beginPath(); g.arc(0, 0, rr, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF); g.stroke(); }
+      g.restore();
+    }
+  }
+}
 
 // 방패 그림: 16픽셀 원형 방패 (glow 면 금빛 테두리)
 function shieldSprite(g, x, y, scale = 1, glow) {
