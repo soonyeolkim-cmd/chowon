@@ -56,6 +56,7 @@ const MOVES = {
 };
 // 회전 연참(공격 축복): 회전베기 추가 타격의 피해 배율
 const MULTISPIN_MULT = 0.5;
+const STEP_MIN = 0.2; // 이보다 약한 방향 입력이면 기본공격 때 앞으로 나가지 않는다
 const BASIC_KINDS = ['light', 'finisher', 'thrust', 'poke', 'pokeFin', 'sweep'];
 const DASH_CD = 0.7;        // 대시 1회 충전 시간 (초, 모든 무기 공통)
 const DASH_CHARGES = 2;     // 기본 대시 충전 횟수 (연속 대시)
@@ -234,6 +235,7 @@ class Player {
   // 다음 기본공격이 콤보 마무리 타인가 (검 3타째 · 창 2타째)
   get nextIsFinisher() { const n = this.weaponId === 'spear' ? 2 : 3; return this.comboT > 0 && (this.combo + 1) % n === n - 1; }
 
+  // 기본공격 전진: 방향 입력이 없거나(STEP_MIN 미만) 바라보는 쪽 공격 범위 안에 이미 적이 있으면 제자리에서 친다
   // 바라보는 쪽 공격 범위 안에 이미 적이 있나 → 있으면 기본공격의 전진을 멈춘다 (보스 앞에서 파고들다 맞지 않게)
   enemyInReach(range, half) {
     const list = G.boss && !G.boss.dead ? [...G.enemies, G.boss] : G.enemies;
@@ -254,7 +256,7 @@ class Player {
       kind: fin ? 'finisher' : 'light', t: 0, dur: fin ? 0.22 : 0.15, hit: new Set(),
       range: fin ? 46 : 37, half: fin ? 1.4 : 1.05, swingDir: this.combo === 1 ? -1 : 1,
     };
-    this.act.noStep = this.enemyInReach(this.act.range, this.act.half);
+    this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
     this.atkCd = (fin ? 0.42 : 0.24) * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
     this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 삼연 검기 (다른 행동을 하면 끊긴다)
@@ -303,7 +305,7 @@ class Player {
     this.aim(mag, SPEAR_AIM);
     const fin = this.combo === 1;
     this.act = { kind: fin ? 'pokeFin' : 'poke', t: 0, dur: (fin ? 0.18 : 0.15) / SPEAR_SPEED, hit: new Set(), pierced: 0, len: SPEAR_REACH * (fin ? 1.1 : 1) };
-    this.act.noStep = this.enemyInReach(this.act.len, 0.35);
+    this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.len, 0.35);
     this.atkCd = (fin ? 0.46 : 0.3) / SPEAR_SPEED * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
     this.atkBuffer = 0;
