@@ -34,7 +34,8 @@ const MUSIC_FX = {
   title: { rate: 0.9, lowpass: 2200, warm: 2, gain: 0.8 },  // 시작 화면: 잔잔하게
 };
 const MUSIC_VOL = 0.4;    // 기본 볼륨 (효과음보다 뒤에 깔리게)
-const MUSIC_FADE = 1.2;   // 곡이 바뀔 때 페이드 시간 (초)
+const MUSIC_FADE = 1.2;   // 새 곡이 커지는 시간 (초)
+const MUSIC_FADE_OUT = 0.5; // 앞 곡이 줄어드는 시간: 다 줄어든 뒤에 새 곡을 시작한다 (두 곡이 섞이지 않게, 2026-10-17)
 const MUSIC_DUCK = 0.35;  // 일시정지 · 설정 화면에서 볼륨 비율
 // 소리 크기는 오디오 그래프의 gain 으로 조절한다 (아이폰은 audio.volume 을 무시해서 곡이 안 줄고 안 멈췄다, 2026-10-17)
 // 오디오 그래프는 화면을 누르는 그 순간에 만든다 (안드로이드 크롬은 그 밖에서 만든 그래프를 잠가 둬서 소리가 안 났다)
@@ -80,15 +81,17 @@ const Music = (() => {
       if (ctx && ctx.state === 'suspended' && unlocked) ctx.resume().catch(() => {});
       const want = Input.settings.bgm && !document.hidden ? target : null;
       this.current = want;
+      // 앞 곡이 아직 들리면 새 곡은 기다린다 (겹쳐 들리지 않게)
+      const waiting = Object.keys(els).some(k => k !== want && els[k].vol > 0.01);
       for (const k in MUSIC) {
         const on = k === want;
         if (!on && !els[k]) continue;
         const a = el(k);
-        const goal = on ? MUSIC_VOL * (duck ? MUSIC_DUCK : 1) : 0, step = dt / MUSIC_FADE * MUSIC_VOL;
+        const goal = on && !waiting ? MUSIC_VOL * (duck ? MUSIC_DUCK : 1) : 0, step = dt / (on ? MUSIC_FADE : MUSIC_FADE_OUT) * MUSIC_VOL;
         a.vol = clamp(a.vol + clamp(goal - a.vol, -step, step), 0, 1);
         if (on && unlocked) wire(k, a);
         apply(a);
-        if (on && a.paused && unlocked && !(a.retryT > 0)) { a.retryT = 1; a.play().catch(() => {}); }
+        if (on && !waiting && a.paused && unlocked && !(a.retryT > 0)) { a.retryT = 1; a.play().catch(() => {}); }
         if (a.retryT > 0) a.retryT -= dt;
         if (!on && a.vol <= 0.001 && !a.paused) { a.pause(); a.currentTime = 0; } // 다 작아지면 멈추고 처음으로
       }
