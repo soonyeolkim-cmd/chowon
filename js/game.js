@@ -512,9 +512,9 @@ const G = {
     const armored = t.superArmor || (t.heavy && (t.state === 'windup' || t.state === 'lunge'));
     if (!armored) {
       t.stun = Math.max(t.stun, 0.15);
-      const f = info.kb * (t.heavy ? 0.4 : 1);
+      const f = info.kb * (t.heavy ? ((MOVES[info.kind] || {}).shove ? 0.7 : 0.4) : 1); // shove: 방패 밀어치기 · 돌려치기는 무거운 적도 꽤 밀어낸다
       t.kvx = info.nx * f; t.kvy = info.ny * f;
-      if (p.weapon.wallSlam && info.kb >= 300 && !t.flying) t.slamT = 0.35; // 벽꿍 (창)
+      if (p.weapon.wallSlam && info.kb >= 300 && !t.flying) t.slamT = info.kb >= 500 ? 0.5 : 0.35; // 벽꿍 (창 · 방패). 크게 날린 적은 더 오래 벽꿍 판정
     }
     this.chain++; this.chainT = 2.5; this.chainPulse = 0.15;
     this.maxChain = Math.max(this.maxChain, this.chain);

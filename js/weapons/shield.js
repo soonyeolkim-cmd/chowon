@@ -6,7 +6,8 @@
 
 // 방패 수치
 const SHIELD_REACH = 34;        // 밀치기 거리
-const SHIELD_FIN_REACH = 40;    // 3타째 밀치기
+const SHIELD_FIN_REACH = 52;    // 3타째 몸으로 밀어치기 (40 → 52, 2026-10-17)
+const SHIELD_BODY_LUNGE = 190;  // 몸으로 밀어치기: 앞으로 뛰어드는 속도 (동작 앞쪽 45% 동안)
 const SHIELD_GUARD_AFTER = 0.15; // 돌진이 끝난 뒤에도 이만큼 정면을 막는다
 const SHIELD_FRONT = 1.6;       // 막을 수 있는 각도 (정면에서 좌우 약 90°)
 const SHIELD_BLOCK_INV = 0.3;   // 막은 뒤 잠깐 무적 (같은 공격에 두 번 맞지 않게)
@@ -23,9 +24,9 @@ const SHIELD_SIZE = 0.75;       // 방패 그림 크기 (16픽셀 × PIX × 이 
 Object.assign(MOVES, {
 // 방패: 한 방이 무겁고 크게 밀어낸다
 bash:       { mult: 1.0, kb: 150, guardBreak: false, role: 'basic', light: true }, // 1 · 2타: 가볍게 툭
-bashFin:    { mult: 1.95, kb: 440, guardBreak: true, role: 'fin' },  // 3타: 힘껏 밀기
+bashFin:    { mult: 1.95, kb: 760, guardBreak: true, role: 'fin', shove: true },  // 3타: 몸으로 밀어치기 (넉백 440 → 760, 약 100 날아감, 무거운 적도 꽤 밀림)
 quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방패 강타 (차지): 앞쪽 부채꼴 충격파 + 기절
-shieldSpin: { mult: 1.1, kb: 380, guardBreak: true, role: 'special' },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
+shieldSpin: { mult: 1.1, kb: 760, guardBreak: true, role: 'special', shove: true },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
 shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 후려치기 (대시 공격)
 shieldBump: { mult: 0.4, kb: 260, guardBreak: false, role: 'dash', light: true }, // 돌진하다 부딪힘
 });
@@ -52,9 +53,9 @@ addWeapon('shield', {
   special: (p, mag) => p.startShieldSpin(mag),
   skill: null,
   rows: (A, P, D) => [
-    ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 힘껏 밀어 크게 날리고 가드 브레이크 · 벽에 밀면 벽꿍'],
+    ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다'],
-    ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 날린다'],
+    ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
     ['대시 · 방패 돌진', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '돌진 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다', 'thrust'],
   ],
@@ -168,7 +169,7 @@ extendPlayer({
     this.aim(mag);
     const fin = this.combo === 2, counter = !!this.bashReady;
     this.bashReady = false;
-    this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.24 : 0.15, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? 1.0 : 0.85,
+    this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.24 : 0.15, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? 1.25 : 0.85,
       opts: counter ? { mult: SHIELD_COUNTER_MULT } : undefined, counter };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
     this.atkCd = (fin ? 0.6 : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
@@ -239,7 +240,11 @@ extendPlayer({
       const k = 0.4 + 0.2 * Math.sin(G.time * 40);
       g.strokeStyle = `rgba(159,220,255,${k})`; g.lineWidth = 2;
       g.beginPath(); g.arc(x, cy, 20, f - 0.9, f + 0.9); g.stroke();
-    } else if (a && (a.kind === 'bash' || a.kind === 'bashFin')) {
+    } else if (a && a.kind === 'bashFin') { // 몸으로 밀어치기: 방패를 몸에 붙이고 어깨로 들이받는다
+      const p = a.t / a.dur, e = p < 0.45 ? p / 0.45 : 1 - (p - 0.45) / 0.55;
+      shieldSprite(g, x + c * (11 + e * 4), cy + s * (8 + e * 3), 1.15, glow || a.counter);
+      if (e > 0.3) { g.strokeStyle = `rgba(255,240,210,${0.75 * e})`; g.lineWidth = 4; g.beginPath(); g.arc(x, cy, a.range - 6, f - a.half * 0.7, f + a.half * 0.7); g.stroke(); }
+    } else if (a && a.kind === 'bash') {
       const p = a.t / a.dur, e = p < 0.35 ? p / 0.35 : 1 - (p - 0.35) / 0.65;
       shieldSprite(g, x + c * (9 + e * (a.range - 18)), cy + s * (6 + e * (a.range - 18)), 1, glow || a.counter);
       if (e > 0.5) { const bs = ElFx.slot('basic'); if (bs) ElFx.arc(g, bs, x, cy, a.range - 4, f - a.half * 0.6, f + a.half * 0.6, 4, 0.7 * e); else { g.strokeStyle = `rgba(255,240,210,${0.7 * e})`; g.lineWidth = 3; g.beginPath(); g.arc(x, cy, a.range - 4, f - a.half * 0.6, f + a.half * 0.6); g.stroke(); } }
@@ -281,7 +286,8 @@ extendPlayer({
 
 ACT_HANDLERS.push(function (a, dt, fx, fy) {
     if (a.kind === 'bash' || a.kind === 'bashFin') {
-      if (a.t < a.dur * 0.45 && !a.noStep && this.inMag >= STEP_MIN) World.move(this, fx * 70 * dt, fy * 70 * dt);
+      if (a.kind === 'bashFin') { if (a.t < a.dur * 0.45) World.move(this, fx * SHIELD_BODY_LUNGE * dt, fy * SHIELD_BODY_LUNGE * dt); } // 3타: 몸째로 뛰어든다
+      else if (a.t < a.dur * 0.45 && !a.noStep && this.inMag >= STEP_MIN) World.move(this, fx * 70 * dt, fy * 70 * dt);
       if (a.t > a.dur * 0.3) this.hitArc(a, a.range, a.half);
       return true;
     }
