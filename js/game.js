@@ -245,7 +245,7 @@ const G = {
     const worlds = ROUTES[this.tierInfo.route].worlds;
     this.firstWorld = worlds[0]; this.finalWorld = worlds[worlds.length - 1]; this.route = this.tierInfo.route;
     this.startStage(this.firstWorld, 1, Meta.startStats(), true);
-    if (familiarMult(this.tier) < 1) this.lumi.say('여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', 5);
+    if (familiarMult(this.tier) < 1) this.hintBox = { text: '여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', t: 5 };
   },
   goVillage() {
     Meta.save();
@@ -489,9 +489,9 @@ const G = {
     if (!this.lumi || this.runHints[key]) return;
     const n = this.seen[key] === true ? 1 : this.seen[key] || 0;
     if (n >= HINT_MAX) return;
-    if (this.lumi.bubble && this.lumi.bubble.t > 1) return; // 다른 말을 하는 중이면 다음 기회에
+    if (this.hintBox && this.hintBox.t > 1.5) return; // 다른 조언을 보여 주는 중이면 다음 기회에
     this.runHints[key] = true; this.seen[key] = n + 1; store.set('hints', this.seen);
-    this.lumi.say(text, clamp(2.5 + text.length * 0.06, 3.5, 7));
+    this.hintBox = { text, t: 6 }; // 위쪽 조언 상자 (루미 말풍선은 거슬린다는 의견, 2026-10-17)
   },
   // 플레이어가 맞았을 때: 무엇에 맞았는지 보고 그 대처법을 알려 준다
   hintHurt(src) {
@@ -694,7 +694,7 @@ const G = {
     s.atk = Math.round(s.atk * STAGE_ATK_MULT);
     s.maxHp += STAGE_HP_BONUS; s.hp = s.maxHp;
     this.startStage(this.stage + 1, 1, s);
-    this.lumi.say(`정령의 힘이 깃들었어요! 공격력 ${s.atk} · 최대 체력 ${s.maxHp}`, 5);
+    this.hintBox = { text: `정령의 힘이 깃들었어요! 공격력 ${s.atk} · 최대 체력 ${s.maxHp} (체력 회복)`, t: 6 };
   },
 
   text(x, y, s, color, size, life = 0.7) { this.texts.push({ x, y, s, color, size, life, max: life }); },
@@ -2266,7 +2266,7 @@ function drawBanner() {
 
 function drawHint() {
   const h = G.hintBox;
-  if (!h || true) return; // 조언은 루미 말풍선으로 옮겼다 (2026-10-17)
+  if (!h) return;
   const maxW = Math.min(W * 0.6, 500);
   const lines = wrap(h.text, maxW - 52, 13);
   const top = inset.t + (G.boss && !G.boss.dead ? 58 : 42);
