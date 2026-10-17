@@ -19,7 +19,7 @@ const RIPOSTE_TIME = 0.14;      // 반격으로 베고 지나가는 시간 (무�
 const RIPOSTE_SAFE = 0.35;      // 도착한 뒤에도 이만큼 무적
 const RIPOSTE_PAST = 30;        // 적을 지나 이만큼 더 간다
 const RIPOSTE_MAX = 150;
-const SHADOW_GUARD_T = 2.0;     // 그림자 막기: 연참이 적을 맞히면 이 시간 동안 처음 맞는 공격을 자동으로 받아친다 (2026-10-17)
+const RUSH_FREE_T = 2.0;        // 그림자 연참이 적을 맞히면 이 시간 안의 받아치기는 충전 · 쿨타임 없이 (2026-10-17)
 const PARRY_CHAIN_T = 2.0;      // 연속 반격: 이 안에 또 받아치면 연속으로 친다 (성공할 때마다 충전 한 칸을 돌려받는다, 2026-10-17)        // 반격 돌진 최대 거리
 const WHIRL_R = 40;             // 선풍 베기 반경
 const RUSH_AIM = { range: 140, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
@@ -57,7 +57,7 @@ addWeapon('sai', {
   rows: (A, P, D) => [
     ['기본 · 3연타', `${A} ${A} ${A}`, '아주 빠르지만 짧다 · 3타째 X자 베기 · 가드 브레이크'],
     ['기세', '기본공격을 맞힐 때마다 +1 (최대 5)', `한 칸마다 공격 · 이동 속도 +5% · ${MOMENTUM_TIME}초 못 때리거나 맞으면 0`],
-    ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20% · 맞히면 2초간 그림자 막기 (처음 맞는 공격을 자동 받아치기)'],
+    ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20% · 맞히면 2초 안의 받아치기는 충전 소모 없음'],
     ['특수 · 받아치기', `${P} (쿨타임 3초 · 2회 충전)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2 · 성공하면 충전 1칸 돌려받아 연속 반격'],
     ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.sai.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
     ['선풍 베기', `${D} → ${A}`, '한 바퀴 돌며 주변을 벤다', 'thrust'],
@@ -167,7 +167,12 @@ extendPlayer({
       if (Math.hypot(t.x - (x0 + dx * k), t.y - (y0 + dy * k)) > RUSH_WIDTH + t.r) continue;
       a.hit.add(t);
       this.deal(t, 'rush', fx, fy, { mult, kb });
-      if (!a.guarded) { a.guarded = true; this.shadowGuardT = SHADOW_GUARD_T; G.text(this.x, this.y - 34, '그림자 막기', '#7fe0ff', 11, 0.8); }
+      if (!a.freed) { // 첫 적중: 반짝 + 푸른 원, 받아치기 무료
+        a.freed = true; this.freeSpecialT = RUSH_FREE_T;
+        G.fxRing(this.x, this.y, '#7fe0ff', 40); G.fxRing(this.x, this.y, '#ffffff', 22);
+        G.burst(this.x, this.y - 4, 14, ['#ffffff', '#bff4ff', '#7fe0ff'], 200);
+        G.text(this.x, this.y - 34, '반격 준비!', '#7fe0ff', 12, 0.8); Sfx.charged();
+      }
       G.burst(t.x, t.y - 4, 6, ['#fff', '#cfe8ff'], 140);
     }
   },
@@ -184,9 +189,8 @@ extendPlayer({
   },
   // 막았다: 피해 없이 반격. 공격한 적을 향해 직선으로 베고 지나간다 (지나가는 동안 · 도착한 뒤 잠깐 무적)
   // 길 위의 적은 모두 반격 치명타 + 기절, 기세 +2. 교차 받아치기는 주변 적도 함께 벤다
-  parry(src, shadow) { // shadow: 그림자 막기가 대신 받아친 것 (충전을 돌려주지 않는다)
+  parry(src) {
     this.parryT = 0;
-    if (shadow) this.parryWide = false;
     let target = null, bd = 120;
     for (const t of G.targets()) { const d = t === src ? -1 : Math.hypot(t.x - this.x, t.y - this.y) - t.r; if (d < bd) { bd = d; target = t; } }
     const dir = target ? Math.atan2(target.y - this.y, target.x - this.x) : this.facing;
@@ -197,7 +201,7 @@ extendPlayer({
     if (this.parryWide) for (const t of G.targets()) { if (Math.hypot(t.x - this.x, t.y - this.y) < PARRY_WIDE_R + t.r) this.riposteHit(t); }
     this.momentum = Math.min(MOMENTUM_MAX, this.momentum + 2); this.momT = MOMENTUM_TIME;
     // 연속 반격: 성공하면 쓴 충전을 돌려받아 바로 다음 받아치기로 이어 간다
-    if (this.specMax > 1 && !shadow) this.specStock = Math.min(this.specMax, this.specStock + 1);
+    if (this.specMax > 1) this.specStock = Math.min(this.specMax, this.specStock + 1);
     this.parryChain = G.time - (this.parryLastT ?? -99) < PARRY_CHAIN_T ? (this.parryChain || 1) + 1 : 1; this.parryLastT = G.time;
     G.text(this.x, this.y - 30, this.parryChain > 1 ? '연속 반격 ×' + this.parryChain + '!' : '받아치기!', this.parryChain > 1 ? '#ffe18a' : '#7fe0ff', 16 + Math.min(6, this.parryChain - 1), 0.9);
     G.fxRing(this.x, this.y, '#ffffff', 26); G.fxRing(this.x, this.y, '#7fe0ff', this.parryWide ? PARRY_WIDE_R : 44);
@@ -228,10 +232,9 @@ extendPlayer({
   },
   // 쌍검: 양손의 사이 + 기세 칸
   drawSai(g, x, y) {
-    if (this.shadowGuardT > 0) { // 그림자 막기: 몸을 두른 푸른 잔상 (끝나 갈수록 깜빡임)
-      const end = this.shadowGuardT < 0.5;
-      if (!end || Math.sin(G.time * 30) > 0) {
-        g.globalAlpha = 0.45 + 0.2 * Math.sin(G.time * 10); g.strokeStyle = '#7fe0ff'; g.lineWidth = 1.5;
+    if (this.freeSpecialT > 0) { // 무료 받아치기 준비: 몸을 두른 푸른 원 (끝나 갈수록 깜빡임)
+      if (this.freeSpecialT > 0.5 || Math.sin(G.time * 30) > 0) {
+        g.globalAlpha = 0.5 + 0.25 * Math.sin(G.time * 12); g.strokeStyle = '#7fe0ff'; g.lineWidth = 1.5;
         g.beginPath(); g.arc(x, y - 4, 12, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
       }
     }

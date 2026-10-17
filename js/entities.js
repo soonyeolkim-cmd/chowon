@@ -94,7 +94,7 @@ class Player {
     this.trail = [];
     this.momentum = 0; this.momT = 0; // 쌍검 기세
     this.parryT = 0;                  // 쌍검 받아치기: 막는 자세가 남은 시간
-    this.shadowGuardT = 0;            // 쌍검 그림자 막기: 연참이 맞으면 잠깐, 처음 맞는 공격을 자동으로 받아친다
+    this.freeSpecialT = 0;            // 이 시간 안에 쓰는 특수공격은 충전 · 쿨타임을 쓰지 않는다 (쌍검: 그림자 연참 적중 보상)
     this.orbs = this.orbMax; this.orbT = 0; // 마법봉 마력 구슬 (처음엔 가득)
   }
 
@@ -115,7 +115,7 @@ class Player {
     const inp = Input.state;
     for (const k of ['atkCd', 'dashCd', 'invuln', 'hurtT', 'comboT', 'finisherT', 'atkBuffer',
       'specialBuffer', 'skillBuffer', 'dashBuffer', 'postDashT', 'dodgeT', 'counterT', 'leafT', 'specialCd', 'skillCd',
-      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'shadowGuardT']) this[k] -= dt;
+      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'freeSpecialT']) this[k] -= dt;
     if (this.dashStock < this.dashMax) {
       this.dashRecharge -= dt;
       if (this.dashRecharge <= 0) { this.dashStock++; this.dashRecharge = this.dashCdBase; }
@@ -172,9 +172,10 @@ class Player {
       if (this.dashBuffer > 0 && this.dashStock > 0 && !(this.noDashT > 0)) this.startDash(mag);
       else if (W.skill && this.skillBuffer > 0 && this.skillCd <= 0 && lateInAct) {
         this.skillBuffer = 0; this.skillCd = this.skillCdBase; W.skill(this, mag);
-      } else if ((this.specialBuffer > 0 || (W.holdSpecial && inp.specialHeld)) && this.specialCd <= 0 && lateInAct && !this.spearOut && !finQueued && (!W.orbs || this.orbs > 0) && (this.specMax === 1 || this.specStock > 0)) {
+      } else if ((this.specialBuffer > 0 || (W.holdSpecial && inp.specialHeld)) && (this.specialCd <= 0 || this.freeSpecialT > 0) && lateInAct && !this.spearOut && !finQueued && (!W.orbs || this.orbs > 0) && (this.specMax === 1 || this.specStock > 0 || this.freeSpecialT > 0)) {
         this.specialBuffer = 0;
-        if (this.specMax > 1) { if (this.specStock >= this.specMax) this.specRecharge = this.specialCdBase; this.specStock--; this.specialCd = SPECIAL_CHARGE_GAP; }
+        if (this.freeSpecialT > 0) this.freeSpecialT = 0; // 무료: 충전 · 쿨타임 그대로
+        else if (this.specMax > 1) { if (this.specStock >= this.specMax) this.specRecharge = this.specialCdBase; this.specStock--; this.specialCd = SPECIAL_CHARGE_GAP; }
         else this.specialCd = this.specialCdBase;
         W.special(this, mag);
       } else if (this.atkBuffer > 0 && this.atkCd <= 0 && !this.act && !this.spearOut) {
