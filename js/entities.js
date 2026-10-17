@@ -1910,6 +1910,8 @@ const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b',
 // 바루 둔갑: 숨어 있는 시간, 그중 몇 초가 지나면 루미가 찾아 주는가
 const BARU_HIDE = 7, BARU_LUMI_FIND = 4;
 const BOSS_HP_BASE = 2970, BOSS_HP_GROWTH = 1.6, BOSS_HP_DEEP = 1;
+// 보스 공격 예고 시간: 표시가 보이면 대시로 대부분 피할 수 있어서 20% 빨리 발동한다 (2026-10-17)
+const BOSS_WIND = 0.8;
 const BOSS_RAMP_LATE = 0.1; // 4세계부터 보스 체력 추가 상승: 4세계 ×1.05, 5세계 ×1.21, 6세계 ×1.53
 
 class Boss {
@@ -1936,7 +1938,7 @@ class Boss {
     if (curse('rage')) { this.enraged = true; this.speed *= 1.3; } // 분노한 주인: 처음부터 격노
   }
   get vulnerable() { return this.state === 'stun'; }
-  get fast() { return this.enraged ? 0.7 : 1; }
+  get fast() { return (this.enraged ? 0.7 : 1) * BOSS_WIND; } // 예고 시간 배율 (작을수록 빨리 발동)
 
   // 다음 패턴 고르기
   choose(d) {
@@ -2444,7 +2446,7 @@ class Dragon {
     this.dir = Math.PI / 2; this.orbit = Math.random() * Math.PI * 2;
   }
   get vulnerable() { return this.state === 'rest'; }
-  get fast() { return this.owner.enraged ? 0.75 : 1; }
+  get fast() { return (this.owner.enraged ? 0.75 : 1) * BOSS_WIND; }
 
   activate() {
     this.active = true; this.burrowed = false; this.state = 'roam'; this.st = 1.2;
