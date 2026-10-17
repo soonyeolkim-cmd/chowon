@@ -19,7 +19,8 @@ const RIPOSTE_TIME = 0.14;      // 반격으로 베고 지나가는 시간 (무�
 const RIPOSTE_SAFE = 0.35;      // 도착한 뒤에도 이만큼 무적
 const RIPOSTE_PAST = 30;        // 적을 지나 이만큼 더 간다
 const RIPOSTE_MAX = 150;
-const RUSH_FREE_T = 2.0;        // 그림자 연참이 적을 맞히면 이 시간 안의 받아치기는 충전 · 쿨타임 없이 (2026-10-17)
+const RUSH_FREE_T = 2.0;
+const PURSUIT_LEN = 100;        // 그림자 추격: 연참 적중 뒤 평타로, 보는 방향으로 반격처럼 베고 지나가는 거리 (2026-10-17)        // 그림자 연참이 적을 맞히면 이 시간 안의 받아치기는 충전 · 쿨타임 없이 (2026-10-17)
 const PARRY_CHAIN_T = 2.0;      // 연속 반격: 이 안에 또 받아치면 연속으로 친다 (성공할 때마다 충전 한 칸을 돌려받는다, 2026-10-17)        // 반격 돌진 최대 거리
 const WHIRL_R = 40;             // 선풍 베기 반경
 const RUSH_AIM = { range: 140, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
@@ -49,7 +50,7 @@ addWeapon('sai', {
   dashSpeed: 300,
   dashCdMult: 0.8 / DASH_CD, // 대시 1칸 충전 0.8초 · 3회 · 거리는 짧다
   skillCd: 0,
-  basic: (p, mag) => p.startJab(mag),
+  basic: (p, mag) => p.freeSpecialT > 0 ? p.startPursuit(mag) : p.startJab(mag), // 연참 적중 뒤엔 그림자 추격
   basicAfterDash: p => p.startWhirl(),
   charged: (p, mag) => p.startRush(mag),
   special: (p, mag) => p.startParry(mag),
@@ -57,7 +58,8 @@ addWeapon('sai', {
   rows: (A, P, D) => [
     ['기본 · 3연타', `${A} ${A} ${A}`, '아주 빠르지만 짧다 · 3타째 X자 베기 · 가드 브레이크'],
     ['기세', '기본공격을 맞힐 때마다 +1 (최대 5)', `한 칸마다 공격 · 이동 속도 +5% · ${MOMENTUM_TIME}초 못 때리거나 맞으면 0`],
-    ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20% · 맞히면 2초 안의 받아치기는 충전 소모 없음'],
+    ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20% · 맞히면 2초 안의 받아치기는 충전 소모 없음, 평타를 누르면 그림자 추격'],
+    ['그림자 추격', `연참 적중 뒤 2초 안에 ${A}`, '보는 방향으로 베고 지나가며 반격 치명타 + 기절 · 무적'],
     ['특수 · 받아치기', `${P} (쿨타임 3초 · 2회 충전)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2 · 성공하면 충전 1칸 돌려받아 연속 반격'],
     ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.sai.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
     ['선풍 베기', `${D} → ${A}`, '한 바퀴 돌며 주변을 벤다', 'thrust'],
@@ -189,6 +191,16 @@ extendPlayer({
   },
   // 막았다: 피해 없이 반격. 공격한 적을 향해 직선으로 베고 지나간다 (지나가는 동안 · 도착한 뒤 잠깐 무적)
   // 길 위의 적은 모두 반격 치명타 + 기절, 기세 +2. 교차 받아치기는 주변 적도 함께 벤다
+  // 그림자 추격: 연참이 맞은 뒤 (무료 받아치기 대신) 평타를 누르면 보는 방향으로 바로 반격 돌진. 반격처럼 치명타 + 기절
+  startPursuit(mag) {
+    this.freeSpecialT = 0; this.aim(mag);
+    this.invuln = Math.max(this.invuln, RIPOSTE_TIME + RIPOSTE_SAFE);
+    this.act = { kind: 'riposte', t: 0, dur: RIPOSTE_TIME + 0.3, dash: RIPOSTE_TIME, hit: new Set(), x0: this.x, y0: this.y, px: this.x, py: this.y, len: PURSUIT_LEN, marks: [], wide: false };
+    this.atkBuffer = 0; this.atkCd = 0.3; this.comboT = 0; this.finisherT = 0;
+    G.text(this.x, this.y - 30, '그림자 추격!', '#c8b4ff', 16, 0.9);
+    G.fxRing(this.x, this.y, '#ffffff', 22); G.burst(this.x, this.y - 4, 12, ['#ffffff', '#c8b4ff', '#7fe0ff'], 200);
+    G.shake = Math.max(G.shake, 4); Sfx.dash(); Input.rumble(0.5, 120);
+  },
   parry(src) {
     this.parryT = 0;
     let target = null, bd = 120;
