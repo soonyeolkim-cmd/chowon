@@ -119,7 +119,7 @@ const BOONS = [
   // ── 🛡 방어: 누적 패시브 (생존) ──
   { id: 'lifesteal', el: 'guard', name: '흡혈 칼날', desc: lv => `적을 쓰러뜨릴 때마다 체력 ${1.5 + 0.5 * lv} 회복.` },
   { id: 'guard_spin', el: 'guard', name: '수호의 회전', desc: lv => `회전베기 중 무적, 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
-  { id: 'heal_wave', el: 'guard', name: '치유의 검기', desc: lv => `검기에 맞은 적 하나마다 체력 ${lv} 회복.` },
+  { id: 'heal_wave', el: 'guard', name: '치유의 검기', desc: lv => `검기가 적을 맞히면 쏠 때마다 체력 ${0.5 + 0.5 * lv} 회복 (여러 마리 · 삼연 검기여도 한 번).` },
   { id: 'dash_guard', el: 'guard', name: '잔상 보호막', desc: lv => `대시 후 1초간 받는 피해 -${30 + 10 * lv}%.` },
   { id: 'tough', el: 'guard', name: '강인한 체력', maxLv: 5, onPick: p => { p.maxHp += 15; p.hp += 15; },
     desc: () => '최대 체력 +15 (즉시 회복). 5번까지 겹친다.' },

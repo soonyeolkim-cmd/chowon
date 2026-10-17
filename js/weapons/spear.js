@@ -117,7 +117,9 @@ Object.assign(WEAPONS.spear, {
     const pspc = fx.lv('poison_special');
     if (pspc && !t.dead) fx.poison(t, 1 + pspc);
     const hw = fx.lv('heal_wave'), p = G.player;
-    if (hw && info.back && p.alive) p.hp = Math.min(p.maxHp, p.hp + hw);
+    // 치유의 회수: 돌아오는 진짜 창이 처음 맞힐 때 투척마다 한 번 (여러 마리 · 삼연 투척이어도 한 번, 2026-10-17)
+    const sh = info.src;
+    if (hw && info.back && p.alive && sh && !sh.phantom && !sh.healed) { sh.healed = true; p.hp = Math.min(p.maxHp, p.hp + 0.5 + 0.5 * hw); }
   },
 });
 BOON_FORMS.spear = {
@@ -145,7 +147,7 @@ BOON_FORMS.spear = {
   sharp:          { name: '날카로운 창' },
   lifesteal:      { name: '흡혈 창날' },
   guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
-  heal_wave:      { name: '치유의 회수', desc: lv => `돌아오는 창에 맞은 적 하나마다 체력 ${lv} 회복.` },
+  heal_wave:      { name: '치유의 회수', desc: lv => `돌아오는 창이 적을 맞히면 투척마다 체력 ${0.5 + 0.5 * lv} 회복 (여러 마리 · 삼연 투척이어도 한 번).` },
 };
 
 extendPlayer({
@@ -443,7 +445,7 @@ class SpearShot {
     for (const t of G.targets()) {
       if (this.hit.has(t) || Math.hypot(t.x - this.x, t.y - this.y) > t.r + 12) continue;
       this.hit.add(t);
-      p.deal(t, 'spear', nx, ny, { back: this.back, mult: this.back ? SPEAR_BACK_MULT : 1 });
+      p.deal(t, 'spear', nx, ny, { back: this.back, mult: this.back ? SPEAR_BACK_MULT : 1, src: this });
     }
   }
   draw(g) {

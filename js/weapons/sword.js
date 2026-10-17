@@ -75,7 +75,8 @@ Object.assign(WEAPONS.sword, {
     const pspc = fx.lv('poison_special');
     if (pspc && !t.dead) fx.poison(t, 1 + pspc);
     const hw = fx.lv('heal_wave'), p = G.player;
-    if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + hw);
+    const cast = info.src && info.src.cast; // 검기를 한 번 쏠 때 처음 맞힌 적에서만 (여러 마리 · 삼연 검기여도 한 번, 2026-10-17)
+    if (hw && p.alive && cast && !cast.healed) { cast.healed = true; p.hp = Math.min(p.maxHp, p.hp + 0.5 + 0.5 * hw); }
   },
 });
 
@@ -120,7 +121,8 @@ extendPlayer({
     this.aim(mag, WAVE_AIM);
     const triple = this.finisherT > 0 && G.has('triple');
     const dirs = triple ? [-0.35, 0, 0.35] : [0];
-    for (const o of dirs) G.projectiles.push(new Wave(this.x, this.y - 2, this.facing + o, triple));
+    const cast = { healed: false }; // 치유의 검기: 한 번 쏠 때 한 번만 (삼연 검기 세 갈래도 함께)
+    for (const o of dirs) { const w = new Wave(this.x, this.y - 2, this.facing + o, triple); w.cast = cast; G.projectiles.push(w); }
     if (triple) G.text(this.x, this.y - 24, '삼연 검기!', '#7fe0ff', 13, 0.7);
     this.finisherT = 0;
     this.act = { kind: 'cast', t: 0, dur: 0.16, hit: new Set() };
@@ -215,7 +217,7 @@ class Wave {
       if (this.hit.has(t)) continue;
       if (Math.hypot(t.x - this.x, t.y - this.y) < t.r + this.size * 0.8) {
         this.hit.add(t);
-        G.player.deal(t, 'wave', c, s);
+        G.player.deal(t, 'wave', c, s, { src: this });
       }
     }
   }
