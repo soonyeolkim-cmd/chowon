@@ -18,6 +18,8 @@ const WEAPONS = {
     moves: { basic: '3연타', charged: '회전베기', special: '섬광 검기', dashAttack: '대시 찌르기' },
     chargeTime: 0.55,
     specialCd: 5.0,
+    // 특수공격 쿨타임 감소: 거대 검기 레벨당 · 숙련 단계당 (초), 이 아래로는 안 내려간다
+    cdPerLv: 0.7, cdPerMastery: 0.5, cdFloor: 1.5,
     skillCd: 0,
     basic: (p, mag) => p.startAttack(mag),
     basicAfterDash: p => p.startThrust(),
@@ -39,7 +41,7 @@ const WEAPONS = {
     mastery: [
       { id: 'combo',  name: '연속베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `3타째 피해 +${15 * lv}%` },
       { id: 'spin',   name: '회전베기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 회전베기 범위 +${8 * lv}%` },
-      { id: 'wave',   name: '섬광 검기 숙련',  max: 3, cost: [3, 5, 8], desc: lv => `섬광 검기 쿨타임 -${(0.5 * lv).toFixed(1)}초` },
+      { id: 'wave',   name: '섬광 검기 숙련',  max: 3, cost: [3, 5, 8], desc: lv => `섬광 검기 쿨타임 -${(0.5 * lv).toFixed(1)}초 (최소 1.5초)` },
       { id: 'thrust', name: '대시 찌르기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `대시 찌르기 피해 +${20 * lv}%` },
     ],
   },
@@ -53,6 +55,8 @@ const WEAPONS = {
     moves: { basic: '2연 찌르기', charged: '관통 찌르기', special: '창 투척', dashAttack: '후려치기' },
     chargeTime: 0.55, // 검과 같은 차지 시간 (0.8 → 0.55, 2026-10-16)
     specialCd: 1.18, // 1.3 → 10% 빠르게 (2026-10-16)
+    // 투척 쿨타임 감소는 창 기준 숫자로 (검의 -0.7초를 그대로 쓰면 Lv1에서 바닥에 닿았다). 바닥 0.5초 > 창이 돌아오는 0.32초 (2026-10-17)
+    cdPerLv: 0.15, cdPerMastery: 0.1, cdFloor: 0.5,
     // 민첩하지 않은 무기: 이동이 조금 느리고, 대시는 짧은 거리 · 긴 쿨타임
     speedMult: 0.92,
     dashCharges: 2,
@@ -78,7 +82,7 @@ const WEAPONS = {
     mastery: [
       { id: 'combo',  name: '연속 찌르기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `2타째 찌르기 피해 +${15 * lv}%` },
       { id: 'spin',   name: '관통 찌르기 숙련', max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 관통 찌르기 길이 +${5 * lv}%` },
-      { id: 'wave',   name: '투척 숙련',        max: 3, cost: [3, 5, 8], desc: lv => `창 투척 쿨타임 -${(0.5 * lv).toFixed(1)}초` },
+      { id: 'wave',   name: '투척 숙련',        max: 3, cost: [3, 5, 8], desc: lv => `창 투척 쿨타임 -${(0.1 * lv).toFixed(1)}초 (최소 0.5초)` },
       { id: 'thrust', name: '후려치기 숙련',    max: 3, cost: [2, 4, 7], desc: lv => `후려치기 피해 +${20 * lv}%` },
     ],
   },

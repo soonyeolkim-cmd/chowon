@@ -103,7 +103,7 @@ class Player {
   get spearOut() { return !!this.spearShot && !this.spearShot.done; } // 창을 던져서 손이 빈 상태
   get dashCdBase() { return DASH_CD * (this.weapon.dashCdMult || 1) * (1 - 0.08 * Meta.lv('agi')); }
   mastery(id) { return Meta.wlv(this.weaponId, id); }
-  get specialCdBase() { return Math.max(Math.min(1.5, this.weapon.specialCd * 0.6), this.weapon.specialCd - 0.7 * FX.lv('atk_wave') - 0.5 * this.mastery('wave')); }
+  get specialCdBase() { const w = this.weapon; return Math.max(w.cdFloor, w.specialCd - w.cdPerLv * FX.lv('atk_wave') - w.cdPerMastery * this.mastery('wave')); }
   get skillCdBase() { return this.weapon.skillCd || 1; }
   get chargeTime() { return this.weapon.chargeTime * (1 - 0.15 * FX.lv('atk_spin')) * (1 - 0.1 * this.mastery('spin')); }
 

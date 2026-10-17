@@ -160,7 +160,7 @@ const BOON_FORMS = {
     atk_combo:      { name: '연속 찌르기', desc: lv => `기본공격 속도 +${15 * lv}%, 2타째 피해 +${30 * lv}%.` },
     atk_multispin:  { name: '연환 꿰뚫기', desc: lv => `관통 찌르기 뒤 정령의 창이 같은 줄을 ${lv}번 더 찌른다. 추가 찌르기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
     atk_spin:       { name: '꿰뚫기 강화', desc: lv => `차지 시간 -${15 * lv}%, 관통 찌르기 길이 +${10 * lv}%.` },
-    atk_wave:       { name: '투척 강화', desc: lv => `창 비거리·속도 +${20 * lv}%, 특수공격 쿨타임 -${(0.7 * lv).toFixed(1)}초.` },
+    atk_wave:       { name: '투척 강화', desc: lv => `창 비거리·속도 +${20 * lv}%, 투척 쿨타임 -${(0.15 * lv).toFixed(2)}초 (최소 0.5초).` },
     atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
     sharp:          { name: '날카로운 창' },
     lifesteal:      { name: '흡혈 창날' },
