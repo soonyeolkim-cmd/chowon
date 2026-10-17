@@ -40,6 +40,7 @@ addWeapon('sai', {
   moves: { basic: '3연타', charged: '그림자 연참', special: '받아치기', dashAttack: '선풍 베기' },
   chargeTime: 0.25, // 쌍검은 빠르게 모은다 (0.55 → 0.25, 누르고 0.22초 뒤부터 모으니 전체 0.77초 → 0.47초, 2026-10-17)
   specialCd: 3.0,
+  specialCharges: 2, // 받아치기를 두 번까지 쌓아 둔다 (2026-10-17)
   cdPerLv: 0.4, cdPerMastery: 0.3, cdFloor: 1.5,
   speedMult: 1,
   dashCharges: 3,

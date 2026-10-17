@@ -62,6 +62,8 @@ const INPUT_BUFFER = 0.25;  // 버튼을 이만큼 일찍 눌러도 다음 동�
 const STAGE_ATK_MULT = 1.5;
 const STAGE_HP_BONUS = 30;
 
+// 충전식 특수공격: 두 번 연달아 쓸 때 사이의 최소 간격 (초)
+const SPECIAL_CHARGE_GAP = 0.25;
 class Player {
   constructor(x, y, s) {
     this.x = x; this.y = y; this.r = 9;
@@ -75,6 +77,7 @@ class Player {
     this.weapon = WEAPONS[this.weaponId];
     this.speed *= this.weapon.speedMult || 1;
     this.specialCd = 0; this.skillCd = 0;
+    this.specStock = this.specMax; this.specRecharge = 0; // 특수 충전 (specialCharges 가 2 이상인 무기만 씀)
     this.alive = true;
     this.act = null;                 // 진행 중인 기술
     this.atkCd = 0; this.combo = 0; this.comboT = 0; this.finisherT = 0;
@@ -101,6 +104,9 @@ class Player {
   get dashCdBase() { return DASH_CD * (this.weapon.dashCdMult || 1) * (1 - 0.08 * Meta.lv('agi')); }
   mastery(id) { return Meta.wlv(this.weaponId, id); }
   get specialCdBase() { const w = this.weapon; return Math.max(w.cdFloor, w.specialCd - w.cdPerLv * FX.lv('atk_wave') - w.cdPerMastery * this.mastery('wave')); }
+  // 특수공격 충전: 무기에 specialCharges 가 있으면 대시처럼 여러 번 쌓아 둔다 (쌍검 2회, 2026-10-17)
+  get specMax() { return this.weapon.specialCharges || 1; }
+  get specialCdShown() { return this.specMax > 1 ? (this.specStock > 0 ? 0 : this.specRecharge) : this.specialCd; } // 화면에 보이는 남은 쿨타임
   get skillCdBase() { return this.weapon.skillCd || 1; }
   get chargeTime() { return this.weapon.chargeTime * (1 - 0.15 * FX.lv('atk_spin')) * (1 - 0.1 * this.mastery('spin')); }
 
@@ -113,6 +119,7 @@ class Player {
       this.dashRecharge -= dt;
       if (this.dashRecharge <= 0) { this.dashStock++; this.dashRecharge = this.dashCdBase; }
     }
+    if (this.specMax > 1 && this.specStock < this.specMax && (this.specRecharge -= dt) <= 0) { this.specStock++; this.specRecharge = this.specialCdBase; }
     this.bufferInput(inp);
     applyKnockback(this, dt);
     if (this.momentum > 0 && (this.momT -= dt) <= 0) this.momentum = 0; // 한동안 못 때리면 기세가 식는다
@@ -164,8 +171,11 @@ class Player {
       if (this.dashBuffer > 0 && this.dashStock > 0 && !(this.noDashT > 0)) this.startDash(mag);
       else if (W.skill && this.skillBuffer > 0 && this.skillCd <= 0 && lateInAct) {
         this.skillBuffer = 0; this.skillCd = this.skillCdBase; W.skill(this, mag);
-      } else if ((this.specialBuffer > 0 || (W.holdSpecial && inp.specialHeld)) && this.specialCd <= 0 && lateInAct && !this.spearOut && !finQueued && (!W.orbs || this.orbs > 0)) {
-        this.specialBuffer = 0; this.specialCd = this.specialCdBase; W.special(this, mag);
+      } else if ((this.specialBuffer > 0 || (W.holdSpecial && inp.specialHeld)) && this.specialCd <= 0 && lateInAct && !this.spearOut && !finQueued && (!W.orbs || this.orbs > 0) && (this.specMax === 1 || this.specStock > 0)) {
+        this.specialBuffer = 0;
+        if (this.specMax > 1) { if (this.specStock >= this.specMax) this.specRecharge = this.specialCdBase; this.specStock--; this.specialCd = SPECIAL_CHARGE_GAP; }
+        else this.specialCd = this.specialCdBase;
+        W.special(this, mag);
       } else if (this.atkBuffer > 0 && this.atkCd <= 0 && !this.act && !this.spearOut) {
         // 기본공격. 대시 직후엔 대시 공격.
         if (this.postDashT > 0 && G.has('thrust') && W.basicAfterDash) W.basicAfterDash(this);
@@ -383,8 +393,8 @@ class Player {
         }
       }
     }
-    if (this.specialCd > 0 && !this.weapon.orbs) {
-      const k = 1 - clamp(this.specialCd / this.specialCdBase, 0, 1), r = 21, cy = y - 2;
+    if (this.specialCdShown > 0 && !this.weapon.orbs) {
+      const k = 1 - clamp(this.specialCdShown / this.specialCdBase, 0, 1), r = 21, cy = y - 2;
       g.lineWidth = 2; g.lineCap = 'round';
       g.strokeStyle = 'rgba(79,195,255,0.15)'; g.beginPath(); g.arc(x, cy, r, 0, Math.PI * 2); g.stroke();
       g.strokeStyle = 'rgba(79,195,255,0.85)'; g.beginPath(); g.arc(x, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); g.stroke();

@@ -639,7 +639,7 @@ const G = {
     const p = this.player;
     p.dodgeT = 0; p.counterT = 1.8;
     p.invuln = Math.max(p.invuln, 0.5);
-    p.skillCd = 0; p.specialCd = 0; p.dashStock = p.dashMax; // 저스트 회피 보상: 쿨타임 초기화
+    p.skillCd = 0; p.specialCd = 0; p.dashStock = p.dashMax; p.specStock = p.specMax; // 저스트 회피 보상: 쿨타임 초기화
     this.slowT = 0.6;
     this.text(p.x, p.y - 28, '저스트 회피!', '#7fe0ff', 15, 1);
     // 창: 던진 창이 날아가는 중이면 바로 손으로 돌아온다 (쿨타임만 풀려서는 다시 못 던지니까)
@@ -1153,7 +1153,7 @@ function drawLumiHeal(cx, cy) {
 
 function drawCooldowns(p, x, y, w) {
   const items = [
-    ['특수', p.specialCd > 0 ? 1 - p.specialCd / p.specialCdBase : 1, null, '#4fc3ff'],
+    ['특수', p.specialCdShown > 0 ? 1 - p.specialCdShown / p.specialCdBase : 1, p.specMax > 1 ? p.specStock : null, '#4fc3ff'],
     ['대시', p.dashStock > 0 ? 1 : 1 - p.dashRecharge / p.dashCdBase, p.dashMax > 1 ? p.dashStock : null, '#8ff0b0'],
   ];
   if (p.weapon.skill) items.splice(1, 0, ['스킬', p.skillCd > 0 ? 1 - p.skillCd / p.skillCdBase : 1, null, '#ffd24a']);
@@ -1196,7 +1196,7 @@ function drawTouchControls() {
 
   // 특수공격 (초승달 검기)
   ctx.globalAlpha = 1;
-  padButton(B.special, p.specialCd, p.specialCdBase, '#4fc3ff', b => {
+  padButton(B.special, p.specialCdShown, p.specialCdBase, '#4fc3ff', b => {
     (p.weapon.padIcon || WEAPONS.sword.padIcon)(b, p); // 무기마다 특수 버튼 그림
   }, p.finisherT > 0 && G.has('triple'));
   // 전용스킬 (무기에 있을 때만 보인다)
@@ -1213,6 +1213,7 @@ function drawTouchControls() {
     }
     ctx.stroke();
   });
+  if (p.specMax > 1 && B.special && B.special.visible) drawBadge(B.special.x + B.special.r * 0.62, B.special.y - B.special.r * 0.62, p.specStock, p.specStock ? '#4fc3ff' : '#ff9a7a');
   if (p.dashMax > 1 && B.dash && B.dash.visible) drawBadge(B.dash.x + B.dash.r * 0.62, B.dash.y - B.dash.r * 0.62, p.dashStock, p.dashStock ? '#8ff0b0' : '#ff9a7a');
   ctx.globalAlpha = 1;
 }
