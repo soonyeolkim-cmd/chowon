@@ -112,15 +112,15 @@ const BOONS = [
   { id: 'ambush', el: 'might', name: '기습', desc: lv => `적의 옆이나 등 뒤에서 때리면 피해 +${10 + 20 * lv}%. 기절 · 빙결된 적도 무방비로 친다.` },
 
   // ── 🛡 방어: 누적 패시브 (생존) ──
-  { id: 'lifesteal', el: 'guard', name: '흡혈 칼날', desc: lv => `적을 쓰러뜨릴 때마다 체력 ${1 + lv} 회복.` },
+  { id: 'lifesteal', el: 'guard', name: '흡혈 칼날', desc: lv => `적을 쓰러뜨릴 때마다 체력 ${1.5 + 0.5 * lv} 회복.` },
   { id: 'guard_spin', el: 'guard', name: '수호의 회전', desc: lv => `회전베기 중 무적, 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
   { id: 'heal_wave', el: 'guard', name: '치유의 검기', desc: lv => `검기에 맞은 적 하나마다 체력 ${lv} 회복.` },
   { id: 'dash_guard', el: 'guard', name: '잔상 보호막', desc: lv => `대시 후 1초간 받는 피해 -${30 + 10 * lv}%.` },
-  { id: 'tough', el: 'guard', name: '강인한 체력', maxLv: 5, onPick: p => { p.maxHp += 20; p.hp += 20; },
-    desc: () => '최대 체력 +20 (즉시 회복). 5번까지 겹친다.' },
+  { id: 'tough', el: 'guard', name: '강인한 체력', maxLv: 5, onPick: p => { p.maxHp += 15; p.hp += 15; },
+    desc: () => '최대 체력 +15 (즉시 회복). 5번까지 겹친다.' },
   { id: 'spring', el: 'guard', name: '생명의 샘', desc: lv => `스테이지를 클리어할 때마다 최대 체력의 ${10 + 5 * lv}% 회복.` },
   { id: 'leaf', el: 'guard', name: '잎사귀 방패', desc: lv => `${20 - 4 * lv}초마다 받는 피해 1회를 막아 주는 방패가 생긴다.` },
-  { id: 'skin', el: 'guard', name: '굳은 피부', desc: lv => `받는 피해 -${8 * lv}%.` },
+  { id: 'skin', el: 'guard', name: '굳은 피부', desc: lv => `받는 피해 -${4 + 4 * lv}%.` },
   { id: 'second', el: 'guard', name: '두 번째 기회', maxLv: 1, rare: true, onPick: () => { G.reviveLeft++; },
     desc: () => '이번 런에서 한 번 더 부활할 수 있다 (체력 40%).' },
 
@@ -165,7 +165,7 @@ const BOON_FORMS = {
     sharp:          { name: '날카로운 창' },
     lifesteal:      { name: '흡혈 창날' },
     guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
-    heal_wave:      { name: '치유의 회수', desc: lv => `돌아오는 창에 맞은 적 하나마다 체력 ${2 * lv} 회복.` },
+    heal_wave:      { name: '치유의 회수', desc: lv => `돌아오는 창에 맞은 적 하나마다 체력 ${lv} 회복.` },
   },
 };
 const curWeapon = () => (G.player ? G.player.weaponId : Meta.data ? Meta.data.weapon : 'sword');
@@ -489,7 +489,7 @@ const FX = {
       const pspc = this.lv('poison_special');
       if (pspc && !t.dead) this.poison(t, 1 + pspc);
       const hw = this.lv('heal_wave'), p = G.player;
-      if (hw && info.back && p.alive) p.hp = Math.min(p.maxHp, p.hp + 2 * hw);
+      if (hw && info.back && p.alive) p.hp = Math.min(p.maxHp, p.hp + hw);
     } else if (kind === 'wave') {
       const es = this.lv('elec_special');
       if (es) this.skyBolt(t, atk * (0.8 + 0.4 * es));
@@ -684,7 +684,7 @@ const FX = {
   onKill(e) {
     const p = G.player;
     const ls = this.lv('lifesteal');
-    if (ls && p.alive) p.hp = Math.min(p.maxHp, p.hp + 1 + ls); // 기본 2, 레벨당 +1
+    if (ls && p.alive) p.hp = Math.min(p.maxHp, p.hp + 1.5 + 0.5 * ls); // 2 · 2.5 · 3
     const cb = this.lv('chain_burst');
     if (cb && e.burn && e.burn.stacks > 0) this.explode(e.x, e.y, 55, p.atk * (0.8 + 0.4 * cb), '#ff7a3c', true);
     // 독의 기본 성질: 독에 걸린 적이 죽으면 주변 2명에게 절반만큼 전염
@@ -770,7 +770,7 @@ const FX = {
     }
     const fb = this.lv('frostbite');
     if (fb && (src.chill > 0 || src.frozenT > 0)) dmg *= 1 - (0.2 + 0.1 * fb);
-    if (this.lv('skin')) dmg *= 1 - 0.08 * this.lv('skin');
+    if (this.lv('skin')) dmg *= 1 - (0.04 + 0.04 * this.lv('skin')); // -8 · -12 · -16%
     if (p.dashGuardT > 0) dmg *= 1 - (0.3 + 0.1 * this.lv('dash_guard'));
     if (p.spinGuardT > 0) dmg *= 0.5;
     return Math.max(1, Math.round(dmg));
