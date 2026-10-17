@@ -228,6 +228,7 @@ const G = {
     if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
+    this.lumiCd = 0; // 루미 회복은 처음엔 준비된 상태
     this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0; this.shardFrac = 0; this.essRunBest = 0;
     this.reviveLeft = Meta.lv('revive');
     this.rerolls = Meta.lv('choice');
@@ -285,18 +286,23 @@ const G = {
     this.recentEls = [...this.recentEls, el].slice(-2);
     return el;
   },
-  makeOffer(el) {
-    // 기본공격 슬롯은 최대 강화되면 잠긴다 → 다른 원소로 바꾸는 카드가 안 나온다 (강화 기본기도 지켜진다)
-    const basicLocked = BOONS.some(b => b.slot === 'basic' && (this.boons[b.id] || 0) >= boonMaxLv(b));
+  // upgrade: 보스 보상 — 이미 가진 축복만 (레벨 +1)
+  makeOffer(el, upgrade) {
+    // 어느 슬롯이든 SLOT_LOCK_LV 이상 키우면 잠긴다 → 다른 속성으로 바꾸는 카드가 안 나온다 (강화 축복도 지켜진다)
+    const slotOwner = slot => BOONS.find(o => o.slot === slot && this.boons[o.id]);
+    const locked = slot => { const o = slotOwner(slot); return !!o && this.boons[o.id] >= SLOT_LOCK_LV; };
     const ok = b => {
       if ((this.boons[b.id] || 0) >= boonMaxLv(b)) return false;
-      if (basicLocked && b.slot === 'basic') return false;
+      if (upgrade && !this.boons[b.id]) return false;
+      if (b.slot && !this.boons[b.id] && locked(b.slot)) return false;
       if (b.duo) return b.duo.every(e => FX.hasEl(e)) && (!el || b.duo.includes(el));
       return !b.req || b.req();
     };
     let pool = BOONS.filter(b => ok(b) && (!el || b.el === el || b.duo));
     if (pool.length < 3) pool = pool.concat(BOONS.filter(b => ok(b) && !pool.includes(b)));
-    const weight = b => (b.duo ? 4 : b.rare ? 0.35 : this.boons[b.id] ? 1.3 : 1);
+    if (upgrade && !pool.length) return this.makeOffer(el); // 키울 축복이 없으면 보통 보상
+    const replacing = b => b.slot && !this.boons[b.id] && slotOwner(b.slot);
+    const weight = b => (b.duo ? 4 : b.rare ? 0.35 : this.boons[b.id] ? 1.3 : replacing(b) ? REPLACE_WEIGHT : 1);
     const picks = [];
     const count = 3;
     while (picks.length < count && pool.length) {
@@ -309,10 +315,10 @@ const G = {
       return { boon: b, lv: (this.boons[b.id] || 0) + 1, replaces: owner || null };
     });
   },
-  openBoon(el, then) {
-    const cards = this.makeOffer(el);
+  openBoon(el, then, upgrade) {
+    const cards = this.makeOffer(el, upgrade);
     if (!cards.length) { if (then) then(); return; }
-    this.offer = { el, cards, sel: 0, t: 0, then, axis: 0, armed: false, hold: 0 };
+    this.offer = { el, cards, sel: 0, t: 0, then, axis: 0, armed: false, hold: 0, upgrade: !!upgrade && cards.every(c => c.lv > 1) };
     this.shake = 0;
     this.state = 'boon';
     Sfx.boon();
@@ -321,7 +327,7 @@ const G = {
     const o = this.offer;
     if (!o || this.rerolls <= 0) return;
     this.rerolls--;
-    o.cards = this.makeOffer(o.el);
+    o.cards = this.makeOffer(o.el, o.upgrade);
     o.sel = 0; o.hold = 0; o.t = BOON_LOCK; // 바로 다시 고를 수 있게
     Sfx.boon();
   },
@@ -393,7 +399,6 @@ const G = {
     this.boons = stats && stats.boons ? { ...stats.boons } : {};
     if (newRun && DEV_BUILD) Object.assign(this.boons, DEV_BUILD.boons); // 로컬 시험 빌드 (?build=spin)
     this.zones = []; this.bolts = []; this.offer = null;
-    if (sub === 1) this.lumiHeals = 1 + Meta.lv('bond'); // 루미의 위기 회복은 세계마다
     this.stageStats = stats;
     World.generate((Math.random() * 1e9) | 0, world - 1, { boss: sub === STAGES_PER_WORLD });
     this.player = new Player(World.startPos.x, World.startPos.y, stats);
@@ -594,8 +599,8 @@ const G = {
     this.shake = 7; this.hurtFlash = 0.35; this.hitstop = 0.06;
     this.text(p.x, p.y - 20, '-' + dmg, '#ff6b6b', 14);
     Sfx.hurt(); Input.rumble(0.9, 200);
-    if (p.hp > 0 && p.hp < p.maxHp * 0.25 && this.lumiHeals > 0) {
-      this.lumiHeals--;
+    if (p.hp > 0 && p.hp < p.maxHp * 0.25 && !(this.lumiCd > 0)) {
+      this.lumiCd = LUMI_HEAL_CD - LUMI_BOND_CUT * Meta.lv('bond'); // 다음 회복까지 대기
       const heal = Math.round(p.maxHp * 0.35 * (curse('heal') ? 0.5 : 1));
       p.hp += heal;
       this.lumi.say('버텨요, 리안! 제 빛을 나눠 줄게요!');
@@ -786,6 +791,7 @@ const G = {
     }
     this.enemies = es.filter(e => !e.dead && (e.keep || Math.hypot(e.x - p.x, e.y - p.y) < 900));
     this.chainT -= dt;
+    if (this.lumiCd > 0) this.lumiCd -= dt;
     if (this.chainT <= 0) this.chain = 0;
     this.updateWaves(dt);
     this.checkHints();
@@ -821,7 +827,8 @@ const G = {
         };
         const story = STORY[this.stage];
         // 최종 보스 뒤에는 이어지는 스테이지가 없으니 축복 없이 바로 엔딩
-        const reward = this.stage === this.finalWorld ? done : () => this.openBoon(null, done);
+        // 세계 보스 보상: 가진 축복 중 하나를 강화 (최종 보스 뒤에는 바로 엔딩)
+        const reward = this.stage === this.finalWorld ? done : () => this.openBoon(null, done, true);
         this.storyOnce(this.stage, 'bossDown', reward);
       }
     }
@@ -1056,6 +1063,7 @@ function drawHud() {
   bar(bx, y, bw, 13, p.hp / p.maxHp, p.hp / p.maxHp < 0.3 ? '#ff5a5a' : '#e04848');
   label(`${Math.ceil(p.hp)} / ${p.maxHp}`, bx + bw / 2, y + 7, 10, '#fff', 'center');
   drawCooldowns(p, bx, y + 19, bw);
+  drawLumiHeal(x + 6, y + 29);
   if (Meta.data.mode === 'easy') { drawModeIcon('easy', bx + bw + 4, y - 4, 20); label('쉬움', bx + bw + 26, y + 7, 10, '#8ff0b0', 'left', '800'); }
   drawBoonIcons(x, y + 42);
 
@@ -1128,6 +1136,23 @@ function drawCdNumber(b, t) {
 }
 
 // 키보드·게임패드용 쿨타임 표시 (체력바 아래)
+// 루미 회복 대기: 하트 아래 작은 원. 차오르는 동안은 흐리게, 준비되면 빛난다
+function drawLumiHeal(cx, cy) {
+  const max = LUMI_HEAL_CD - LUMI_BOND_CUT * Meta.lv('bond'), left = Math.max(0, G.lumiCd || 0), ready = left <= 0;
+  const r = 8;
+  ctx.fillStyle = 'rgba(20,26,22,0.75)'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  if (!ready) { // 시계 방향으로 차오르는 부채꼴
+    ctx.fillStyle = 'rgba(232,255,156,0.35)';
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - left / max)); ctx.closePath(); ctx.fill();
+  } else {
+    const glow = 0.25 + Math.sin(G.time * 3) * 0.12;
+    ctx.fillStyle = `rgba(232,255,156,${glow})`; ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.strokeStyle = ready ? '#e8ff9c' : 'rgba(232,255,156,0.45)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  label('✦', cx, cy + 1, 10, ready ? '#f6ffb0' : 'rgba(246,255,176,0.5)', 'center', '900');
+}
+
 function drawCooldowns(p, x, y, w) {
   const items = [
     ['특수', p.specialCd > 0 ? 1 - p.specialCd / p.specialCdBase : 1, null, '#4fc3ff'],
@@ -1585,7 +1610,7 @@ function drawBoonScreen() {
   const head = o.el ? ELEMENTS[o.el] : null;
   const title = head ? `${head.icon} ${head.spirit}의 축복` : '✦ 보스 격파 보상';
   label(title, W / 2, inset.t + 30, 22, head ? head.color : '#ffd24a', 'center', '900');
-  label('축복을 하나 고르세요', W / 2, inset.t + 56, 13, '#ddd', 'center', '600');
+  label(o.upgrade ? '가진 축복 하나를 강화해요' : '축복을 하나 고르세요', W / 2, inset.t + 56, 13, o.upgrade ? '#8ff0b0' : '#ddd', 'center', '600');
   const L = boonLayout();
   const appear = clamp(o.t / BOON_LOCK, 0, 1);
   const left = o.auto ? 0 : Math.max(0, BOON_TIME - Math.max(0, o.t - BOON_LOCK)), urgent = left <= 3;

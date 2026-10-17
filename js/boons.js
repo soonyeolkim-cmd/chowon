@@ -182,7 +182,12 @@ for (const b of BOONS) if (b.needs) b.req = () => !!G.boons[b.needs];
 const BOON_BY_ID = Object.fromEntries(BOONS.map(b => [b.id, b]));
 const boonColor = b => (b.duo ? '#ffb8f0' : ELEMENTS[b.el].color);
 const boonIcon = b => (b.duo ? b.duo.map(e => ELEMENTS[e].icon).join('') : ELEMENTS[b.el].icon);
-const boonMaxLv = b => b.maxLv || (b.duo ? 1 : 3); // 듀오는 레벨 효과가 없어서 한 번만
+// 최대 레벨: 슬롯 축복 · 그 강화 축복은 5 (1~6세계 동안 키울 거리), 패시브는 3, 듀오는 1 (2026-10-17)
+const boonMaxLv = b => b.maxLv || (b.duo ? 1 : (b.slot || b.needs) ? 5 : 3);
+// 이 레벨 이상 키운 슬롯은 잠긴다: 다른 속성으로 바꾸는 카드가 안 나온다
+const SLOT_LOCK_LV = 3;
+// 다른 속성이 차지한 슬롯을 바꾸는 카드가 나올 확률 가중치 (낮을수록 덜 나온다)
+const REPLACE_WEIGHT = 0.35;
 
 // ── 축복이 쏘는 발사체 (화염구 · 얼음 파편) ─────────────────────
 class FxShot {

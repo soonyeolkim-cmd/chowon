@@ -6,7 +6,7 @@ const UPGRADES = [
   { id: 'hp',     name: '생명력',        max: 5, cost: [20, 35, 55, 80, 110], desc: lv => `최대 체력 +${15 * lv}` },
   { id: 'atk',    name: '공격력',         max: 5, cost: [25, 40, 60, 90, 130], desc: lv => `공격력 +${2 * lv}` },
   { id: 'agi',    name: '날렵한 발',      max: 3, cost: [30, 60, 100],         desc: lv => `대시 쿨타임 -${8 * lv}%` },
-  { id: 'bond',   name: '루미와의 유대',  max: 2, cost: [40, 90],              desc: lv => `위기 때 루미의 회복 +${lv}회 (세계마다)` },
+  { id: 'bond',   name: '루미와의 유대',  max: 2, cost: [40, 90],              desc: lv => `루미 회복 대기시간 -${25 * lv}초 (기본 ${LUMI_HEAL_CD}초)` },
   { id: 'choice', name: '정령의 호감',    max: 5, cost: [40, 60, 90, 130, 180], desc: lv => `축복 다시 뽑기 ${lv}회 (런마다)` },
   { id: 'luck',   name: '조각 수집가',    max: 3, cost: [30, 60, 100],         desc: lv => `정령의 조각 획득 +${20 * lv}%` },
   { id: 'revive', name: '불굴의 의지',    max: 1, cost: [150],                 desc: () => '런마다 한 번, 쓰러져도 체력 40%로 다시 일어난다' },
@@ -26,6 +26,8 @@ const SHARD_DROP = { // 마물이 많은 만큼 확률은 낮게
   lion: 0.08, trex: 0.14, cyclops2: 0.12, lizard: 0.07,
   demon: 0.12, lantern: 0.08, statue: 0.14, babydragon: 0.08, dragon: 1,
 };
+// 루미의 위기 회복: 체력이 25% 아래로 떨어지면 한 번 회복, 그 뒤 이 시간(초)이 지나야 다시. 루미와의 유대로 줄어든다
+const LUMI_HEAL_CD = 120, LUMI_BOND_CUT = 25;
 const SHARD_RATE = 0.6;       // 정령의 조각 획득 배율 (2026-10-17: 1~6세계 한 번에 가면서 너무 많이 모여서)
 const SHARD_TOTEM = 2;        // 봉인석 하나 (+ 길 안에서 뒤 세계일수록 2씩 더)
 const KILL_DROP_MULT = 0.5;   // 마물 처치로 나오는 조각은 적게 (보상은 봉인석 · 보스 · 깊이로)
