@@ -666,6 +666,10 @@ const G = {
     p.skillCd = 0; p.specialCd = 0; p.dashStock = p.dashMax; // 저스트 회피 보상: 쿨타임 초기화
     this.slowT = 0.6;
     this.text(p.x, p.y - 28, '저스트 회피!', '#7fe0ff', 15, 1);
+    // 창: 던진 창이 날아가는 중이면 바로 손으로 돌아온다 (쿨타임만 풀려서는 다시 못 던지니까)
+    if (p.spearOut) { const sh = p.spearShot; sh.done = true; this.burst(sh.x, sh.y, 6, ['#7fe0ff', '#fff'], 90); this.burst(p.x, p.y - 4, 6, ['#7fe0ff', '#fff'], 90); }
+    const ready = { sword: '대시 · 검기 준비!', spear: '대시 · 투척 준비!', gauntlet: '대시 · 충격파 준비!' }[p.weaponId];
+    if (ready) this.text(p.x, p.y - 42, ready, '#bfefff', 11, 1);
     this.fxRing(p.x, p.y, '#7fe0ff', 60);
     Sfx.dodge(); Input.rumble(0.4, 120);
   },
