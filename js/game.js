@@ -2480,7 +2480,8 @@ function render() {
     lines.forEach((l, i) => label(l, W / 2, logoBottom + 14 + i * 20, 14, '#e8eef8', 'center', '600'));
     // 조작법은 시작 화면에 넣지 않는다 (2026-10-17). 한 줄 소개는 이야기 바로 아래
     label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, logoBottom + 14 + lines.length * 20 + 4, 12, '#b8c8b8', 'center', '500');
-    if (blink) label(`${tap} 시작`, W / 2, H * 0.91, 20, '#ffd24a');
+    if (blink) label(`${tap} 시작`, W / 2, H * 0.86, 20, '#ffd24a');
+    label('© 2026 SY Studio. All rights reserved.', W / 2, H - inset.b - 12, 11, 'rgba(220,226,240,0.7)', 'center', '600'); // 저작권 표시
   } else if (G.state === 'profiles') {
     TitleArt.scene(G.time);
     drawProfiles(blink);
