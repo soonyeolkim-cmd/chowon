@@ -61,7 +61,24 @@ const Sfx = (() => {
     shatter: () => { tone(2400, 0.08, 'square', 0.04, -1500); tone(1200, 0.1, 'triangle', 0.04, -600, 0.03); },
     boom: () => tone(90, 0.25, 'sawtooth', 0.07, -40),
     boon: () => [659, 880, 1175].forEach((f, i) => tone(f, 0.2, 'sine', 0.05, 0, i * 0.06)),
+    // 8비트 칩 효과음 한 번 (retro-sfx.js)
+    chip(def) { if (!ac || ac.state !== 'running' || !Input.settings.sfx) return; RetroSfx.play(ac, def, SFX_CHIP_GAIN); },
   };
+})();
+// 8비트 칩 효과음: 사용자가 듣기 페이지에서 고른 후보 (A · B · C, js/sfx-cands.js). 여기 없는 소리는 위의 삑 소리 그대로 (2026-10-17)
+const SFX_PICK = {
+  spin: 'A', wave: 'C', orb: 'C', charged: 'C', hit: 'B', kill: 'C', hurt: 'A', block: 'B', guardBreak: 'C',
+  dash: 'C', dodge: 'B', boom: 'B', zap: 'B', freeze: 'C', shatter: 'A', slam: 'A', lunge: 'B', roar: 'B',
+  totem: 'A', pickup: 'A', heal: 'B', level: 'A', boon: 'C',
+};
+const SFX_CHIP_GAIN = 0.5;   // 칩 소리 전체 크기 (삑 소리와 맞춤)
+const SFX_MIN_GAP = 35;      // 같은 소리가 한꺼번에 겹치지 않게 (밀리초)
+(() => {
+  const last = {};
+  for (const [k, c] of Object.entries(SFX_PICK)) {
+    const def = SFX_CANDS[k][c.charCodeAt(0) - 65];
+    Sfx[k] = () => { const now = performance.now(); if (now - (last[k] || 0) < SFX_MIN_GAP) return; last[k] = now; Sfx.chip(def); };
+  }
 })();
 
 // ── 배경음악: 마을 · 세계마다 · 보스 · 엔딩 (Ninja Adventure 음악, CC0). 설정에서 끌 수 있다 ──
