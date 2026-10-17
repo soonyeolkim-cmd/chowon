@@ -19,7 +19,12 @@ const SHIELD_QUAKE_STUN = 0.6;  // 강타에 맞은 적 기절 (보스 제외)
 const SHIELD_SLAM_R = 40;       // 후려치기 범위
 const SHIELD_SLAM_STUN = 0.5;
 const SHIELD_BUMP = 14;         // 돌진 중 이 거리 안의 적에 부딪히면 멈춘다
-const SHIELD_SIZE = 0.75;       // 방패 그림 크기 (16픽셀 × PIX × 이 값)
+const SHIELD_SIZE = 0.75;
+// 방패 밀어붙이기 (대시 중 · 직후 특수): 앞의 적을 방패에 붙인 채 밀고 달린다. 벽에 몰면 벽꿍 (2026-10-17)
+const SHIELD_CHARGE_TIME = 0.34;  // 달리는 시간
+const SHIELD_CHARGE_SPEED = 340;  // 달리는 속도 (약 115 거리)
+const SHIELD_CHARGE_GRAB = 22;    // 방패 앞 이 거리 안의 적을 붙잡아 민다
+const SHIELD_CHARGE_HALF = 0.95;  // 붙잡는 앞쪽 각도 (약 ±54°)       // 방패 그림 크기 (16픽셀 × PIX × 이 값)
 
 Object.assign(MOVES, {
 // 방패: 한 방이 무겁고 크게 밀어낸다
@@ -28,6 +33,7 @@ bashFin:    { mult: 1.95, kb: 760, guardBreak: true, role: 'fin', shove: true },
 quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방패 강타 (차지): 앞쪽 부채꼴 충격파 + 기절
 shieldSpin: { mult: 1.1, kb: 760, guardBreak: true, role: 'special', shove: true },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
 shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 후려치기 (대시 공격)
+shieldCharge: { mult: 1.4, kb: 520, guardBreak: true, role: 'special', shove: true }, // 방패 밀어붙이기 (대시 중 특수)
 shieldBump: { mult: 0.4, kb: 260, guardBreak: false, role: 'dash', light: true }, // 돌진하다 부딪힘
 });
 
@@ -50,12 +56,14 @@ addWeapon('shield', {
   basic: (p, mag) => p.startBash(mag),
   basicAfterDash: p => p.startShieldSlam(),
   charged: (p, mag) => p.startQuake(mag),
-  special: (p, mag) => p.startShieldSpin(mag),
+  special: (p, mag) => (p.postDashT > 0 ? p.startShieldCharge(mag) : p.startShieldSpin(mag)), // 대시 직후면 밀어붙이기
+  specialInDash: p => p.startShieldCharge(0), // 대시 중 특수 → 밀어붙이기 (돌려치기와 쿨타임 같이 씀)
   skill: null,
   rows: (A, P, D) => [
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
+    ['방패 밀어붙이기', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
     ['대시 · 방패 돌진', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '돌진 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다', 'thrust'],
   ],
@@ -199,6 +207,16 @@ extendPlayer({
     this.finisherT = 0; this.combo = 0; this.comboT = 0; this.charge = 0;
     Sfx.spin();
   },
+  // 방패 밀어붙이기: 대시 방향(없으면 바라보는 쪽)으로 달리며 앞의 적을 붙잡아 함께 밀고 간다
+  startShieldCharge(mag) {
+    const dir = this.dashDir !== undefined && (this.dashT > 0 || this.postDashT > 0) ? this.dashDir : this.facing;
+    this.facing = dir;
+    this.act = { kind: 'shieldCharge', t: 0, dur: SHIELD_CHARGE_TIME + 0.12, run: SHIELD_CHARGE_TIME, hit: new Set(), carry: new Set(), dir };
+    this.guardT = Math.max(this.guardT, this.act.dur + 0.05); // 달리는 내내 정면을 막는다
+    this.postDashT = 0; this.atkBuffer = 0; this.comboT = 0; this.finisherT = 0; this.charge = 0;
+    G.text(this.x, this.y - 26, '방패 돌진!', '#ffd28a', 13, 0.6);
+    G.shake = Math.max(G.shake, 3); Sfx.lunge(); Input.rumble(0.5, 140);
+  },
   // 후려치기 (대시 공격): 방패를 들어 앞을 내려찍는다
   startShieldSlam() {
     this.finisherT = 0;
@@ -235,7 +253,17 @@ extendPlayer({
   drawShieldWeapon(g, x, y) {
     const cy = y - 6, a = this.act, f = this.dashT > 0 ? this.dashDir : this.facing, c = Math.cos(f), s = Math.sin(f);
     const glow = this.bashReady; // 반격 밀치기 준비: 방패가 금빛으로 반짝
-    if (this.dashT > 0 || (this.guardT > 0 && !a)) { // 방패 돌진: 앞에 크게 들고 정면 막기
+    if (a && a.kind === 'shieldCharge') { // 방패 밀어붙이기: 방패를 앞세우고 몸을 숙여 달린다
+      const run = a.t < a.run;
+      shieldSprite(g, x + c * 15, cy + s * 10, 1.3, glow);
+      if (run) for (let i = 0; i < 3; i++) { // 속도선
+        const o = (i - 1) * 7;
+        g.strokeStyle = 'rgba(255,240,210,0.55)'; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(x - c * 14 - s * o, cy - s * 14 + c * o); g.lineTo(x - c * 30 - s * o, cy - s * 30 + c * o); g.stroke();
+      }
+      g.strokeStyle = 'rgba(255,210,138,0.7)'; g.lineWidth = 3;
+      g.beginPath(); g.arc(x, cy, 24, f - 0.8, f + 0.8); g.stroke();
+    } else if (this.dashT > 0 || (this.guardT > 0 && !a)) { // 방패 돌진: 앞에 크게 들고 정면 막기
       shieldSprite(g, x + c * 13, cy + s * 9, 1.15, glow);
       const k = 0.4 + 0.2 * Math.sin(G.time * 40);
       g.strokeStyle = `rgba(159,220,255,${k})`; g.lineWidth = 2;
@@ -311,6 +339,27 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
     if (a.kind === 'shieldSpin') {
       if (a.t > a.dur * 0.1) this.hitFan(a, this.x, this.y, a.r, Math.PI, 'shieldSpin', 0);
       if (!a.ended && a.t >= a.dur * 0.9) { a.ended = true; FX.onShieldSpinEnd(this); }
+      return true;
+    }
+    if (a.kind === 'shieldCharge') {
+      const c = Math.cos(a.dir), s = Math.sin(a.dir);
+      if (a.t < a.run) {
+        World.move(this, c * SHIELD_CHARGE_SPEED * dt, s * SHIELD_CHARGE_SPEED * dt);
+        this.trail.push({ x: this.x, y: this.y, life: 0.2 });
+        if (Math.random() < 0.8) G.dust(this.x, this.y + 8);
+        // 방패 앞의 적: 처음 닿으면 맞고, 그 뒤로는 방패에 붙어 같이 밀려 간다 (보스 · 무거운 공격 자세는 밀리지 않는다)
+        for (const t of G.targets()) {
+          const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
+          if (d > SHIELD_CHARGE_GRAB + t.r + 8 || Math.abs(angDiff(Math.atan2(dy, dx), a.dir)) > SHIELD_CHARGE_HALF) continue;
+          if (!a.hit.has(t)) { a.hit.add(t); this.deal(t, 'shieldCharge', c, s, { kb: 0 }); G.burst(t.x, t.y - 4, 6, ['#fff', '#ffd28a'], 140); Sfx.block(); }
+          if (t.type !== 'boss' && !t.superArmor && t.type !== 'totem' && !a.carry.has(t)) { a.carry.add(t); t.slamT = 0.6; } // 벽꿍은 한 번만
+        }
+        for (const t of a.carry) if (!t.dead) { t.kvx = c * SHIELD_CHARGE_SPEED * 1.05; t.kvy = s * SHIELD_CHARGE_SPEED * 1.05; t.stun = Math.max(t.stun || 0, 0.3); }
+      } else if (!a.ended) { // 끝: 붙잡은 적을 크게 밀쳐낸다
+        a.ended = true;
+        for (const t of a.carry) if (!t.dead) { t.kvx = c * 520; t.kvy = s * 520; }
+        G.fxRing(this.x + c * 16, this.y + s * 10, '#ffd28a', 34); G.shake = Math.max(G.shake, 5); Sfx.slam();
+      }
       return true;
     }
     if (a.kind === 'shieldSlam') {
