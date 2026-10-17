@@ -52,11 +52,11 @@ addWeapon('shield', {
   special: (p, mag) => p.startShieldSpin(mag),
   skill: null,
   rows: (A, P, D) => [
-    ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 힘껏 밀어 크게 날리고 가드 브레이크 · 벽에 밀면 벽꿍'],
-    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절'],
+    ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 힘껏 밀어 크게 날리고 가드 브레이크 · 벽에 밀면 벽꿍'],
+    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 날린다'],
     ['대시 · 방패 돌진', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
-    ['후려치기', `${D} → ${A}`, '돌진 뒤 방패로 내려찍기 · 기절', 'thrust'],
+    ['후려치기', `${D} → ${A}`, '돌진 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다', 'thrust'],
   ],
   notesTitle: '방패 특성 · 막기',
   notes: [
@@ -174,7 +174,7 @@ extendPlayer({
     this.atkCd = (fin ? 0.6 : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.35;
     this.finisherT = 0; this.atkBuffer = 0;
-    this.guardT = Math.max(this.guardT, this.act.dur + 0.05); // 밀치는 동안에도 정면을 막는다 (2026-10-17)
+    this.guardT = Math.max(this.guardT, this.atkCd + 0.1); // 밀치기를 이어 가는 동안 내내 정면을 막는다 (동작 사이 빈틈 없이, 2026-10-17)
     if (counter) G.text(this.x, this.y - 26, '반격 밀치기!', '#ffd28a', 12, 0.6);
     Sfx.swing(fin || counter);
     FX.onSwing(this, fin);
@@ -206,6 +206,18 @@ extendPlayer({
     this.atkCd = 0.55; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
     G.text(this.x, this.y - 24, '후려치기', '#9cdcff', 11, 0.5);
     Sfx.swing(true);
+  },
+  // 방패 강타 · 후려치기: 내려찍은 자리 안, 땅속에 숨은 적(두더지)을 강제로 튀어나오게 하고 잠깐 기절시킨다 → 바로 맞는다 (2026-10-17)
+  unearth(r, half, cx = this.x, cy = this.y) {
+    for (const e of G.enemies) {
+      if (e.dead || !e.burrowed || e.type !== 'mole') continue;
+      const dx = e.x - cx, dy = e.y - cy, d = Math.hypot(dx, dy) || 1;
+      if (d > r + e.r || (half < Math.PI && d > e.r + 6 && Math.abs(angDiff(Math.atan2(dy, dx), this.facing)) > half)) continue;
+      e.state = 'up'; e.st = 1.6; e.burrowed = false; e.attacking = false;
+      e.stun = Math.max(e.stun || 0, SHIELD_QUAKE_STUN + 0.4);
+      G.burst(e.x, e.y + 4, 14, ['#8a6a4a', '#c8a878', '#fff'], 160);
+      G.text(e.x, e.y - e.r - 14, '튀어나옴!', '#ffd28a', 11, 0.7);
+    }
   },
   // 앞쪽 부채꼴(또는 원) 안의 적을 한 번씩. stun: 보스 · 슈퍼아머 말고 기절
   hitFan(a, cx, cy, r, half, kind, stun, opts) {
@@ -276,6 +288,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
     if (a.kind === 'quake') {
       if (!a.hitDone && a.t >= a.dur0 * 0.3) { // 내려친 순간
         a.hitDone = true;
+        this.unearth(a.r, SHIELD_QUAKE_HALF); // 땅속에 숨은 적을 끌어낸다
         this.hitFan(a, this.x, this.y, a.r, SHIELD_QUAKE_HALF, 'quake', SHIELD_QUAKE_STUN, a.extra ? { kb: 60 } : undefined);
         G.shake = Math.max(G.shake, 6); Sfx.slam();
         G.burst(this.x + fx * 16, this.y + fy * 10, 12, ['#d8c8a8', '#ffe08a', '#fff'], 160);
@@ -298,6 +311,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       if (a.t < a.dur * 0.35) World.move(this, fx * 80 * dt, fy * 80 * dt);
       if (!a.hitDone && a.t >= a.dur * 0.45) {
         a.hitDone = true;
+        this.unearth(a.r, Math.PI, this.x + fx * 14, this.y + fy * 10); // 땅속에 숨은 적도 끌어낸다
         this.hitFan(a, this.x + fx * 14, this.y + fy * 10, a.r, Math.PI, 'shieldSlam', SHIELD_SLAM_STUN);
         G.shake = Math.max(G.shake, 5); Sfx.slam();
       }
