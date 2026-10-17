@@ -52,7 +52,7 @@ const MOVES = {
   poke:     { mult: 1.15, kb: 140, guardBreak: false },
   pokeFin:  { mult: 1.75, kb: 340, guardBreak: true },
   lunge:    { mult: 2.6, kb: 320, guardBreak: true },   // 관통 찌르기 (차지): 한 줄만 맞히는 대신 회전베기(2.2)보다 세다
-  spear:    { mult: 1.25, kb: 120, guardBreak: false },   // 창 투척 (갈 때·올 때 한 번씩)
+  spear:    { mult: 0.7, kb: 120, guardBreak: false },   // 창 투척 (갈 때 한 번 · 올 때 절반), 1.25 → 0.7 (2026-10-17)
   sweep:    { mult: 1.0, kb: 240, guardBreak: true },   // 후려치기 (창 대시 공격)
   // 건틀릿: 한 방은 약하지만 가장 빠르다
   jab:       { mult: 0.75, kb: 120, guardBreak: false },
@@ -901,7 +901,7 @@ class SpearShot {
     for (const t of G.targets()) {
       if (this.hit.has(t) || Math.hypot(t.x - this.x, t.y - this.y) > t.r + 12) continue;
       this.hit.add(t);
-      p.deal(t, 'spear', nx, ny, { back: this.back });
+      p.deal(t, 'spear', nx, ny, { back: this.back, mult: this.back ? SPEAR_BACK_MULT : 1 });
     }
   }
   draw(g) {
