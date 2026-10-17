@@ -587,7 +587,7 @@ const FX = {
     }
     const is = this.lv('ice_shard');
     if (is) {
-      const n = 1 + is, spread = 0.7;
+      const n = 1 + is, spread = 0.35; // 부채꼴 0.7 → 0.35 (약 40° → 20°, 2026-10-17)
       for (let i = 0; i < n; i++) {
         const o = n === 1 ? 0 : -spread / 2 + spread * i / (n - 1);
         G.projectiles.push(new FxShot(p.x, p.y - 4, f + o, {
