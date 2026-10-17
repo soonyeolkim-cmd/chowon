@@ -94,7 +94,7 @@ class Player {
     this.trail = [];
     this.momentum = 0; this.momT = 0; // 쌍검 기세
     this.parryT = 0;                  // 쌍검 받아치기: 막는 자세가 남은 시간
-    this.freeSpecialT = 0;            // 이 시간 안에 쓰는 특수공격은 충전 · 쿨타임을 쓰지 않는다 (쌍검: 그림자 연참 적중 보상)
+    this.freeSpecialT = 0;            // 이 시간 안에 쓰는 특수공격은 충전 · 쿨타임을 쓰지 않는다 (쌍검: 그림자 베기 적중 보상)
     this.orbs = this.orbMax; this.orbT = 0; // 마법봉 마력 구슬 (처음엔 가득)
   }
 

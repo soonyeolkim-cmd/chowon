@@ -1,5 +1,5 @@
 'use strict';
-// ── 정령의 쌍검: 연타형 · 가장 빠른 연타와 기세, 그림자 연참, 받아치기 ──
+// ── 정령의 쌍검: 연타형 · 가장 빠른 연타와 기세, 그림자 베기, 받아치기 ──
 
 // 쌍검 수치 (2026-10-17)
 const SAI_REACH = 32;           // 찌르기 사거리 (검 37 · 창 74) — 가장 짧다
@@ -7,9 +7,9 @@ const SAI_FIN_REACH = 36;       // 3타째 X자 베기
 const MOMENTUM_MAX = 5;         // 기세 최대 칸
 const MOMENTUM_SPEED = 0.05;    // 기세 한 칸마다 공격 · 이동 속도 +5%
 const MOMENTUM_TIME = 1.5;      // 이 시간 동안 기본공격을 못 맞히면 기세가 사라진다
-const MOMENTUM_RUSH = 0.2;      // 그림자 연참이 기세를 다 써서 한 칸마다 피해 +20%
-const RUSH_LEN = 89;            // 그림자 연참 거리 (110 → 99 → 89, 2026-10-17)
-const RUSH_TIME = 0.16;         // 그림자 연참으로 지나가는 시간 (무적)
+const MOMENTUM_RUSH = 0.2;      // 그림자 베기가 기세를 다 써서 한 칸마다 피해 +20%
+const RUSH_LEN = 89;            // 그림자 베기 거리 (110 → 99 → 89, 2026-10-17)
+const RUSH_TIME = 0.16;         // 그림자 베기으로 지나가는 시간 (무적)
 const RUSH_WIDTH = 16;          // 연참 판정 폭
 const PARRY_TIME = 0.4;         // 받아치기 막는 시간
 const PARRY_TRIPLE = 0.6;       // 3타째 직후 교차 받아치기
@@ -19,8 +19,9 @@ const RIPOSTE_TIME = 0.14;      // 반격으로 베고 지나가는 시간 (무�
 const RIPOSTE_SAFE = 0.35;      // 도착한 뒤에도 이만큼 무적
 const RIPOSTE_PAST = 30;        // 적을 지나 이만큼 더 간다
 const RIPOSTE_MAX = 150;        // 반격 돌진 최대 거리
-const RUSH_FREE_T = 2.0;        // 그림자 연참이 적을 맞히면 이 시간 안의 받아치기는 충전 · 쿨타임 없이 (2026-10-17)
-const PURSUIT_LEN = 100;        // 잔영 베기: 연참 적중 뒤 평타로, 보는 방향으로 반격처럼 베고 지나가는 거리 (2026-10-17)
+const RUSH_HIT_INV = 0.5;       // 그림자 베기가 적을 맞히면 지나간 뒤에도 이만큼 더 무적 (2026-10-17)
+const RUSH_FREE_T = 2.0;        // 그림자 베기가 적을 맞히면 이 시간 안의 받아치기는 충전 · 쿨타임 없이 (2026-10-17)
+const PURSUIT_LEN = 100;        // 잔영 베기: 그림자 베기 적중 뒤 평타로, 보는 방향으로 반격처럼 베고 지나가는 거리 (2026-10-17)
 const PARRY_CHAIN_T = 2.0;      // 연속 반격: 이 안에 또 받아치면 연속으로 친다 (성공할 때마다 충전 한 칸을 돌려받는다, 2026-10-17)
 const WHIRL_R = 40;             // 선풍 베기 반경
 const RUSH_AIM = { range: 140, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
@@ -29,7 +30,7 @@ Object.assign(MOVES, {
 // 쌍검: 한 방은 약하지만 가장 빠르다
 saiJab:  { mult: 0.75, kb: 110, guardBreak: false, role: 'basic', light: true, momentum: true },
 saiFin:  { mult: 1.3, kb: 280, guardBreak: true, role: 'fin', momentum: true },    // 3타째 X자 교차 베기
-rush:    { mult: 2.2, kb: 160, guardBreak: true, role: 'charge' },    // 그림자 연참 (차지), 기세 한 칸마다 +20%
+rush:    { mult: 2.2, kb: 160, guardBreak: true, role: 'charge' },    // 그림자 베기 (차지), 기세 한 칸마다 +20%
 riposte: { mult: 2.5, kb: 300, guardBreak: true, role: 'special' },    // 받아치기 반격 (특수): 언제나 반격 치명타
 whirl:   { mult: 1.3, kb: 220, guardBreak: false, role: 'dash', momentum: true },   // 선풍 베기 (대시 공격)
 });
@@ -37,10 +38,10 @@ whirl:   { mult: 1.3, kb: 220, guardBreak: false, role: 'dash', momentum: true }
 // 쌍검(사이): 가장 빠른 연타 + 기세. 사거리가 가장 짧고, 강한 한 방은 받아치기 타이밍에 달렸다 (2026-10-17, 건틀릿을 대신함)
 addWeapon('sai', {
   name: '정령의 쌍검',
-  style: '차지형 · 그림자 연참 2단(잔영 베기)과 기세, 받아치기 · 사거리가 가장 짧음', // 차지 2단 특화 (2026-10-17)
+  style: '차지형 · 그림자 베기 2단(잔영 베기)과 기세, 받아치기 · 사거리가 가장 짧음', // 차지 2단 특화 (2026-10-17)
   essence: '무기의 정수',
   unlockCost: 1,             // 영웅의 증표: 무기 해금은 모두 1개 (증표는 나중에 무기 각성에 많이 쓴다, 2026-10-17)
-  moves: { basic: '3연타', charged: '그림자 연참', special: '받아치기', dashAttack: '선풍 베기' },
+  moves: { basic: '3연타', charged: '그림자 베기', special: '받아치기', dashAttack: '선풍 베기' },
   chargeTime: 0.25, // 쌍검은 빠르게 모은다 (0.55 → 0.25, 누르고 0.22초 뒤부터 모으니 전체 0.77초 → 0.47초, 2026-10-17)
   specialCd: 3.0,
   cdPerLv: 0.4, cdPerMastery: 0.3, cdFloor: 1.5,
@@ -49,7 +50,7 @@ addWeapon('sai', {
   dashSpeed: 300,
   dashCdMult: 0.8 / DASH_CD, // 대시 1칸 충전 0.8초 · 3회 · 거리는 짧다
   skillCd: 0,
-  basic: (p, mag) => p.freeSpecialT > 0 ? p.startPursuit(mag) : p.startJab(mag), // 연참 적중 뒤엔 잔영 베기
+  basic: (p, mag) => p.freeSpecialT > 0 ? p.startPursuit(mag) : p.startJab(mag), // 그림자 베기 적중 뒤엔 잔영 베기
   basicAfterDash: p => p.startWhirl(),
   charged: (p, mag) => p.startRush(mag),
   special: (p, mag) => p.startParry(mag),
@@ -57,8 +58,8 @@ addWeapon('sai', {
   rows: (A, P, D) => [
     ['기본 · 3연타', `${A} ${A} ${A}`, '아주 빠르지만 짧다 · 3타째 X자 베기 · 가드 브레이크'],
     ['기세', '기본공격을 맞힐 때마다 +1 (최대 5)', `한 칸마다 공격 · 이동 속도 +5% · ${MOMENTUM_TIME}초 못 때리거나 맞으면 0`],
-    ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20% · 맞히면 2초 안의 받아치기는 충전 소모 없음, 평타를 누르면 잔영 베기'],
-    ['차지 2단 · 잔영 베기', `연참 적중 뒤 2초 안에 ${A}`, '보는 방향으로 한 번 더 연참 · 언제나 치명타 + 기절 · 무적 · 연참 축복이 그대로 붙음'],
+    ['차지 · 그림자 베기', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20% · 맞히면 2초 안의 받아치기는 충전 소모 없음, 평타를 누르면 잔영 베기'],
+    ['차지 2단 · 잔영 베기', `그림자 베기 적중 뒤 2초 안에 ${A}`, '보는 방향으로 한 번 더 그림자 베기 · 언제나 치명타 + 기절 · 무적 · 그림자 베기 축복이 그대로 붙음'],
     ['특수 · 받아치기', `${P} (쿨타임 3초)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2 · 성공하면 쿨타임이 바로 풀려 연속 반격'],
     ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.sai.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
     ['선풍 베기', `${D} → ${A}`, '한 바퀴 돌며 주변을 벤다', 'thrust'],
@@ -70,15 +71,15 @@ addWeapon('sai', {
     '기세는 쌍검만 쓰는 전투 자원이에요. 캐릭터 머리 위 주황색 점 5개로 보여요.',
     '쌓기: 기본공격(찌르기 · X자 베기 · 선풍 베기)이 맞으면 동작마다 1칸, 받아치기에 성공하면 2칸. 최대 5칸이에요.',
     '효과: 쌓인 1칸마다 공격 속도와 이동 속도 +5% (5칸이면 +25%).',
-    '쓰기: 그림자 연참이 기세를 모두 써서 1칸마다 피해 +20% (5칸이면 2배).',
+    '쓰기: 그림자 베기가 기세를 모두 써서 1칸마다 피해 +20% (5칸이면 2배).',
     '사라짐: 1.5초 동안 기본공격을 못 맞히거나, 적에게 맞으면 0이 돼요. 꺼지기 직전엔 점이 흐려져요.',
     '받아치기: 막는 자세(0.4초) 중에 공격을 받으면 피해 없이 그 적을 향해 베고 지나가요. 지나가는 동안과 도착 직후는 무적, 길 위의 적은 모두 반격 치명타 + 기절.',
   ],
   comboLen: 3,
-  shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 X자 베기나 그림자 연참은 방패를 깨요. 받아치기로 공격을 막아도 기절해요.',
+  shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 X자 베기나 그림자 베기는 방패를 깨요. 받아치기로 공격을 막아도 기절해요.',
   mastery: [
     { id: 'combo',  name: '교차 베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `3타째 X자 베기 피해 +${15 * lv}%` },
-    { id: 'spin',   name: '그림자 연참 숙련', max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 연참 거리 +${3 * lv}%` },
+    { id: 'spin',   name: '그림자 베기 숙련', max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 그림자 베기 거리 +${3 * lv}%` },
     { id: 'wave',   name: '받아치기 숙련',    max: 3, cost: [3, 5, 8], desc: lv => `받아치기 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 1.5초)` },
     { id: 'thrust', name: '선풍 베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `선풍 베기 피해 +${20 * lv}%` },
   ],
@@ -94,35 +95,35 @@ Object.assign(WEAPONS.sai, {
   },
   glyph: {
     basic(g, s, line) { line(-0.7, 0.7, 0.7, -0.7); line(0.7, 0.7, -0.7, -0.7); line(-0.65, 0.25, -0.25, 0.65); line(0.65, 0.25, 0.25, 0.65); }, // 교차한 쌍검
-    charge(g, s, line) { line(-0.9, 0, 0.55, 0); g.beginPath(); g.moveTo(0.9 * s, 0); g.lineTo(0.45 * s, -0.3 * s); g.lineTo(0.45 * s, 0.3 * s); g.closePath(); g.fill(); line(-0.8, -0.45, -0.2, -0.45); line(-0.8, 0.45, -0.2, 0.45); }, // 그림자 연참
+    charge(g, s, line) { line(-0.9, 0, 0.55, 0); g.beginPath(); g.moveTo(0.9 * s, 0); g.lineTo(0.45 * s, -0.3 * s); g.lineTo(0.45 * s, 0.3 * s); g.closePath(); g.fill(); line(-0.8, -0.45, -0.2, -0.45); line(-0.8, 0.45, -0.2, 0.45); }, // 그림자 베기
     special(g, s, line) { g.beginPath(); g.arc(0, 0.25 * s, 0.75 * s, -2.5, -0.65); g.stroke(); line(-0.45, 0.6, 0.45, -0.2); line(0.45, 0.6, -0.45, -0.2); }, // 받아치기
   },
 });
-// 쌍검: 기본 = 3연타, 차지 = 그림자 연참, 특수 = 받아치기, 대시 공격 = 선풍 베기
+// 쌍검: 기본 = 3연타, 차지 = 그림자 베기, 특수 = 받아치기, 대시 공격 = 선풍 베기
 BOON_FORMS.sai = {
   fire_basic:     { name: '불꽃 쌍검' },
   fire_bolt:      { name: '화염구 연타', desc: lv => `찌를 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
-  fire_charge:    { name: '화염 연참', desc: lv => `연참 · 잔영 베기에 베인 적에게 화상 2중첩, 지나간 길에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
+  fire_charge:    { name: '화염 그림자', desc: lv => `그림자 베기 · 잔영 베기에 베인 적에게 화상 2중첩, 지나간 길에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
   fire_special:   { name: '작열 받아치기', desc: lv => `받아치면 주변이 폭발한다. 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
   ice_basic:      { name: '서리 쌍검' },
   ice_shard:      { name: '얼음 파편 연타', desc: lv => `찌를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
-  ice_charge:     { name: '빙결 연참', desc: lv => `연참 · 잔영 베기에 베인 적에게 냉기 ${iceBig(lv)}중첩.` },
+  ice_charge:     { name: '빙결 그림자', desc: lv => `그림자 베기 · 잔영 베기에 베인 적에게 냉기 ${iceBig(lv)}중첩.` },
   ice_special:    { name: '서리 받아치기', desc: lv => `받아치면 주변 적에게 냉기 ${iceBig(lv)}중첩, 발밑이 얼어붙는다.` },
   elec_basic:     { name: '번개 쌍검' },
   elec_chain:     { name: '연쇄 번개 쌍검' },
-  elec_charge:    { name: '뇌전 연참', desc: lv => `연참 · 잔영 베기가 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+  elec_charge:    { name: '뇌전 그림자', desc: lv => `그림자 베기 · 잔영 베기가 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
   elec_special:   { name: '뇌격 받아치기', desc: lv => `받아치면 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
   poison_basic:   { name: '독날 쌍검' },
-  poison_charge:  { name: '독안개 연참', desc: lv => `연참 · 잔영 베기가 지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
+  poison_charge:  { name: '독안개 그림자', desc: lv => `그림자 베기 · 잔영 베기가 지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 받아치기', desc: lv => `받아치면 주변 적에게 독 ${1 + lv}중첩.` },
   atk_combo:      { name: '연속 베기' },
-  atk_spin:       { name: '연참 강화', desc: lv => `차지 시간 -${15 * lv}%, 연참 · 잔영 베기 거리 +${15 * lv}%.` },
-  atk_multispin:  { name: '그림자 분신', desc: lv => `연참 · 잔영 베기 뒤 그림자가 같은 길을 ${lv}번 더 벤다. 그림자 베기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
+  atk_spin:       { name: '그림자 베기 강화', desc: lv => `차지 시간 -${15 * lv}%, 그림자 베기 · 잔영 베기 거리 +${15 * lv}%.` },
+  atk_multispin:  { name: '그림자 분신', desc: lv => `그림자 베기 · 잔영 베기 뒤 그림자가 같은 길을 ${lv}번 더 벤다. 분신의 베기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_wave:       { name: '받아치기 강화', desc: lv => `막는 시간 +${(0.1 * lv).toFixed(1)}초, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
   atk_thrust:     { name: '선풍 강화', desc: lv => `선풍 베기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
   sharp:          { name: '날카로운 쌍검' },
   lifesteal:      { name: '흡혈 쌍검' },
-  guard_spin:     { name: '수호의 연참', desc: lv => `연참 · 잔영 베기가 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
+  guard_spin:     { name: '수호의 그림자', desc: lv => `그림자 베기 · 잔영 베기가 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
   heal_wave:      { name: '치유의 받아치기', desc: lv => `받아칠 때마다 체력 ${3 * lv} 회복.` },
 };
 
@@ -146,7 +147,7 @@ extendPlayer({
     Sfx.swing(fin);
     FX.onSwing(this, fin);
   },
-  // 그림자 연참 (차지): 앞으로 순식간에 지나가며 길 위의 적을 모두 벤다. 지나가는 동안 무적. 기세를 다 써서 한 칸마다 +20%
+  // 그림자 베기 (차지): 앞으로 순식간에 지나가며 길 위의 적을 모두 벤다. 지나가는 동안 무적. 기세를 다 써서 한 칸마다 +20%
   get rushLen() { return RUSH_LEN * (1 + 0.15 * FX.lv('atk_spin') + 0.03 * this.mastery('spin')); }, // 숙련 거리 +8% → +3% (2026-10-17)
   startRush(mag) {
     this.finisherT = 0;
@@ -156,7 +157,7 @@ extendPlayer({
     this.invuln = Math.max(this.invuln, RUSH_TIME + 0.1);
     this.atkCd = 0.45 + 0.1 * ms; this.charge = 0; this.comboT = 0;
     this.momentum = 0;
-    G.text(this.x, this.y - 24, mom ? `그림자 연참 · 기세 ${mom}` : '그림자 연참', '#ffd24a', 12, 0.6);
+    G.text(this.x, this.y - 24, mom ? `그림자 베기 · 기세 ${mom}` : '그림자 베기', '#ffd24a', 12, 0.6);
     Sfx.dash();
   },
   // 선분(x0,y0)-(x1,y1) 근처의 적을 벤다
@@ -170,7 +171,8 @@ extendPlayer({
       if (a.echo) this.counterT = 1; // 잔영 베기: 언제나 치명타 (deal 이 쓰고 지운다)
       this.deal(t, 'rush', fx, fy, { mult, kb });
       if (a.echo) { if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, PARRY_STUN); }
-      else if (!a.freed) { // 첫 적중: 반짝 + 푸른 원, 받아치기 무료
+      else if (!a.freed) {
+        this.invuln = Math.max(this.invuln, RUSH_TIME + RUSH_HIT_INV); // 맞히면 지나간 뒤에도 잠깐 무적 // 첫 적중: 반짝 + 푸른 원, 받아치기 무료
         a.freed = true; this.freeSpecialT = RUSH_FREE_T;
         G.fxRing(this.x, this.y, '#7fe0ff', 40); G.fxRing(this.x, this.y, '#ffffff', 22);
         G.burst(this.x, this.y - 4, 14, ['#ffffff', '#bff4ff', '#7fe0ff'], 200);
@@ -192,8 +194,8 @@ extendPlayer({
   },
   // 막았다: 피해 없이 반격. 공격한 적을 향해 직선으로 베고 지나간다 (지나가는 동안 · 도착한 뒤 잠깐 무적)
   // 길 위의 적은 모두 반격 치명타 + 기절, 기세 +2. 교차 받아치기는 주변 적도 함께 벤다
-  // 잔영 베기 = 그림자 연참 2단: 연참이 맞은 뒤 2초 안에 평타를 누르면 보는 방향으로 한 번 더 연참.
-  // 연참과 같은 동작이라 연참 축복(속성 연참 · 연참 강화 · 그림자 분신 · 수호의 연참)이 그대로 붙고, 언제나 치명타 + 기절 (2026-10-17)
+  // 잔영 베기 = 그림자 베기 2단: 연참이 맞은 뒤 2초 안에 평타를 누르면 보는 방향으로 한 번 더 그림자 베기.
+  // 연참과 같은 동작이라 그림자 베기 축복(속성 연참 · 연참 강화 · 그림자 분신 · 수호의 연참)이 그대로 붙고, 언제나 치명타 + 기절 (2026-10-17)
   startPursuit(mag) {
     this.freeSpecialT = 0; this.aim(mag);
     const ms = FX.lv('atk_multispin');
@@ -383,7 +385,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
 
 Object.assign(FX, {
   // ── 쌍검 ──
-  // 그림자 연참이 끝났을 때: 지나간 길에 불길 · 독안개, 끝난 자리 낙뢰, 수호의 연참
+  // 그림자 베기가 끝났을 때: 지나간 길에 불길 · 독안개, 끝난 자리 낙뢰, 수호의 연참
   onRush(p, x0, y0, x1, y1) {
     const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
     if (fc || pc) {
