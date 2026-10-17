@@ -18,7 +18,7 @@ const FACE_MIN = 0.35;
 // 자동 조준 고정: 방금 노린 적이 아직 범위 안이면, 다른 적이 이만큼 더 가깝지 않은 한 계속 그 적을 노린다
 const AIM_STICKY = 30;
 const SPEAR_AIM = { range: 110, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
-const ORB_AIM = { range: 170, half: AIM_HALF_ANGLE, moveHalf: 25 * Math.PI / 180 };
+const ORB_AIM = { range: 136, half: AIM_HALF_ANGLE, moveHalf: 25 * Math.PI / 180 };
 const RUSH_AIM = { range: 140, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 const THROW_AIM = { range: 200, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 
