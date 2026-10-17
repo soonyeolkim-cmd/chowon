@@ -64,10 +64,12 @@ const TEST_BUILDS = {
   throw: { weapon: 'spear', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
   // 투창 마스터: 피뢰 창(Lv5) · 투척 강화 · 과충전 · 치유의 회수 · 날카로운 창 · 급소 · 기습 (+ 투척 숙련 3)
   javelin: { weapon: 'spear', mastery: { wave: 3 }, boons: { elec_special: 5, atk_wave: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3, ambush: 3 } },
-  // 건틀릿 첫 손맛: 축복 없이 무기만 (숙련도 0)
-  gauntlet: { weapon: 'gauntlet', mastery: {}, boons: {} },
-  // 건틀릿 내려찍기 빌드: 화염 내려찍기 · 연속 내려찍기 · 내려찍기 강화 · 불꽃 주먹 · 연속 주먹 · 수호의 내려찍기
-  quake: { weapon: 'gauntlet', mastery: { spin: 3 }, boons: { fire_charge: 3, atk_multispin: 3, atk_spin: 3, fire_basic: 3, atk_combo: 3, guard_spin: 3, sharp: 3 } },
+  // 쌍검 첫 손맛: 축복 없이 무기만 (숙련도 0)
+  sai: { weapon: 'sai', mastery: {}, boons: {} },
+  // 쌍검 연참 빌드: 화염 연참 · 그림자 분신 · 연참 강화 · 불꽃 쌍검 · 연속 베기 · 수호의 연참
+  rush: { weapon: 'sai', mastery: { spin: 3 }, boons: { fire_charge: 3, atk_multispin: 3, atk_spin: 3, fire_basic: 3, atk_combo: 3, guard_spin: 3, sharp: 3 } },
+  // 쌍검 받아치기 빌드: 뇌격 받아치기 · 받아치기 강화 · 치유의 받아치기 · 급소
+  parry: { weapon: 'sai', mastery: { wave: 3 }, boons: { elec_special: 3, atk_wave: 3, heal_wave: 3, vital: 3, overcharge: 3, sharp: 3 } },
   bolt: { weapon: 'sword', mastery: { combo: 3 }, boons: { elec_basic: 3, elec_chain: 3, static: 3, overcharge: 3, atk_combo: 3, sharp: 3, vital: 3, ambush: 3 } },
 };
 const DEV_BUILD = DEV_LOCAL ? TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null : null;
@@ -99,6 +101,11 @@ const Meta = {
       normal1: d.normal1 !== false && !DEV_BUILD, // 로컬 일반 모드로 시작한 저장 표시
       essence: typeof d.essence === 'number' ? d.essence : Object.values(d.essence || {}).reduce((a, b) => a + b, 0),
     };
+    // 건틀릿은 쌍검으로 바뀌었다 (2026-10-17): 해금 · 장착 · 숙련을 그대로 옮긴다
+    { const D = this.data;
+      D.unlocked = D.unlocked.map(w => (w === 'gauntlet' ? 'sai' : w));
+      if (D.weapon === 'gauntlet') D.weapon = 'sai';
+      if (D.wup.gauntlet) { D.wup.sai = D.wup.sai || D.wup.gauntlet; delete D.wup.gauntlet; } }
     // 예전 구조(바깥 숲 1~3 / 깊은 숲 4~6, 13등급)에서 옮겨 온 저장: 등급 기록은 처음부터, 이미 받은 바깥 숲 증표는 세계 3 증표로 친다
     if (!this.data.tiers7) {
       const old = this.data.tierCleared;

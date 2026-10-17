@@ -537,8 +537,8 @@ const G = {
     this.chain++; this.chainT = 2.5; this.chainPulse = 0.15;
     this.maxChain = Math.max(this.maxChain, this.chain);
 
-    const big = !['light', 'wave', 'poke', 'spear', 'jab', 'shockwave'].includes(info.kind);
-    const ranged = info.kind === 'wave' || info.kind === 'spear' || info.kind === 'shockwave';
+    const big = !['light', 'wave', 'poke', 'spear', 'saiJab'].includes(info.kind);
+    const ranged = info.kind === 'wave' || info.kind === 'spear';
     this.hitstop = Math.max(this.hitstop, ranged ? 0.02 : info.crit || big || info.tip ? 0.065 : 0.04);
     this.shake = Math.max(this.shake, big ? 5 : 3);
     const label = info.counter ? '반격! ' + dmg : String(dmg);
@@ -606,6 +606,7 @@ const G = {
   hurtPlayer(dmg, src) {
     const p = this.player;
     if (!p.alive) return;
+    if (p.parryT > 0 && src) { p.parry(src); return; } // 쌍검 받아치기
     if (p.dashT > 0 || p.invuln > 0) {
       if (src.attacking && p.dodgeT > 0 && this.has('dodge')) this.perfectDodge();
       return;
@@ -615,7 +616,7 @@ const G = {
     if (!dmg) return;
     p.hp -= dmg; p.invuln = p.hurtT = 0.8;
     this.hintHurt(src);
-    if (p.momentum > 0) { p.momentum = 0; this.text(p.x, p.y - 30, '기세 끊김', '#c8b8a8', 10, 0.5); } // 건틀릿: 맞으면 기세가 사라진다
+    if (p.momentum > 0) { p.momentum = 0; this.text(p.x, p.y - 30, '기세 끊김', '#c8b8a8', 10, 0.5); } // 쌍검: 맞으면 기세가 사라진다
     const dx = p.x - src.x, dy = p.y - src.y, d = Math.hypot(dx, dy) || 1;
     p.kvx = dx / d * 220; p.kvy = dy / d * 220;
     p.act = null; p.charge = 0;
@@ -668,7 +669,7 @@ const G = {
     this.text(p.x, p.y - 28, '저스트 회피!', '#7fe0ff', 15, 1);
     // 창: 던진 창이 날아가는 중이면 바로 손으로 돌아온다 (쿨타임만 풀려서는 다시 못 던지니까)
     if (p.spearOut) { const sh = p.spearShot; sh.done = true; this.burst(sh.x, sh.y, 6, ['#7fe0ff', '#fff'], 90); this.burst(p.x, p.y - 4, 6, ['#7fe0ff', '#fff'], 90); }
-    const ready = { sword: '대시 · 검기 준비!', spear: '대시 · 투척 준비!', gauntlet: '대시 · 충격파 준비!' }[p.weaponId];
+    const ready = { sword: '대시 · 검기 준비!', spear: '대시 · 투척 준비!', sai: '대시 · 받아치기 준비!' }[p.weaponId];
     if (ready) this.text(p.x, p.y - 42, ready, '#bfefff', 11, 1);
     this.fxRing(p.x, p.y, '#7fe0ff', 60);
     Sfx.dodge(); Input.rumble(0.4, 120);
@@ -1220,8 +1221,10 @@ function drawTouchControls() {
   // 특수공격 (초승달 검기)
   ctx.globalAlpha = 1;
   padButton(B.special, p.specialCd, p.specialCdBase, '#4fc3ff', b => {
-    if (p.weaponId === 'gauntlet') { // 충격파: 겹친 호
-      for (const k of [0.3, 0.55]) { ctx.beginPath(); ctx.arc(b.x - b.r * 0.35, b.y, b.r * k, -0.8, 0.8); ctx.stroke(); }
+    if (p.weaponId === 'sai') { // 받아치기: 교차한 두 칼 + 막는 호
+      const q = b.r * 0.4;
+      ctx.beginPath(); ctx.moveTo(b.x - q, b.y + q); ctx.lineTo(b.x + q, b.y - q); ctx.moveTo(b.x + q, b.y + q); ctx.lineTo(b.x - q, b.y - q); ctx.stroke();
+      ctx.beginPath(); ctx.arc(b.x, b.y + q * 0.4, q * 1.5, -2.4, -0.7); ctx.stroke();
     } else if (p.weaponId === 'spear') { // 창 투척: 화살표
       const q = b.r * 0.45;
       ctx.beginPath(); ctx.moveTo(b.x - q, b.y + q); ctx.lineTo(b.x + q, b.y - q);
@@ -1609,23 +1612,23 @@ function boonSortKey(b) {
 }
 // 동작 · 속성 그림 (cx, cy 중심, s = 반 크기)
 function drawBoonGlyph(b, cx, cy, s, col) {
-  const g = ctx, spear = G.player && G.player.weaponId === 'spear', fist = G.player && G.player.weaponId === 'gauntlet';
+  const g = ctx, spear = G.player && G.player.weaponId === 'spear', sai = G.player && G.player.weaponId === 'sai';
   g.save(); g.translate(cx, cy); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = Math.max(1.5, s * 0.22); g.lineCap = 'round'; g.lineJoin = 'round';
   const line = (x1, y1, x2, y2) => { g.beginPath(); g.moveTo(x1 * s, y1 * s); g.lineTo(x2 * s, y2 * s); g.stroke(); };
   const kind = b.slot || (b.needs ? 'plus' : b.duo ? 'duo' : b.el);
   if (kind === 'basic' || kind === 'plus') {
-    if (fist) { g.beginPath(); g.arc(0.05 * s, 0, 0.55 * s, 0, Math.PI * 2); g.stroke(); line(-0.25, -0.2, 0.35, -0.2); line(-0.25, 0.15, 0.35, 0.15); line(-0.95, -0.35, -0.6, -0.35); line(-0.95, 0.3, -0.6, 0.3); } // 주먹 + 속도선
+    if (sai) { line(-0.7, 0.7, 0.7, -0.7); line(0.7, 0.7, -0.7, -0.7); line(-0.65, 0.25, -0.25, 0.65); line(0.65, 0.25, 0.25, 0.65); } // 교차한 쌍검
     else if (spear) { line(-0.75, 0.75, 0.55, -0.55); g.beginPath(); g.moveTo(0.8 * s, -0.8 * s); g.lineTo(0.3 * s, -0.55 * s); g.lineTo(0.55 * s, -0.3 * s); g.closePath(); g.fill(); }
     else { line(-0.6, 0.6, 0.75, -0.75); line(-0.55, 0.15, -0.15, 0.55); line(-0.8, 0.8, -0.55, 0.55); } // 칼날 · 손잡이 가드
     if (kind === 'plus') { g.lineWidth = Math.max(1.5, s * 0.2); line(0.35, 0.45, 0.85, 0.45); line(0.6, 0.2, 0.6, 0.7); }
-  } else if (kind === 'charge' && fist) { // 내려찍기: 아래 화살표 + 땅
-    line(0, -0.85, 0, 0.25); g.beginPath(); g.moveTo(-0.4 * s, 0); g.lineTo(0.4 * s, 0); g.lineTo(0, 0.45 * s); g.closePath(); g.fill(); line(-0.9, 0.75, 0.9, 0.75);
+  } else if (kind === 'charge' && sai) { // 그림자 연참: 잔상 셋 + 칼끝
+    line(-0.9, 0, 0.55, 0); g.beginPath(); g.moveTo(0.9 * s, 0); g.lineTo(0.45 * s, -0.3 * s); g.lineTo(0.45 * s, 0.3 * s); g.closePath(); g.fill(); line(-0.8, -0.45, -0.2, -0.45); line(-0.8, 0.45, -0.2, 0.45);
   } else if (kind === 'charge') { // 회전 화살표
     g.beginPath(); g.arc(0, 0, 0.62 * s, -Math.PI * 0.15, Math.PI * 1.45); g.stroke();
     const a = -Math.PI * 0.15, ax = Math.cos(a) * 0.62 * s, ay = Math.sin(a) * 0.62 * s;
     g.beginPath(); g.moveTo(ax + 0.32 * s, ay - 0.1 * s); g.lineTo(ax - 0.05 * s, ay - 0.35 * s); g.lineTo(ax - 0.05 * s, ay + 0.2 * s); g.closePath(); g.fill();
   } else if (kind === 'special') {
-    if (fist) { for (const k of [0.45, 0.8]) { g.beginPath(); g.arc(-0.6 * s, 0, k * s * 1.1, -0.75, 0.75); g.stroke(); } } // 충격파
+    if (sai) { g.beginPath(); g.arc(0, 0.25 * s, 0.75 * s, -2.5, -0.65); g.stroke(); line(-0.45, 0.6, 0.45, -0.2); line(0.45, 0.6, -0.45, -0.2); } // 받아치기
     else if (spear) { line(-0.8, 0.1, 0.5, 0.1); g.beginPath(); g.moveTo(0.85 * s, 0.1 * s); g.lineTo(0.4 * s, -0.2 * s); g.lineTo(0.4 * s, 0.4 * s); g.closePath(); g.fill(); line(-0.8, -0.35, -0.3, -0.35); line(-0.8, 0.55, -0.4, 0.55); }
     else { g.beginPath(); g.arc(-0.45 * s, 0, 0.95 * s, -0.95, 0.95); g.stroke(); g.lineWidth *= 0.6; g.beginPath(); g.arc(-0.8 * s, 0, 0.95 * s, -0.8, 0.8); g.stroke(); } // 초승달 검기
   } else if (kind === 'dash') { // 속도선 + 꺾쇠

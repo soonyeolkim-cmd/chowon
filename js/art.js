@@ -72,6 +72,9 @@ const ART_FILES = {
   sword:     'Items/Weapons/Sword/Sprite.png',
   spear:     'Items/Weapons/Lance/Sprite.png',
   slash:     'FX/Attack/SlashCurved/SpriteSheet.png',
+  sai:       'Items/Weapons/Sai/Sprite.png',
+  cutX:      'FX/Attack/CutX/SpriteSheet.png',          // 쌍검 3타째 X자 베기 (32x32 4장)
+  circSlash: 'FX/Attack/CircularSlash/SpriteSheet.png', // 쌍검 선풍 베기
   smoke:     'FX/Smoke/Smoke/SpriteSheet.png',
   floor:     'Backgrounds/Tilesets/TilesetFloor.png',
   water:     'Backgrounds/Tilesets/TilesetWater.png',

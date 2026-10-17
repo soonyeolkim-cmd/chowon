@@ -87,15 +87,15 @@ const WEAPONS = {
     ],
   },
 
-  // 건틀릿: 초근접 연타 + 기세. 가장 빠르고 가장 짧다. 붙어서 계속 때려야 강해지고, 맞으면 기세가 날아간다
-  gauntlet: {
-    name: '바위 정령의 건틀릿',
-    style: '돌격형 · 초근접 연타와 기세, 사거리가 가장 짧음',
+  // 쌍검(사이): 가장 빠른 연타 + 기세. 사거리가 가장 짧고, 강한 한 방은 받아치기 타이밍에 달렸다 (2026-10-17, 건틀릿을 대신함)
+  sai: {
+    name: '정령의 쌍검',
+    style: '연타형 · 가장 빠른 쌍검 연타와 기세, 받아치기 · 사거리가 가장 짧음',
     essence: '무기의 정수',
     unlockCost: 1,
-    moves: { basic: '3연타', charged: '바위 내려찍기', special: '충격파', dashAttack: '올려치기' },
+    moves: { basic: '3연타', charged: '그림자 연참', special: '받아치기', dashAttack: '선풍 베기' },
     chargeTime: 0.55,
-    specialCd: 3.5,
+    specialCd: 3.0,
     cdPerLv: 0.4, cdPerMastery: 0.3, cdFloor: 1.5,
     speedMult: 1,
     dashCharges: 3,
@@ -103,43 +103,45 @@ const WEAPONS = {
     dashCdMult: 0.8 / DASH_CD, // 대시 1칸 충전 0.8초 · 3회 · 거리는 짧다
     skillCd: 0,
     basic: (p, mag) => p.startJab(mag),
-    basicAfterDash: p => p.startUpper(),
-    charged: (p, mag) => p.startSlam(mag),
-    special: (p, mag) => p.castShock(mag),
+    basicAfterDash: p => p.startWhirl(),
+    charged: (p, mag) => p.startRush(mag),
+    special: (p, mag) => p.startParry(mag),
     skill: null,
     rows: (A, P, D) => [
-      ['기본 · 3연타', `${A} ${A} ${A}`, '아주 빠르지만 짧다 · 3타째 가드 브레이크'],
+      ['기본 · 3연타', `${A} ${A} ${A}`, '아주 빠르지만 짧다 · 3타째 X자 베기 · 가드 브레이크'],
       ['기세', '기본공격을 맞힐 때마다 +1 (최대 5)', `한 칸마다 공격 · 이동 속도 +5% · ${MOMENTUM_TIME}초 못 때리거나 맞으면 0`],
-      ['차지 · 바위 내려찍기', `${A} 길게 눌렀다 떼기`, '앞쪽 땅을 내려쳐 기절 · 기세를 다 써서 한 칸마다 +20%'],
-      ['특수 · 충격파', `${P} (쿨타임 3.5초)`, '앞쪽 부채꼴을 크게 밀어낸다 · 날아오는 공격도 지운다'],
-      ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.gauntlet.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
-      ['올려치기', `${D} → ${A}`, '한 명을 띄워 기절 · 가드 브레이크', 'thrust'],
+      ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20%'],
+      ['특수 · 받아치기', `${P} (쿨타임 3초)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2'],
+      ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.sai.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
+      ['선풍 베기', `${D} → ${A}`, '한 바퀴 돌며 주변을 벤다', 'thrust'],
       ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 반격 치명타', 'dodge'],
-      ['삼중 충격파', `3타째 직후 ${P}`, '더 넓고 멀리', 'triple'],
+      ['교차 받아치기', `3타째 직후 ${P}`, '막는 시간 0.6초 · 반격이 주변 적 모두에게', 'triple'],
     ],
-    shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 밀어치기나 내려찍기 · 올려치기는 방패를 깨요. 뒤로 돌아가도 돼요.',
+    shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 X자 베기나 그림자 연참은 방패를 깨요. 받아치기로 공격을 막아도 기절해요.',
     mastery: [
-      { id: 'combo',  name: '연타 숙련',       max: 3, cost: [2, 4, 7], desc: lv => `3타째 밀어치기 피해 +${15 * lv}%` },
-      { id: 'spin',   name: '내려찍기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 내려찍기 범위 +${8 * lv}%` },
-      { id: 'wave',   name: '충격파 숙련',     max: 3, cost: [3, 5, 8], desc: lv => `충격파 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 1.5초)` },
-      { id: 'thrust', name: '올려치기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `올려치기 피해 +${20 * lv}%` },
+      { id: 'combo',  name: '교차 베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `3타째 X자 베기 피해 +${15 * lv}%` },
+      { id: 'spin',   name: '그림자 연참 숙련', max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 연참 거리 +${8 * lv}%` },
+      { id: 'wave',   name: '받아치기 숙련',    max: 3, cost: [3, 5, 8], desc: lv => `받아치기 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 1.5초)` },
+      { id: 'thrust', name: '선풍 베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `선풍 베기 피해 +${20 * lv}%` },
     ],
   },
 };
 
-// 건틀릿 수치 (2026-10-17)
-const FIST_REACH = 30;          // 잽 사거리 (검 37 · 창 74) — 가장 짧다
-const FIST_FIN_REACH = 34;      // 3타째 밀어치기
+// 쌍검 수치 (2026-10-17)
+const SAI_REACH = 32;           // 찌르기 사거리 (검 37 · 창 74) — 가장 짧다
+const SAI_FIN_REACH = 36;       // 3타째 X자 베기
 const MOMENTUM_MAX = 5;         // 기세 최대 칸
 const MOMENTUM_SPEED = 0.05;    // 기세 한 칸마다 공격 · 이동 속도 +5%
 const MOMENTUM_TIME = 1.5;      // 이 시간 동안 기본공격을 못 맞히면 기세가 사라진다
-const MOMENTUM_SLAM = 0.2;      // 내려찍기가 기세를 다 써서 한 칸마다 피해 +20%
-const SLAM_R = 60;              // 내려찍기 반경
-const SLAM_OFF = 30;            // 내려찍기 중심: 앞으로 이만큼
-const SLAM_STUN = 0.5;          // 내려찍기 기절 (보스 제외)
-const SHOCK_RANGE = 100;        // 충격파 사거리
-const SHOCK_HALF = Math.PI / 4; // 충격파 부채꼴 (앞쪽 90도)
-const UPPER_STUN = 0.6;         // 올려치기 기절 (보스 제외)
+const MOMENTUM_RUSH = 0.2;      // 그림자 연참이 기세를 다 써서 한 칸마다 피해 +20%
+const RUSH_LEN = 110;           // 그림자 연참 거리
+const RUSH_TIME = 0.16;         // 그림자 연참으로 지나가는 시간 (무적)
+const RUSH_WIDTH = 16;          // 연참 판정 폭
+const PARRY_TIME = 0.4;         // 받아치기 막는 시간
+const PARRY_TRIPLE = 0.6;       // 3타째 직후 교차 받아치기
+const PARRY_STUN = 0.8;         // 반격에 맞은 적 기절 (보스 제외)
+const PARRY_WIDE_R = 70;        // 교차 받아치기 반격 범위
+const WHIRL_R = 40;             // 선풍 베기 반경
 
 // 창 수치
 const SPEAR_REACH = 74;        // 찌르기 길이 (검 3타째 46)
@@ -158,5 +160,5 @@ const SPEAR_SPEED = 1.1;       // 창 공격 속도 배율 (찌르기 · 투척 
 const WALL_SLAM_MULT = 0.8;    // 벽꿍 추가 피해 (공격력 배율)
 
 // 마을 무기고에 보이는 순서. 아직 만들지 않은 무기는 '준비 중'으로 표시된다.
-const WEAPON_ORDER = ['sword', 'spear', 'gauntlet'];
+const WEAPON_ORDER = ['sword', 'spear', 'sai'];
 const UPCOMING_WEAPONS = []; // 해금 비용: 영웅의 증표

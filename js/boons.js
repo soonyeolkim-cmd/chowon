@@ -167,32 +167,32 @@ const BOON_FORMS = {
     guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
     heal_wave:      { name: '치유의 회수', desc: lv => `돌아오는 창에 맞은 적 하나마다 체력 ${lv} 회복.` },
   },
-  // 건틀릿: 기본 = 3연타, 차지 = 바위 내려찍기, 특수 = 충격파, 대시 공격 = 올려치기
-  gauntlet: {
-    fire_basic:     { name: '불꽃 주먹' },
-    fire_bolt:      { name: '화염탄 주먹', desc: lv => `주먹을 뻗을 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
-    fire_charge:    { name: '화염 내려찍기', desc: lv => `내려찍기에 맞은 적에게 화상 2중첩, 내려찍은 자리에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
-    fire_special:   { name: '작열 충격파', desc: lv => `충격파에 맞은 적이 폭발한다. 주변에 공격력의 ${pct(0.6 + 0.3 * lv)} 피해 + 화상.` },
-    ice_basic:      { name: '서리 주먹' },
-    ice_shard:      { name: '얼음 파편 주먹', desc: lv => `주먹을 뻗을 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
-    ice_charge:     { name: '빙결 내려찍기', desc: lv => `내려찍기에 맞은 적에게 냉기 ${1 + lv}중첩.` },
-    ice_special:    { name: '서리 충격파', desc: lv => `충격파에 맞은 적에게 냉기 ${1 + lv}중첩, 충격파가 지나간 땅이 얼어붙는다.` },
-    elec_basic:     { name: '번개 주먹' },
-    elec_chain:     { name: '연쇄 번개 주먹' },
-    elec_charge:    { name: '뇌전 내려찍기', desc: lv => `내려찍은 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-    elec_special:   { name: '뇌격 충격파', desc: lv => `충격파에 맞은 적마다 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
-    poison_basic:   { name: '독 주먹' },
-    poison_charge:  { name: '독안개 내려찍기', desc: lv => `내려찍은 자리에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
-    poison_special: { name: '독 충격파', desc: lv => `충격파에 맞은 적에게 독 ${1 + lv}중첩.` },
-    atk_combo:      { name: '연속 주먹' },
-    atk_spin:       { name: '내려찍기 강화', desc: lv => `차지 시간 -${15 * lv}%, 내려찍기 범위 +${15 * lv}%.` },
-    atk_multispin:  { name: '연속 내려찍기', desc: lv => `내려찍은 뒤 여진이 ${lv}번 더 퍼진다 (점점 넓게). 여진은 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
-    atk_wave:       { name: '거대 충격파', desc: lv => `충격파 사거리 +${25 * lv}%, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
-    atk_thrust:     { name: '올려치기 강화', desc: lv => `올려치기 피해 +${40 * lv}%.` },
-    sharp:          { name: '단단한 주먹' },
-    lifesteal:      { name: '흡혈 주먹' },
-    guard_spin:     { name: '수호의 내려찍기', desc: lv => `내려찍기 중 무적, 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
-    heal_wave:      { name: '치유의 충격파', desc: lv => `충격파에 맞은 적 하나마다 체력 ${lv} 회복.` },
+  // 쌍검: 기본 = 3연타, 차지 = 그림자 연참, 특수 = 받아치기, 대시 공격 = 선풍 베기
+  sai: {
+    fire_basic:     { name: '불꽃 쌍검' },
+    fire_bolt:      { name: '화염구 연타', desc: lv => `찌를 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
+    fire_charge:    { name: '화염 연참', desc: lv => `연참에 베인 적에게 화상 2중첩, 지나간 길에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
+    fire_special:   { name: '작열 받아치기', desc: lv => `받아치면 주변이 폭발한다. 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
+    ice_basic:      { name: '서리 쌍검' },
+    ice_shard:      { name: '얼음 파편 연타', desc: lv => `찌를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
+    ice_charge:     { name: '빙결 연참', desc: lv => `연참에 베인 적에게 냉기 ${1 + lv}중첩.` },
+    ice_special:    { name: '서리 받아치기', desc: lv => `받아치면 주변 적에게 냉기 ${1 + lv}중첩, 발밑이 얼어붙는다.` },
+    elec_basic:     { name: '번개 쌍검' },
+    elec_chain:     { name: '연쇄 번개 쌍검' },
+    elec_charge:    { name: '뇌전 연참', desc: lv => `연참이 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+    elec_special:   { name: '뇌격 받아치기', desc: lv => `받아치면 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
+    poison_basic:   { name: '독날 쌍검' },
+    poison_charge:  { name: '독안개 연참', desc: lv => `지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
+    poison_special: { name: '독 받아치기', desc: lv => `받아치면 주변 적에게 독 ${1 + lv}중첩.` },
+    atk_combo:      { name: '연속 베기' },
+    atk_spin:       { name: '연참 강화', desc: lv => `차지 시간 -${15 * lv}%, 연참 거리 +${15 * lv}%.` },
+    atk_multispin:  { name: '그림자 분신', desc: lv => `연참 뒤 그림자가 같은 길을 ${lv}번 더 벤다. 그림자 베기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
+    atk_wave:       { name: '받아치기 강화', desc: lv => `막는 시간 +${(0.1 * lv).toFixed(1)}초, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
+    atk_thrust:     { name: '선풍 강화', desc: lv => `선풍 베기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
+    sharp:          { name: '날카로운 쌍검' },
+    lifesteal:      { name: '흡혈 쌍검' },
+    guard_spin:     { name: '수호의 연참', desc: lv => `연참이 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
+    heal_wave:      { name: '치유의 받아치기', desc: lv => `받아칠 때마다 체력 ${3 * lv} 회복.` },
   },
 };
 const curWeapon = () => (G.player ? G.player.weaponId : Meta.data ? Meta.data.weapon : 'sword');
@@ -502,7 +502,7 @@ const FX = {
         const pss = this.lv('poison_spray');
         if (pss && info.tip && !t.dead) this.poison(t, 1 + pss);
       }
-    } else if (kind === 'spin' || kind === 'lunge' || kind === 'slam') {
+    } else if (kind === 'spin' || kind === 'lunge' || kind === 'rush') {
       if (this.lv('fire_charge')) this.burn(t, 2);
       const ic = this.lv('ice_charge');
       if (ic) this.chill(t, 1 + ic);
@@ -517,7 +517,7 @@ const FX = {
       if (pspc && !t.dead) this.poison(t, 1 + pspc);
       const hw = this.lv('heal_wave'), p = G.player;
       if (hw && info.back && p.alive) p.hp = Math.min(p.maxHp, p.hp + hw);
-    } else if (kind === 'wave' || kind === 'shockwave') {
+    } else if (kind === 'wave') {
       const es = this.lv('elec_special');
       if (es) this.skyBolt(t, atk * (0.8 + 0.4 * es));
       const fs = this.lv('fire_special');
@@ -623,37 +623,39 @@ const FX = {
       for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
     }
   },
-  // ── 건틀릿 ──
-  // 내려찍기를 시작할 때: 수호의 내려찍기
-  onSlamStart(p) {
-    const gs = this.lv('guard_spin');
-    if (gs) { p.invuln = Math.max(p.invuln, p.act.dur0 + 0.05); p.spinGuardT = p.act.dur0 + 0.5 + 0.5 * gs; }
-  },
-  // 주먹이 땅에 닿은 자리 (x, y), 반경 r: 불길 · 독안개 · 낙뢰
-  onSlam(p, x, y, r) {
+  // ── 쌍검 ──
+  // 그림자 연참이 끝났을 때: 지나간 길에 불길 · 독안개, 끝난 자리 낙뢰, 수호의 연참
+  onRush(p, x0, y0, x1, y1) {
     const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
     if (fc || pc) {
-      if (pc) this.zone(x, y + 4, 'poison', 2 + 0.5 * pc);
-      for (let i = 0; i < 8; i++) {
-        const a = i / 8 * Math.PI * 2, d = r * 0.55;
-        if (fc) this.zone(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8 + 4, 'fire', 1.5 + 0.5 * fc);
-        if (pc) this.zone(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8 + 4, 'poison', 2 + 0.5 * pc);
+      const L = Math.hypot(x1 - x0, y1 - y0) || 1;
+      for (let d = 0; d <= L; d += 16) {
+        const zx = x0 + (x1 - x0) * d / L, zy = y0 + (y1 - y0) * d / L + 4;
+        if (fc) this.zone(zx, zy, 'fire', 1.5 + 0.5 * fc);
+        if (pc) this.zone(zx, zy, 'poison', 2 + 0.5 * pc);
       }
     }
     const ec = this.lv('elec_charge');
     if (ec) {
-      const list = this.near(x, y, r + 50).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, 2 + ec);
+      const list = this.near(x1, y1, 110).sort((a, b) => Math.hypot(a.x - x1, a.y - y1) - Math.hypot(b.x - x1, b.y - y1)).slice(0, 2 + ec);
       for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
     }
+    const gs = this.lv('guard_spin');
+    if (gs) p.spinGuardT = 0.5 + 0.5 * gs;
   },
-  // 충격파를 쏠 때: 서리 충격파는 지나간 땅을 얼린다
-  onShock(p, range, half) {
+  // 받아치기에 성공했을 때: 주변 폭발 · 냉기 · 낙뢰 · 독, 치유
+  onParry(p) {
+    const atk = p.atk, x = p.x, y = p.y;
+    const fs = this.lv('fire_special');
+    if (fs) this.explode(x, y, 70, atk * (0.8 + 0.4 * fs), '#ff7a3c', true);
     const is = this.lv('ice_special');
-    if (!is) return;
-    for (const o of [-half * 0.6, 0, half * 0.6]) {
-      const c = Math.cos(p.facing + o), s = Math.sin(p.facing + o);
-      for (let d = 24; d <= range; d += 22) this.zone(p.x + c * d, p.y + s * d + 4, 'ice', 1.5 + 0.5 * is);
-    }
+    if (is) { for (const e of this.near(x, y, 70)) this.chill(e, 1 + is); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; this.zone(x + Math.cos(a) * 22, y + 4 + Math.sin(a) * 16, 'ice', 1.5 + 0.5 * is); } }
+    const es = this.lv('elec_special');
+    if (es) { const list = this.near(x, y, 120).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, 2 + es); for (const e of list) this.skyBolt(e, atk * (0.8 + 0.4 * es)); }
+    const ps = this.lv('poison_special');
+    if (ps) for (const e of this.near(x, y, 70)) this.poison(e, 1 + ps);
+    const hw = this.lv('heal_wave');
+    if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + 3 * hw);
   },
 
   // 던진 창이 가장 멀리 간 지점
@@ -781,8 +783,8 @@ const FX = {
   // 공격 쪽 배율들 (Player 가 사용)
   damageMult(p, kind, t) {
     let m = 1 + 0.1 * this.lv('sharp');
-    if (kind === 'finisher' || kind === 'pokeFin' || kind === 'jabFin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
-    if (kind === 'thrust' || kind === 'sweep' || kind === 'upper') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
+    if (kind === 'finisher' || kind === 'pokeFin' || kind === 'saiFin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
+    if (kind === 'thrust' || kind === 'sweep' || kind === 'whirl') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
     const am = this.lv('ambush');
     if (am && t && offGuard(t, p)) { m *= 1 + 0.1 + 0.2 * am; t.ambushHit = true; } // 기습: 옆 · 뒤에서, 또는 무방비
