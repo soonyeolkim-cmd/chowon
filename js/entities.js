@@ -56,7 +56,9 @@ const MOVES = {
 };
 // 회전 연참(공격 축복): 회전베기 추가 타격의 피해 배율
 const MULTISPIN_MULT = 0.5;
-const STEP_MIN = 0.2; // 이보다 약한 방향 입력이면 기본공격 때 앞으로 나가지 않는다
+// 이보다 약한 방향 입력이면 기본공격 때 앞으로 나가지 않는다. 전진하는 매 프레임 다시 본다
+// (패드 스틱은 손을 떼도 몇 프레임 동안 기울어진 값이 남아서, 시작할 때만 보면 서서 쳐도 나가 버린다)
+const STEP_MIN = 0.5;
 const BASIC_KINDS = ['light', 'finisher', 'thrust', 'poke', 'pokeFin', 'sweep'];
 const DASH_CD = 0.7;        // 대시 1회 충전 시간 (초, 모든 무기 공통)
 const DASH_CHARGES = 2;     // 기본 대시 충전 횟수 (연속 대시)
@@ -117,6 +119,7 @@ class Player {
     this.bufferInput(inp);
     applyKnockback(this, dt);
     const mag = Math.min(1, Math.hypot(inp.mx, inp.my));
+    this.inMag = mag;
 
     // 차지: 기본공격을 누르고 있으면 기를 모으고, 다 모은 뒤 떼면 차지공격 (검: 회전베기)
     if (inp.attackHeld && this.weapon.charged && !this.spearOut) {
@@ -399,7 +402,7 @@ class Player {
   updateAct(dt) {
     const a = this.act, fx = Math.cos(this.facing), fy = Math.sin(this.facing);
     if (a.kind === 'poke' || a.kind === 'pokeFin') {
-      if (a.t < a.dur * 0.4 && !a.noStep) World.move(this, fx * 60 * dt, fy * 60 * dt);
+      if (a.t < a.dur * 0.4 && !a.noStep && this.inMag >= STEP_MIN) World.move(this, fx * 60 * dt, fy * 60 * dt);
       if (a.t > a.dur * 0.2) this.hitSpear(a, a.len, SPEAR_WIDTH, SPEAR_PIERCE);
       return;
     }
@@ -422,7 +425,7 @@ class Player {
       return;
     }
     if (a.kind === 'light' || a.kind === 'finisher') {
-      if (a.t < a.dur * 0.5 && !a.noStep) World.move(this, fx * 130 * dt, fy * 130 * dt);
+      if (a.t < a.dur * 0.5 && !a.noStep && this.inMag >= STEP_MIN) World.move(this, fx * 130 * dt, fy * 130 * dt);
       this.hitArc(a, a.range, a.half);
     } else if (a.kind === 'thrust') {
       const sp = 300 * (1 + 0.15 * FX.lv('atk_thrust'));
