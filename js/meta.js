@@ -125,6 +125,11 @@ const Meta = {
       totShards: d.totShards ?? e.shards, totEssence: d.totEssence ?? e.essence, totEmblems: d.totEmblems ?? e.emblems,
     };
   },
+  // 프로필 지우기: 그 칸의 저장을 없앤다. 지금 불러온 칸이면 빈 상태로 다시 불러 둔다
+  wipe(n) {
+    store.del(slotKey(n));
+    if (n === this.slot) { this.load(n); store.del(slotKey(n)); }
+  },
   load(slot) {
     this.slot = clamp(slot || +store.get('slot') || 1, 1, SAVE_SLOTS);
     let d = store.get(slotKey(this.slot)) || {};

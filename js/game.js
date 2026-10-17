@@ -130,6 +130,7 @@ const SAVE_PREFIX = TEST_SAVE ? 'swordsman.test.' : 'swordsman.';
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(SAVE_PREFIX + k)); } catch (_) { return null; } },
   set(k, v) { try { localStorage.setItem(SAVE_PREFIX + k, JSON.stringify(v)); } catch (_) {} },
+  del(k) { try { localStorage.removeItem(SAVE_PREFIX + k); } catch (_) {} },
 };
 
 // 세계마다 다른 세력. 원거리(투사체) 몬스터 비중이 높다.
@@ -2272,7 +2273,9 @@ function profileLayout() {
   const n = SAVE_SLOTS, gap = 12, avail = W - inset.l - inset.r - 32;
   const w = Math.min(230, (avail - gap * (n - 1)) / n), h = Math.min(250, H - inset.t - inset.b - 120);
   const x0 = (W - (w * n + gap * (n - 1))) / 2, y = Math.max(inset.t + 64, (H - h) / 2);
-  const cards = Array.from({ length: n }, (_, i) => ({ x: x0 + i * (w + gap), y, w, h }));
+  const cards = Array.from({ length: n }, (_, i) => ({ x: x0 + i * (w + gap), y, w, h, del: { x: x0 + i * (w + gap) + w - 28, y: y + 6, w: 22, h: 22 } }));
+  const bw = 120, by = H / 2 + 20;
+  cards.ask = [{ x: W / 2 - bw - 8, y: by, w: bw, h: 38, name: '지우기' }, { x: W / 2 + 8, y: by, w: bw, h: 38, name: '취소' }];
   cards.back = { x: W / 2 - 70, y: y + h + 12, w: 140, h: 30 };
   return cards;
 }
@@ -2282,11 +2285,24 @@ function handleProfileInput(dt, inp) {
   m.t += dt;
   if (m.t < 0.2) return;
   const { dx, dy } = menuAxis(m, inp, dt);
-  if (dx || dy) { m.sel = stepSel(m.sel, dx || dy, SAVE_SLOTS); Sfx.pickup(); }
   const L = profileLayout();
+  if (m.ask !== undefined) { // 프로필 지우기 확인: 기본은 취소
+    if (dx) { m.askSel = m.askSel ? 0 : 1; Sfx.pickup(); }
+    let pick = null;
+    if (inp.tap) { const i = L.ask.findIndex(r => inRectPt(inp.tap, r)); if (i >= 0) pick = i; }
+    else if (inp.confirm) pick = m.askSel;
+    if (pick === 0) { Meta.wipe(m.ask + 1); Sfx.block(); m.msg = `프로필 ${m.ask + 1}${m.ask === 1 ? "를" : "을"} 지웠어요`; m.ask = undefined; }
+    else if (pick === 1 || inp.back) { m.ask = undefined; Sfx.pickup(); }
+    return;
+  }
+  if (dx || dy) { m.sel = stepSel(m.sel, dx || dy, SAVE_SLOTS); Sfx.pickup(); }
+  const askDel = i => { if (!Meta.summary(i + 1)) return; m.sel = i; m.ask = i; m.askSel = 1; Sfx.pickup(); };
+  if (inp.reroll) { askDel(m.sel); return; } // 키보드 특수 키 · 패드 Y
   let pick = null;
   if (inp.tap) {
     if (inRectPt(inp.tap, L.back)) { G.state = 'title'; G.titleT = 0; Sfx.pickup(); return; }
+    const di = L.findIndex(r => inRectPt(inp.tap, r.del));
+    if (di >= 0 && Meta.summary(di + 1)) { askDel(di); return; }
     const i = L.findIndex(r => inRectPt(inp.tap, r));
     if (i >= 0) pick = i;
   } else if (inp.confirm) pick = m.sel;
@@ -2306,6 +2322,10 @@ function drawProfiles(blink) {
     const foot = (t, c) => label(t, cx, r.y + r.h - 18, 13, sel && blink ? '#ffd24a' : c, 'center', '800');
     if (!s) { label('비어 있음', cx, r.y + r.h / 2, 14, '#8a96a0', 'center', '700'); foot('새 모험 시작', '#ccd'); return; }
     const stageLabel = i => (i > STAGES_PER_WORLD * FINAL_STAGE ? '완주' : stageLabelRaw(i)); // 31 = 끝까지 깸
+    const db = r.del; // 지우기 버튼
+    ctx.fillStyle = 'rgba(120,40,30,0.75)'; ctx.fillRect(db.x, db.y, db.w, db.h);
+    ctx.strokeStyle = 'rgba(255,160,140,0.6)'; ctx.lineWidth = 1; ctx.strokeRect(db.x + 0.5, db.y + 0.5, db.w - 1, db.h - 1);
+    label('✕', db.x + db.w / 2, db.y + db.h / 2 + 1, 12, '#ffd0c8', 'center', '900');
     const best = s.best ? stageLabel(s.best) + (s.bestEasy ? ` (쉬움 ${stageLabel(s.bestEasy)})` : '') : s.bestEasy ? `쉬움 ${stageLabel(s.bestEasy)}` : '-';
     const rows = [
       ['최고 기록', best], ['완주', `${s.clears}회`], ['도전', `${s.runs}회`], ['플레이 시간', fmtPlay(s.playT)],
@@ -2326,8 +2346,21 @@ function drawProfiles(blink) {
   ctx.fillStyle = 'rgba(20,26,34,0.85)'; ctx.fillRect(b.x, b.y, b.w, b.h);
   ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
   label('← 처음 화면', b.x + b.w / 2, b.y + b.h / 2, 12, '#ccd', 'center', '700');
+  if (m.msg) label(m.msg, W / 2, L[0].y - 12, 12, '#ffb0a0', 'center', '700');
+  if (m.ask !== undefined) { // 지우기 확인 창
+    overlay(0.88);
+    label(`프로필 ${m.ask + 1}${m.ask === 1 ? "를" : "을"} 지울까요?`, W / 2, H / 2 - 36, 20, '#fff', 'center', '800');
+    label('모은 자원 · 강화 · 해금 · 기록이 모두 사라지고 되돌릴 수 없어요', W / 2, H / 2 - 8, 12, '#ff9a7a', 'center', '700');
+    L.ask.forEach((r, i) => {
+      const sel = m.askSel === i;
+      ctx.fillStyle = sel ? (i ? '#3f8a3b' : '#9a3a2a') : 'rgba(30,36,48,0.95)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+      label(r.name, r.x + r.w / 2, r.y + r.h / 2, 15, '#fff', 'center', '800');
+    });
+    return;
+  }
   const d = Input.state.device;
-  if (d !== 'touch' && b.y + b.h + 14 < H - inset.b - 4) label(d === 'gamepad' ? '←→ 고르기 · A 결정 · B 돌아가기' : '←→ 고르기 · Enter/Z 결정 · Esc 돌아가기', W / 2, b.y + b.h + 14, 12, '#aab', 'center', '600');
+  if (d !== 'touch' && b.y + b.h + 14 < H - inset.b - 4) label(d === 'gamepad' ? '←→ 고르기 · A 결정 · Y 지우기 · B 돌아가기' : '←→ 고르기 · Enter/Z 결정 · 특수 키 지우기 · Esc 돌아가기', W / 2, b.y + b.h + 14, 12, '#aab', 'center', '600');
 }
 function overlay(alpha) { ctx.fillStyle = `rgba(5,12,5,${alpha})`; ctx.fillRect(0, 0, W, H); }
 

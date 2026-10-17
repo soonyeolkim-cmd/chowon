@@ -18,10 +18,10 @@ const PARRY_WIDE_R = 70;        // 교차 받아치기: 주변 적도 함께 벤
 const RIPOSTE_TIME = 0.14;      // 반격으로 베고 지나가는 시간 (무적)
 const RIPOSTE_SAFE = 0.35;      // 도착한 뒤에도 이만큼 무적
 const RIPOSTE_PAST = 30;        // 적을 지나 이만큼 더 간다
-const RIPOSTE_MAX = 150;
-const RUSH_FREE_T = 2.0;
-const PURSUIT_LEN = 100;        // 잔영 베기: 연참 적중 뒤 평타로, 보는 방향으로 반격처럼 베고 지나가는 거리 (2026-10-17)        // 그림자 연참이 적을 맞히면 이 시간 안의 받아치기는 충전 · 쿨타임 없이 (2026-10-17)
-const PARRY_CHAIN_T = 2.0;      // 연속 반격: 이 안에 또 받아치면 연속으로 친다 (성공할 때마다 충전 한 칸을 돌려받는다, 2026-10-17)        // 반격 돌진 최대 거리
+const RIPOSTE_MAX = 150;        // 반격 돌진 최대 거리
+const RUSH_FREE_T = 2.0;        // 그림자 연참이 적을 맞히면 이 시간 안의 받아치기는 충전 · 쿨타임 없이 (2026-10-17)
+const PURSUIT_LEN = 100;        // 잔영 베기: 연참 적중 뒤 평타로, 보는 방향으로 반격처럼 베고 지나가는 거리 (2026-10-17)
+const PARRY_CHAIN_T = 2.0;      // 연속 반격: 이 안에 또 받아치면 연속으로 친다 (성공할 때마다 충전 한 칸을 돌려받는다, 2026-10-17)
 const WHIRL_R = 40;             // 선풍 베기 반경
 const RUSH_AIM = { range: 140, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 
@@ -104,18 +104,18 @@ BOON_FORMS.sai = {
   fire_basic:     { name: '불꽃 쌍검' },
   fire_bolt:      { name: '화염구 연타', desc: lv => `찌를 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
   fire_charge:    { name: '화염 연참', desc: lv => `연참에 베인 적에게 화상 2중첩, 지나간 길에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
-  fire_special:   { name: '작열 받아치기', desc: lv => `받아치면 주변이 폭발한다. 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
+  fire_special:   { name: '작열 받아치기', desc: lv => `받아치기 · 잔영 베기 때 주변이 폭발한다. 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
   ice_basic:      { name: '서리 쌍검' },
   ice_shard:      { name: '얼음 파편 연타', desc: lv => `찌를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
   ice_charge:     { name: '빙결 연참', desc: lv => `연참에 베인 적에게 냉기 ${iceBig(lv)}중첩.` },
-  ice_special:    { name: '서리 받아치기', desc: lv => `받아치면 주변 적에게 냉기 ${iceBig(lv)}중첩, 발밑이 얼어붙는다.` },
+  ice_special:    { name: '서리 받아치기', desc: lv => `받아치기 · 잔영 베기 때 주변 적에게 냉기 ${iceBig(lv)}중첩, 발밑이 얼어붙는다.` },
   elec_basic:     { name: '번개 쌍검' },
   elec_chain:     { name: '연쇄 번개 쌍검' },
   elec_charge:    { name: '뇌전 연참', desc: lv => `연참이 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '뇌격 받아치기', desc: lv => `받아치면 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
+  elec_special:   { name: '뇌격 받아치기', desc: lv => `받아치기 · 잔영 베기 때 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
   poison_basic:   { name: '독날 쌍검' },
   poison_charge:  { name: '독안개 연참', desc: lv => `지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
-  poison_special: { name: '독 받아치기', desc: lv => `받아치면 주변 적에게 독 ${1 + lv}중첩.` },
+  poison_special: { name: '독 받아치기', desc: lv => `받아치기 · 잔영 베기 때 주변 적에게 독 ${1 + lv}중첩.` },
   atk_combo:      { name: '연속 베기' },
   atk_spin:       { name: '연참 강화', desc: lv => `차지 시간 -${15 * lv}%, 연참 거리 +${15 * lv}%.` },
   atk_multispin:  { name: '그림자 분신', desc: lv => `연참 뒤 그림자가 같은 길을 ${lv}번 더 벤다. 그림자 베기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
@@ -124,7 +124,7 @@ BOON_FORMS.sai = {
   sharp:          { name: '날카로운 쌍검' },
   lifesteal:      { name: '흡혈 쌍검' },
   guard_spin:     { name: '수호의 연참', desc: lv => `연참이 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
-  heal_wave:      { name: '치유의 받아치기', desc: lv => `받아칠 때마다 체력 ${3 * lv} 회복.` },
+  heal_wave:      { name: '치유의 받아치기', desc: lv => `받아치기 · 잔영 베기마다 체력 ${3 * lv} 회복.` },
 };
 
 extendPlayer({
@@ -200,6 +200,7 @@ extendPlayer({
     G.text(this.x, this.y - 30, '잔영 베기!', '#c8b4ff', 16, 0.9);
     G.fxRing(this.x, this.y, '#ffffff', 22); G.burst(this.x, this.y - 4, 12, ['#ffffff', '#c8b4ff', '#7fe0ff'], 200);
     G.shake = Math.max(G.shake, 4); Sfx.dash(); Input.rumble(0.5, 120);
+    FX.onParry(this); // 받아치기 축복(폭발 · 냉기 · 낙뢰 · 독 · 치유)이 잔영 베기에도 그대로
   },
   parry(src) {
     this.parryT = 0;
