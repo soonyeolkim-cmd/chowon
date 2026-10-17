@@ -69,6 +69,8 @@ const TEST_BUILDS = {
   swamp: { weapon: 'sword', mastery: {}, boons: {}, world: 4 },
   // 마법봉 첫 손맛 / 난사 빌드: 마력 증폭 · 뇌격 마력탄(Lv5) · 마력탄 숙련 3 · 과충전
   staff: { weapon: 'staff', mastery: {}, boons: {} },
+  // 방패 첫 손맛 (?build=shield)
+  shield: { weapon: 'shield', mastery: {}, boons: {} },
   // 체인라이트닝 도사: 뇌격 마력탄 · 연쇄 마력탄 Lv5 · 과충전 · 정전기 · 마력 증폭 (+ 마력탄 숙련 3)
   // 화염 마법사: 화염 마력탄 · 화염구 마력탄 Lv5 · 불씨 · 연쇄 폭발 · 마력 증폭 (+ 마력탄 숙련 3)
   flame: { weapon: 'staff', mastery: { wave: 3 }, boons: { fire_special: 5, fire_bolt: 5, kindling: 3, chain_burst: 3, atk_wave: 3, sharp: 3, vital: 3 } },

@@ -94,6 +94,7 @@ class Player {
     this.trail = [];
     this.momentum = 0; this.momT = 0; // 쌍검 기세
     this.parryT = 0;                  // 쌍검 받아치기: 막는 자세가 남은 시간
+    this.guardT = 0;                  // 방패 돌진: 정면 공격을 막는 시간 (dashGuard 무기)
     this.freeSpecialT = 0;            // 이 시간 안에 쓰는 특수공격은 충전 · 쿨타임을 쓰지 않는다 (쌍검: 그림자 베기 적중 보상)
     this.orbs = this.orbMax; this.orbT = 0; // 마법봉 마력 구슬 (처음엔 가득)
   }
@@ -115,7 +116,7 @@ class Player {
     const inp = Input.state;
     for (const k of ['atkCd', 'dashCd', 'invuln', 'hurtT', 'comboT', 'finisherT', 'atkBuffer',
       'specialBuffer', 'skillBuffer', 'dashBuffer', 'postDashT', 'dodgeT', 'counterT', 'leafT', 'specialCd', 'skillCd',
-      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'freeSpecialT']) this[k] -= dt;
+      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'freeSpecialT', 'guardT']) this[k] -= dt;
     if (this.dashStock < this.dashMax) {
       this.dashRecharge -= dt;
       if (this.dashRecharge <= 0) { this.dashStock++; this.dashRecharge = this.dashCdBase; }
@@ -150,6 +151,7 @@ class Player {
       this.trail.push({ x: this.x, y: this.y, life: 0.18 });
       if (Math.random() < 0.6) G.dust(this.x, this.y + 8);
       FX.onDashMove(this);
+      if (this.weapon.dashMove && this.weapon.dashMove(this)) { this.dashT = 0; this.postDashT = INPUT_BUFFER; FX.onDashEnd(this); }
       const farEnough = this.dashT < DASH_TIME * 0.4; // 대시 거리를 대부분 간 뒤에 찌르기로 연결
       if (this.atkBuffer > 0 && farEnough && G.has('thrust') && this.weapon.basicAfterDash && !this.spearOut) { this.dashT = 0; FX.onDashEnd(this); this.weapon.basicAfterDash(this); }
       else if (this.dashT <= 0) { this.postDashT = INPUT_BUFFER; FX.onDashEnd(this); }
@@ -244,8 +246,8 @@ class Player {
     if (this.dashStock >= this.dashMax) this.dashRecharge = this.dashCdBase;
     this.dashStock--;
     FX.onDashStart(this);
-    this.invuln = Math.max(this.invuln, 0.2);
-    this.dodgeT = 0.22;
+    if (this.weapon.dashGuard) { this.guardT = DASH_TIME + this.weapon.dashGuard; this.dashBumped = false; } // 방패 돌진: 무적 · 저스트 회피 없이 정면만 막는다
+    else { this.invuln = Math.max(this.invuln, 0.2); this.dodgeT = 0.22; }
     Sfx.dash();
   }
 
@@ -675,7 +677,7 @@ class Enemy {
       if (this.st <= 0) {
         this.state = 'up'; this.st = 1.8; this.burrowed = false; this.attacking = true;
         G.burst(this.x, this.y + 4, 14, ['#8a6a4a', '#c8a878', '#fff'], 150); G.shake = Math.max(G.shake, 3);
-        if (p.alive && d < MOLE_POP_R + p.r) G.hurtPlayer(Math.round(this.dmg * 1.3), { x: this.x, y: this.y, attacking: true });      }
+        if (p.alive && d < MOLE_POP_R + p.r) G.hurtPlayer(Math.round(this.dmg * 1.3), { x: this.x, y: this.y, attacking: true, area: true });      }
     }
   }
 
@@ -687,7 +689,7 @@ class Enemy {
       if (d < 34 || this.st <= 0) { this.state = 'boom'; this.st = 0.4; }
     } else if (this.st <= 0) {
       G.burst(this.x, this.y, 22, ['#ff9a3c', '#ffd24a', '#fff'], 220); G.fxRing(this.x, this.y, '#ff7a3c', FLAM_BOOM_R); G.shake = Math.max(G.shake, 6); Sfx.boom();
-      if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < FLAM_BOOM_R + p.r) G.hurtPlayer(Math.round(this.shotDmg * 1.6), { x: this.x, y: this.y, attacking: true });
+      if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < FLAM_BOOM_R + p.r) G.hurtPlayer(Math.round(this.shotDmg * 1.6), { x: this.x, y: this.y, attacking: true, area: true });
       this.hp = 0; G.killEnemy(this);
     }
   }
@@ -1292,7 +1294,7 @@ class Boss {
         if (h.look === 'bamboo') { G.burst(h.x, h.y, 8, ['#8ad84a', '#d8f0a0'], 120); Sfx.thrust(); }
         else if (h.look === 'root') { G.shake = Math.max(G.shake, 5); Sfx.slam(); }
         else { G.burst(h.x, h.y + 6, 14, ['#c9b48a', '#fff'], 180); G.shake = Math.max(G.shake, 6); Sfx.slam(); }
-        if (hit && p.alive) G.hurtPlayer(h.dmg, { x: h.x, y: h.y, attacking: true });
+        if (hit && p.alive) G.hurtPlayer(h.dmg, { x: h.x, y: h.y, attacking: true, area: true }); // area: 바닥 · 범위 공격 (방패로 못 막음)
       } else h.life -= dt;
     }
     this.hz = this.hz.filter(h => !h.fired || h.life > 0);

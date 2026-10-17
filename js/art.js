@@ -84,6 +84,8 @@ const ART_FILES = {
   floor:     'Backgrounds/Tilesets/TilesetFloor.png',
   water:     'Backgrounds/Tilesets/TilesetWater.png',
   nature:    'Backgrounds/Tilesets/TilesetNature.png',
+  shield:    '../Things/Shield.png',            // 수호의 방패 (Things by SnoopethDuckDuck, CC0)
+  guardFx:   'FX/Magic/Shield/SpriteSheetBlue.png', // 방패 막기 보호막 (24x26 6장)
   titleRay:  'FX/Environment/Raylight.png',   // 시작 화면: 빛줄기 · 안개 · 나뭇잎
   titleFog:  'FX/Environment/Fog.png',
   titleLeaf: 'FX/Particle/Leaf.png',

@@ -586,7 +586,9 @@ const G = {
     const p = this.player;
     if (!p.alive) return;
     if (p.parryT > 0 && src) { p.parry(src); return; } // 쌍검 받아치기
-    if (p.dashT > 0 || p.invuln > 0) {
+    // 방패 돌진: 정면에서 온 공격은 막는다 (바닥 · 범위 공격과 옆 · 뒤는 못 막는다)
+    if (p.guardT > 0 && p.weapon.dashGuard && src && !src.area && p.invuln <= 0 && p.shieldFront(src)) { p.shieldBlock(src); return; }
+    if ((p.dashT > 0 && !p.weapon.dashGuard) || p.invuln > 0) {
       if (src.attacking && p.dodgeT > 0 && this.has('dodge')) this.perfectDodge();
       return;
     }
