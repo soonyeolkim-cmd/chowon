@@ -1226,9 +1226,9 @@ function drawTouchControls() {
   // 특수공격 (초승달 검기)
   ctx.globalAlpha = 1;
   padButton(B.special, p.specialCd, p.specialCdBase, '#4fc3ff', b => {
-    if (p.weaponId === 'staff') { // 마력탄: 구슬 + 남은 개수
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.32, 0, Math.PI * 2); ctx.stroke();
-      label(String(p.orbs), b.x + b.r * 0.55, b.y + b.r * 0.5, Math.round(b.r * 0.5), p.orbs ? '#bff4ff' : '#ff9a7a', 'center', '900');
+    if (p.weaponId === 'staff') { // 마력탄: 구슬 안에 남은 구슬 개수
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.4, 0, Math.PI * 2); ctx.stroke();
+      label(String(p.orbs), b.x, b.y + 1, Math.round(b.r * 0.5), p.orbs ? '#bff4ff' : '#ff9a7a', 'center', '900');
     } else if (p.weaponId === 'sai') { // 받아치기: 교차한 두 칼 + 막는 호
       const q = b.r * 0.4;
       ctx.beginPath(); ctx.moveTo(b.x - q, b.y + q); ctx.lineTo(b.x + q, b.y - q); ctx.moveTo(b.x + q, b.y + q); ctx.lineTo(b.x - q, b.y - q); ctx.stroke();
@@ -1253,11 +1253,18 @@ function drawTouchControls() {
     }
     ctx.stroke();
   });
-  if (p.dashMax > 1) label(String(p.dashStock), B.dash.x + B.dash.r * 0.75, B.dash.y - B.dash.r * 0.75, 11, '#8ff0b0');
+  if (p.dashMax > 1 && B.dash && B.dash.visible) drawBadge(B.dash.x + B.dash.r * 0.62, B.dash.y - B.dash.r * 0.62, p.dashStock, p.dashStock ? '#8ff0b0' : '#ff9a7a');
   ctx.globalAlpha = 1;
 }
 
 // 쿨타임이 있는 작은 버튼: 쿨타임 중엔 어둡게 + 남은 초
+// 버튼 위 남은 횟수 배지 (어두운 원 + 굵은 숫자)
+function drawBadge(x, y, n, color) {
+  ctx.fillStyle = 'rgba(10,14,18,0.85)'; ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+  label(String(n), x, y + 1, 13, color, 'center', '900');
+}
+
 function padButton(b, cd, cdBase, color, icon, glow) {
   if (!b || !b.visible) return;
   drawButtonBase(b, b.held);
