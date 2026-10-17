@@ -221,10 +221,7 @@ const G = {
     const worlds = ROUTES[this.tierInfo.route].worlds;
     this.firstWorld = worlds[0]; this.finalWorld = worlds[worlds.length - 1]; this.route = this.tierInfo.route;
     this.startStage(DEV_BUILD && DEV_BUILD.world || this.firstWorld, 1, Meta.startStats(), true); // 시험 빌드는 정한 세계부터 (?build=swamp)
-    if (Meta.lv('gift')) { // 정령의 첫 선물: 무작위 축복 하나를 1레벨로 들고 출발
-      const c = this.makeOffer(null)[0];
-      if (c) { this.boons[c.boon.id] = 1; if (c.boon.onPick) c.boon.onPick(this.player); this.toast = { s: `🎁 정령의 첫 선물: ${c.boon.name}`, t: 4 }; }
-    }
+    this.giftPending = Meta.lv('gift') > 0; // 정령의 첫 선물: 첫 스테이지가 열리면 축복 카드 3장 중 하나를 고르게 한다 (2026-10-17)
     if (familiarMult(this.tier) < 1) this.hintBox = { text: '여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', t: 5 };
   },
   goVillage() {
@@ -757,6 +754,14 @@ const G = {
   update(dt) {
     const p = this.player;
     this.stageTime += dt;
+    if (this.giftPending && this.stageTime > 1.2) { // 정령의 첫 선물: 알림 → 카드 고르기
+      this.giftPending = false; this.banner = null; // 스테이지 이름 띠는 치우고
+      this.lumi.say('리안! 정령들이 출발 선물을 보냈어요!');
+      this.fxRing(p.x, p.y, '#ffd24a', 60); this.burst(p.x, p.y - 8, 20, ['#ffd24a', '#fff', '#ffe08a'], 180);
+      this.openBoon(null, null);
+      if (this.offer) this.offer.gift = true;
+      return;
+    }
     p.update(dt);
     this.lumi.update(dt, p);
     for (const e of this.enemies) { const x0 = e.x, y0 = e.y; e.update(dt, p); trackHeading(e, x0, y0, dt); }
@@ -1697,9 +1702,9 @@ function drawBoonScreen() {
   const o = G.offer;
   overlay(0.72);
   const head = o.el ? ELEMENTS[o.el] : null;
-  const title = head ? `${head.icon} ${head.spirit}의 축복` : '✦ 보스 격파 보상';
+  const title = o.gift ? '🎁 정령의 첫 선물' : head ? `${head.icon} ${head.spirit}의 축복` : '✦ 보스 격파 보상';
   label(title, W / 2, inset.t + 30, 22, head ? head.color : '#ffd24a', 'center', '900');
-  label(o.upgrade ? '가진 축복 하나를 강화해요' : '축복을 하나 고르세요', W / 2, inset.t + 56, 13, o.upgrade ? '#8ff0b0' : '#ddd', 'center', '600');
+  label(o.gift ? '정령들이 보낸 출발 선물이에요. 하나를 골라 모험을 시작하세요' : o.upgrade ? '가진 축복 하나를 강화해요' : '축복을 하나 고르세요', W / 2, inset.t + 56, 13, o.upgrade ? '#8ff0b0' : '#ddd', 'center', '600');
   const L = boonLayout();
   const appear = clamp(o.t / BOON_LOCK, 0, 1);
   const left = o.auto ? 0 : Math.max(0, BOON_TIME - Math.max(0, o.t - BOON_LOCK)), urgent = left <= 3;
