@@ -43,7 +43,6 @@ addWeapon('sai', {
   moves: { basic: '3연타', charged: '그림자 연참', special: '받아치기', dashAttack: '선풍 베기' },
   chargeTime: 0.25, // 쌍검은 빠르게 모은다 (0.55 → 0.25, 누르고 0.22초 뒤부터 모으니 전체 0.77초 → 0.47초, 2026-10-17)
   specialCd: 3.0,
-  specialCharges: 2, // 받아치기를 두 번까지 쌓아 둔다 (2026-10-17)
   cdPerLv: 0.4, cdPerMastery: 0.3, cdFloor: 1.5,
   speedMult: 1,
   dashCharges: 3,
@@ -60,7 +59,7 @@ addWeapon('sai', {
     ['기세', '기본공격을 맞힐 때마다 +1 (최대 5)', `한 칸마다 공격 · 이동 속도 +5% · ${MOMENTUM_TIME}초 못 때리거나 맞으면 0`],
     ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20% · 맞히면 2초 안의 받아치기는 충전 소모 없음, 평타를 누르면 잔영 베기'],
     ['잔영 베기', `연참 적중 뒤 2초 안에 ${A}`, '보는 방향으로 베고 지나가며 반격 치명타 + 기절 · 무적'],
-    ['특수 · 받아치기', `${P} (쿨타임 3초 · 2회 충전)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2 · 성공하면 충전 1칸 돌려받아 연속 반격'],
+    ['특수 · 받아치기', `${P} (쿨타임 3초)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2 · 성공하면 쿨타임이 바로 풀려 연속 반격'],
     ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.sai.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
     ['선풍 베기', `${D} → ${A}`, '한 바퀴 돌며 주변을 벤다', 'thrust'],
     ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 반격 치명타', 'dodge'],
@@ -215,6 +214,7 @@ extendPlayer({
     this.momentum = Math.min(MOMENTUM_MAX, this.momentum + 2); this.momT = MOMENTUM_TIME;
     // 연속 반격: 성공하면 쓴 충전을 돌려받아 바로 다음 받아치기로 이어 간다
     if (this.specMax > 1) this.specStock = Math.min(this.specMax, this.specStock + 1);
+    else this.specialCd = 0; // 한 칸짜리: 쿨타임을 바로 풀어 준다 (쌍검 충전 2 → 1, 2026-10-17)
     this.parryChain = G.time - (this.parryLastT ?? -99) < PARRY_CHAIN_T ? (this.parryChain || 1) + 1 : 1; this.parryLastT = G.time;
     G.text(this.x, this.y - 30, this.parryChain > 1 ? '연속 반격 ×' + this.parryChain + '!' : '받아치기!', this.parryChain > 1 ? '#ffe18a' : '#7fe0ff', 16 + Math.min(6, this.parryChain - 1), 0.9);
     G.fxRing(this.x, this.y, '#ffffff', 26); G.fxRing(this.x, this.y, '#7fe0ff', this.parryWide ? PARRY_WIDE_R : 44);
