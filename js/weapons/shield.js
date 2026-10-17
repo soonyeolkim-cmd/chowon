@@ -1,6 +1,6 @@
 'use strict';
-// ── 수호의 방패: 수호형 · 방패 돌진으로 막고 밀어내기. 묵직하고 느리다 (2026-10-17) ──
-// 저스트 회피가 없다. 대신 대시(방패 돌진)가 정면 공격을 막고, 막으면 쿨타임이 풀리고 다음 밀치기가 강해진다.
+// ── 수호의 방패: 수호형 · 방패 대시로 막고 밀어내기. 묵직하고 느리다 (2026-10-17) ──
+// 저스트 회피가 없다. 대신 대시(방패 대시)가 정면 공격을 막고, 막으면 쿨타임이 풀리고 다음 밀치기가 강해진다.
 // 약점: 바닥 · 범위 공격과 옆 · 뒤는 못 막는다, 돌진은 적을 통과하지 못하고 부딪혀 멈춘다, 대시 1회.
 // 그림: Things by SnoopethDuckDuck (CC0) 의 청동 원형 방패, 막기 보호막은 에셋 팩 FX/Magic/Shield
 
@@ -20,7 +20,7 @@ const SHIELD_SLAM_R = 40;       // 후려치기 범위
 const SHIELD_SLAM_STUN = 0.5;
 const SHIELD_BUMP = 14;         // 돌진 중 이 거리 안의 적에 부딪히면 멈춘다
 const SHIELD_SIZE = 0.75;
-// 방패 밀어붙이기 (대시 중 · 직후 특수): 앞의 적을 방패에 붙인 채 밀고 달린다. 벽에 몰면 벽꿍 (2026-10-17)
+// 방패 돌진 (대시 중 · 직후 특수): 앞의 적을 방패에 붙인 채 밀고 달린다. 벽에 몰면 벽꿍 (2026-10-17)
 const SHIELD_CHARGE_TIME = 0.34;  // 달리는 시간
 const SHIELD_CHARGE_SPEED = 340;  // 달리는 속도 (약 115 거리)
 const SHIELD_CHARGE_GRAB = 22;    // 방패 앞 이 거리 안의 적을 붙잡아 민다
@@ -33,13 +33,13 @@ bashFin:    { mult: 1.95, kb: 760, guardBreak: true, role: 'fin', shove: true },
 quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방패 강타 (차지): 앞쪽 부채꼴 충격파 + 기절
 shieldSpin: { mult: 1.1, kb: 760, guardBreak: true, role: 'special', shove: true },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
 shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 후려치기 (대시 공격)
-shieldCharge: { mult: 1.4, kb: 520, guardBreak: true, role: 'special', shove: true }, // 방패 밀어붙이기 (대시 중 특수)
+shieldCharge: { mult: 1.4, kb: 520, guardBreak: true, role: 'special', shove: true }, // 방패 돌진 (대시 중 특수)
 shieldBump: { mult: 0.4, kb: 260, guardBreak: false, role: 'dash', light: true }, // 돌진하다 부딪힘
 });
 
 addWeapon('shield', {
   name: '수호의 방패',
-  style: '수호형 · 방패 돌진으로 막고 밀어내기, 묵직하고 느림 · 범위 공격과 포위에 약함',
+  style: '수호형 · 방패 대시로 막고 밀어내기, 묵직하고 느림 · 범위 공격과 포위에 약함',
   essence: '무기의 정수',
   unlockCost: 1,             // 영웅의 증표 1개
   moves: { basic: '3연 밀치기', charged: '방패 강타', special: '돌려치기', dashAttack: '후려치기' },
@@ -50,27 +50,27 @@ addWeapon('shield', {
   dashCharges: 1,
   dashSpeed: 280,
   dashCdMult: 0.9 / DASH_CD, // 대시 1회 · 0.9초 충전
-  dashGuard: SHIELD_GUARD_AFTER, // 대시 = 방패 돌진 (무적 · 저스트 회피 대신 정면 막기, entities.js · game.js hurtPlayer)
+  dashGuard: SHIELD_GUARD_AFTER, // 대시 = 방패 대시 (무적 · 저스트 회피 대신 정면 막기, entities.js · game.js hurtPlayer)
   wallSlam: true,            // 3타째 밀치기 · 돌려치기로 벽에 밀면 벽꿍
   skillCd: 0,
   basic: (p, mag) => p.startBash(mag),
   basicAfterDash: p => p.startShieldSlam(),
   charged: (p, mag) => p.startQuake(mag),
-  special: (p, mag) => (p.postDashT > 0 ? p.startShieldCharge(mag) : p.startShieldSpin(mag)), // 대시 직후면 밀어붙이기
-  specialInDash: p => p.startShieldCharge(0), // 대시 중 특수 → 밀어붙이기 (돌려치기와 쿨타임 같이 씀)
+  special: (p, mag) => (p.postDashT > 0 ? p.startShieldCharge(mag) : p.startShieldSpin(mag)), // 대시 직후면 방패 돌진
+  specialInDash: p => p.startShieldCharge(0), // 대시 중 특수 → 방패 돌진 (돌려치기와 쿨타임 같이 씀)
   skill: null,
   rows: (A, P, D) => [
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
-    ['방패 밀어붙이기', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
-    ['대시 · 방패 돌진', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
+    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
+    ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '돌진 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다', 'thrust'],
   ],
   notesTitle: '방패 특성 · 막기',
   notes: [
-    '방패는 저스트 회피가 없어요. 대시가 방패 돌진이에요.',
-    '방패 돌진 중 · 끝난 직후 잠깐 · 밀치는 동안, 정면에서 오는 공격과 탄을 막아요. 막으면 피해가 없고, 특수 · 대시 쿨타임이 바로 풀리고, 다음 밀치기가 반격 밀치기(피해 ×1.6, 가드 브레이크)가 돼요.',
+    '방패는 저스트 회피가 없어요. 대시가 방패 대시예요.',
+    '방패 대시 중 · 끝난 직후 잠깐 · 밀치는 동안, 정면에서 오는 공격과 탄을 막아요. 막으면 피해가 없고, 특수 · 대시 쿨타임이 바로 풀리고, 다음 밀치기가 반격 밀치기(피해 ×1.6, 가드 브레이크)가 돼요.',
     '못 막는 것: 바닥에서 터지는 범위 공격(빨간 원 · 뿌리 · 폭발)과 옆 · 뒤에서 오는 공격. 이건 위치로 피해야 해요.',
     '돌진은 적을 통과하지 못하고 부딪혀 멈춰요. 포위당하면 돌려치기로 밀어내세요.',
   ],
@@ -207,7 +207,7 @@ extendPlayer({
     this.finisherT = 0; this.combo = 0; this.comboT = 0; this.charge = 0;
     Sfx.spin();
   },
-  // 방패 밀어붙이기: 대시 방향(없으면 바라보는 쪽)으로 달리며 앞의 적을 붙잡아 함께 밀고 간다
+  // 방패 돌진: 대시 방향(없으면 바라보는 쪽)으로 달리며 앞의 적을 붙잡아 함께 밀고 간다
   startShieldCharge(mag) {
     const dir = this.dashDir !== undefined && (this.dashT > 0 || this.postDashT > 0) ? this.dashDir : this.facing;
     this.facing = dir;
@@ -253,7 +253,7 @@ extendPlayer({
   drawShieldWeapon(g, x, y) {
     const cy = y - 6, a = this.act, f = this.dashT > 0 ? this.dashDir : this.facing, c = Math.cos(f), s = Math.sin(f);
     const glow = this.bashReady; // 반격 밀치기 준비: 방패가 금빛으로 반짝
-    if (a && a.kind === 'shieldCharge') { // 방패 밀어붙이기: 방패를 앞세우고 몸을 숙여 달린다
+    if (a && a.kind === 'shieldCharge') { // 방패 돌진: 방패를 앞세우고 몸을 숙여 달린다
       const run = a.t < a.run;
       shieldSprite(g, x + c * 15, cy + s * 10, 1.3, glow);
       if (run) for (let i = 0; i < 3; i++) { // 속도선
@@ -263,7 +263,7 @@ extendPlayer({
       }
       g.strokeStyle = 'rgba(255,210,138,0.7)'; g.lineWidth = 3;
       g.beginPath(); g.arc(x, cy, 24, f - 0.8, f + 0.8); g.stroke();
-    } else if (this.dashT > 0 || (this.guardT > 0 && !a)) { // 방패 돌진: 앞에 크게 들고 정면 막기
+    } else if (this.dashT > 0 || (this.guardT > 0 && !a)) { // 방패 대시: 앞에 크게 들고 정면 막기
       shieldSprite(g, x + c * 13, cy + s * 9, 1.15, glow);
       const k = 0.4 + 0.2 * Math.sin(G.time * 40);
       g.strokeStyle = `rgba(159,220,255,${k})`; g.lineWidth = 2;
