@@ -1350,7 +1350,26 @@ function handlePauseInput(dt, inp) {
   m.t += dt;
   if (m.t < 0.15) return;
   const { dy, dx, rep } = menuAxis(m, inp, dt);
-  if (m.view === 'moves') { if (inp.back || inp.confirm || inp.tap) { m.view = 'menu'; Sfx.pickup(); } return; }
+  if (m.view === 'moves') { // 기술 · 축복: 위아래 · 휠 · 끌어서 스크롤, B · Esc · 돌아가기 버튼으로 닫기
+    const L = movesLayout();
+    const closeIt = () => { m.view = 'menu'; m.drag = null; Sfx.pickup(); };
+    if (inp.back || inp.confirm || inp.pause) { closeIt(); return; }
+    if (dy) m.scroll = (m.scroll || 0) + dy * 48;
+    if (Input.wheel) { m.scroll = (m.scroll || 0) + Input.wheel * 0.6; Input.wheel = 0; }
+    if (m.drag) {
+      const pt = Input.pointers.get(m.drag.id);
+      if (pt) m.scroll = m.drag.scroll0 - (pt.y - m.drag.y);
+      else m.drag = null;
+    }
+    if (inp.tap) {
+      if (inRectPt(inp.tap, L.close)) { closeIt(); return; }
+      let id = null;
+      for (const [pid, pt] of Input.pointers) if (Math.abs(pt.x - inp.tap.x) < 1 && Math.abs(pt.y - inp.tap.y) < 1) id = pid;
+      if (id !== null) m.drag = { id, y: inp.tap.y, scroll0: m.scroll || 0 };
+    }
+    m.scroll = clamp(m.scroll || 0, 0, L.maxScroll);
+    return;
+  }
   if (m.view === 'quit') {
     if (dx) { m.qsel = m.qsel ? 0 : 1; Sfx.pickup(); }
     const L = quitLayout();
@@ -1370,7 +1389,7 @@ function handlePauseInput(dt, inp) {
   const id = PAUSE_ITEMS[pick].id;
   Sfx.pickup();
   if (id === 'resume') G.state = 'play';
-  else if (id === 'moves') m.view = 'moves';
+  else if (id === 'moves') { m.view = 'moves'; m.scroll = 0; m.drag = null; }
   else if (id === 'settings') openSettings('paused');
   else if (id === 'quit') { m.view = 'quit'; m.qsel = 1; }
 }
@@ -1847,32 +1866,69 @@ function handleBoonInput(dt, inp) {
   } else o.hold = Math.max(0, o.hold - dt * 3);
 }
 
-function drawPauseScreen(big, blink, tap) {
-  overlay(0.78);
-  label('일시정지', W / 2, inset.t + 26, big * 0.55);
-  const owned = BOONS.filter(b => G.boons[b.id]);
-  const two = W >= 700;
-  const leftCx = two ? W * 0.27 : W / 2;
-  label('기술', leftCx, inset.t + 58, 14, '#ffd24a', 'center', '800');
-  const end = drawMoveList(inset.t + 80, leftCx, true);
-  if (two) {
-    const x0 = W * 0.52, maxW = W * 0.44;
-    label(`정령의 축복 (${owned.length})`, x0, inset.t + 58, 14, '#e8ff9c', 'left', '800');
-    let y = inset.t + 80;
-    if (!owned.length) label('봉인석을 부수면 축복을 받을 수 있어요', x0, y, 12, '#aab', 'left', '500');
-    for (const b of owned) {
-      if (y > H - 50) { label('…', x0, y, 12, '#aab', 'left'); break; }
-      const lv = G.boons[b.id];
-      label(`${boonIcon(b)} ${b.name} Lv${lv}`, x0, y, 13, boonColor(b), 'left', '700');
-      const lines = wrap(b.desc(lv), maxW, 11, '500');
-      lines.forEach((l, k) => label(l, x0, y + 15 + k * 14, 11, '#ccd', 'left', '500'));
-      y += 22 + lines.length * 14;
-    }
-  } else if (owned.length) {
-    const names = owned.map(b => `${boonIcon(b)}${b.name}${G.boons[b.id] > 1 ? G.boons[b.id] : ''}`).join('  ');
-    wrap(names, W - 40, 12).forEach((l, k) => label(l, W / 2, end + 10 + k * 16, 12, '#e8ff9c', 'center', '600'));
+// 화면에 그릴 줄들: 기술 → 무기 특성 → 정령의 축복
+function movesLayout() {
+  const cw = Math.min(W - 32 - inset.l - inset.r, 660), x0 = (W - cw) / 2;
+  const view = { x: x0, y: inset.t + 52, w: cw, h: H - inset.b - 62 - (inset.t + 52) };
+  const close = { x: W / 2 - 90, y: H - inset.b - 50, w: 180, h: 38 };
+  const Wp = G.player ? G.player.weapon : WEAPONS[Meta.data.weapon];
+  const items = [];
+  let y = 0;
+  const head = (text, color) => { items.push({ t: 'head', text, color, y }); y += 26; };
+  head(`기술 · ${Wp.name}`, '#ffd24a');
+  for (const [name, input, desc] of moveList()) {
+    const lines = wrap(desc, cw - 16, 11, '500');
+    items.push({ t: 'move', name, input, lines, y }); y += 20 + lines.length * 14 + 6;
   }
-  if (blink) label(`${tap} 계속`, W / 2, H - inset.b - 18, 15, '#ffd24a');
+  if (Wp.notes) {
+    y += 6; head(Wp.notesTitle, '#ffb84a');
+    for (const n of Wp.notes) { const lines = wrap(n, cw - 22, 12, '500'); items.push({ t: 'note', lines, y }); y += lines.length * 16 + 6; }
+  }
+  const owned = BOONS.filter(b => G.boons[b.id]);
+  y += 6; head(`정령의 축복 (${owned.length})`, '#e8ff9c');
+  if (!owned.length) { items.push({ t: 'note', lines: ['봉인석을 부수면 축복을 받을 수 있어요'], y, dim: true }); y += 22; }
+  for (const b of owned) {
+    const lv = G.boons[b.id], lines = wrap(b.desc(lv), cw - 16, 11, '500');
+    items.push({ t: 'boon', b, lv, lines, y }); y += 20 + lines.length * 14 + 8;
+  }
+  return { view, close, items, maxScroll: Math.max(0, y - view.h + 8) };
+}
+
+function drawPauseScreen(big, blink, tap) {
+  overlay(0.85);
+  const m = G.pm, L = movesLayout(), v = L.view, sc = clamp(m.scroll || 0, 0, L.maxScroll);
+  label('기술 · 축복', W / 2, inset.t + 26, 18, '#fff', 'center', '800');
+  ctx.save(); ctx.beginPath(); ctx.rect(v.x - 4, v.y, v.w + 8, v.h); ctx.clip();
+  for (const it of L.items) {
+    const y = v.y + it.y - sc;
+    if (y > v.y + v.h + 10 || y + 120 < v.y) continue;
+    if (it.t === 'head') {
+      label(it.text, v.x, y + 10, 15, it.color, 'left', '800');
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(v.x, y + 20, v.w, 1);
+    } else if (it.t === 'move') {
+      label(it.name, v.x + 4, y + 8, 13, '#ffd24a', 'left', '800');
+      label(it.input, v.x + v.w - 4, y + 8, 12, '#fff', 'right', '700');
+      it.lines.forEach((l, k) => label(l, v.x + 12, y + 24 + k * 14, 11, '#b8c8b8', 'left', '500'));
+    } else if (it.t === 'note') {
+      it.lines.forEach((l, k) => label((k ? '  ' : '· ') + l, v.x + 6, y + 8 + k * 16, 12, it.dim ? '#aab' : '#f0e0c8', 'left', '600'));
+    } else if (it.t === 'boon') {
+      label(`${boonIcon(it.b)} ${it.b.name} Lv${it.lv}`, v.x + 4, y + 8, 13, boonColor(it.b), 'left', '700');
+      it.lines.forEach((l, k) => label(l, v.x + 12, y + 24 + k * 14, 11, '#ccd', 'left', '500'));
+    }
+  }
+  ctx.restore();
+  // 스크롤 막대
+  if (L.maxScroll > 0) {
+    const bh = Math.max(30, v.h * v.h / (v.h + L.maxScroll)), by = v.y + (v.h - bh) * (sc / L.maxScroll);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(v.x + v.w + 6, v.y, 4, v.h);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(v.x + v.w + 6, by, 4, bh);
+  }
+  // 돌아가기 버튼
+  const c = L.close, d = Input.state.device;
+  ctx.fillStyle = 'rgba(60,70,90,0.95)'; ctx.fillRect(c.x, c.y, c.w, c.h);
+  ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(c.x + 1, c.y + 1, c.w - 2, c.h - 2);
+  label(d === 'touch' ? '돌아가기' : d === 'gamepad' ? '돌아가기 (B)' :'돌아가기 (Esc)', W / 2, c.y + c.h / 2 + 1, 14, '#fff', 'center', '800');
+  if (L.maxScroll > 0 && d !== 'touch') label('↑↓ 스크롤', v.x + v.w, inset.t + 26, 11, '#aab', 'right', '600');
 }
 
 // ── 마을: 영구 강화 ───────────────────────────────────────
