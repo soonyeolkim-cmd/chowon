@@ -1674,7 +1674,7 @@ function boonLayout() {
     for (let i = 0; i < n; i++) L.cards.push({ x: (W - cw) / 2, y: 96 + i * (ch + 10), w: cw, h: ch });
   }
   const last = L.cards[n - 1];
-  L.reroll = { x: W / 2 - 75, y: last.y + last.h + 12, w: 150, h: 30 };
+  L.reroll = { x: W / 2 - 110, y: last.y + last.h + 14, w: 220, h: 34 };
   return L;
 }
 
@@ -1767,10 +1767,28 @@ function drawBoonScreen() {
   if (!o.auto) label(how + '  ·  시간이 지나면 무작위로 결정', W / 2, H - inset.b - 16, 12, '#ddd', 'center', '600');
   const rb = L.reroll;
   if (rb && Meta.lv('choice') > 0) {
-    const ok = G.rerolls > 0 && o.armed;
-    ctx.fillStyle = ok ? 'rgba(106,63,176,0.9)' : 'rgba(60,60,70,0.8)'; ctx.fillRect(rb.x, rb.y, rb.w, rb.h);
-    const key = d === 'touch' ? '' : d === 'gamepad' ? ` [${padName(3)}]` : ` [${keyNames().P}]`;
-    label(`↻ 다시 뽑기 ${G.rerolls}${key}`, rb.x + rb.w / 2, rb.y + rb.h / 2, 12, ok ? '#fff' : '#999', 'center', '800');
+    // 다시 뽑기: 카드와 같은 어두운 판 + 금빛 테두리, 남은 횟수는 마름모, 키는 작은 키캡 (2026-10-17)
+    const ok = G.rerolls > 0 && o.armed, cy = rb.y + rb.h / 2;
+    ctx.fillStyle = 'rgba(18,22,28,0.94)'; ctx.fillRect(rb.x, rb.y, rb.w, rb.h);
+    ctx.strokeStyle = ok ? 'rgba(255,210,74,0.7)' : 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.strokeRect(rb.x + 0.5, rb.y + 0.5, rb.w - 1, rb.h - 1);
+    ctx.fillStyle = ok ? '#ffd24a' : 'rgba(255,255,255,0.15)'; ctx.fillRect(rb.x, rb.y, 3, rb.h); // 왼쪽 금빛 띠
+    label('↻', rb.x + 20, cy + 1, 17, ok ? '#ffd24a' : '#666', 'center', '900');
+    label('다시 뽑기', rb.x + 34, cy + 1, 13, ok ? '#fff' : '#777', 'left', '800');
+    const keyTxt = d === 'touch' ? '' : d === 'gamepad' ? padName(3) : keyNames().P;
+    let rx = rb.x + rb.w - 10;
+    if (keyTxt) { // 키캡
+      ctx.font = `700 10px ${FONT}`; const kw = Math.ceil(ctx.measureText(keyTxt).width) + 10;
+      rx -= kw; ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(rx, cy - 9, kw, 18);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.strokeRect(rx + 0.5, cy - 8.5, kw - 1, 17);
+      label(keyTxt, rx + kw / 2, cy + 1, 10, ok ? '#dde' : '#777', 'center', '700');
+      rx -= 8;
+    }
+    const max = Math.max(G.rerolls, Meta.lv('choice'));
+    for (let i = max - 1; i >= 0; i--) { // 남은 횟수: 채운 마름모, 쓴 것은 빈 마름모
+      const px = rx - 5 - (max - 1 - i) * 13, on = i < G.rerolls;
+      ctx.beginPath(); ctx.moveTo(px, cy - 5); ctx.lineTo(px + 5, cy); ctx.lineTo(px, cy + 5); ctx.lineTo(px - 5, cy); ctx.closePath();
+      if (on) { ctx.fillStyle = ok ? '#ffd24a' : '#777'; ctx.fill(); } else { ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.stroke(); }
+    }
   }
 }
 
