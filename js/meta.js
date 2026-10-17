@@ -75,6 +75,8 @@ const TEST_BUILDS = {
   frost: { weapon: 'staff', mastery: { wave: 3 }, boons: { ice_special: 5, ice_shard: 5, shatter: 3, frostbite: 3, atk_wave: 3, sharp: 3, vital: 3 } },
   // 얼음 창: 서리 창날 · 빙결 관통 · 서리 꿰뚫기 · 서리 창 · 얼음 길 · 파쇄 · 한기
   icespear: { weapon: 'spear', mastery: { combo: 3, spin: 3 }, boons: { ice_basic: 5, ice_shard: 5, ice_charge: 5, ice_special: 5, ice_dash: 3, shatter: 3, frostbite: 3, sharp: 3 } },
+  // 화염 창: 불꽃 창날 · 화염 관통 · 불꽃 꿰뚫기 · 폭염 투척 · 화염 질주 · 불씨 · 연쇄 폭발
+  firespear: { weapon: 'spear', mastery: { combo: 3, spin: 3 }, boons: { fire_basic: 5, fire_bolt: 5, fire_charge: 5, fire_special: 5, fire_dash: 3, kindling: 3, chain_burst: 3, sharp: 3 } },
   chain: { weapon: 'staff', mastery: { wave: 3 }, boons: { elec_special: 5, elec_chain: 5, overcharge: 3, static: 3, atk_wave: 3, sharp: 3, vital: 3 } },
   barrage: { weapon: 'staff', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 5, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
   // 쌍검 첫 손맛: 축복 없이 무기만 (숙련도 0)
