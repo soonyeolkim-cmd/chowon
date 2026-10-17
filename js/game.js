@@ -67,13 +67,13 @@ const Sfx = (() => {
 // ── 배경음악: 마을 · 세계마다 · 보스 · 엔딩 (Ninja Adventure 음악, CC0). 설정에서 끌 수 있다 ──
 // 오래 들어도 덜 피곤하게: 볼륨은 낮게, 곡이 바뀔 땐 천천히 겹쳐 바뀌고, 일시정지 · 설정 화면에선 작게
 // 아직 곡을 고르는 중이라 꺼 둔다 (2026-10-16). true 로 바꾸면 배경음악이 나오고, 배포에도 곡 파일이 같이 올라간다.
-const MUSIC_ON = false;
+const MUSIC_ON = true; // 2026-10-17: 사용자가 듣기 페이지에서 장면별로 골랐다
 const MUSIC_DIR = 'assets/NinjaAdventure/Audio/Musics/';
 const MUSIC = {
   title: '1 - Adventure Begin.ogg', village: '33 - Calm Village.ogg',
-  w1: '31 - Sunny.ogg', w2: '23 - Road.ogg', w3: '37 - Dark Forest.ogg',
-  w4: '18 - Aquatic.ogg', w5: '30 - Ruins.ogg', w6: '24 - Final Area.ogg',
-  boss: '17 - Fight.ogg', ending: '8 - End Theme.ogg',
+  w1: '5 - Peaceful.ogg', w2: '20 - Good Time.ogg', w3: '13 - Mystical.ogg',
+  w4: '18 - Aquatic.ogg', w5: '30 - Ruins.ogg', w6: '10 - Dark Castle.ogg',
+  boss: '17 - Fight.ogg', ending: '38 - Intro.ogg',
 };
 // 곡별 부드럽게 처리: rate = 빠르기 (음높이는 그대로), lowpass = 이 주파수 위의 날카로운 소리를 깎는다, warm = 저음 살짝 올리기(dB)
 const MUSIC_FX = {
