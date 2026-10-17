@@ -1175,6 +1175,8 @@ const BARU_HIDE = 7, BARU_LUMI_FIND = 4;
 const BOSS_HP_BASE = 2970, BOSS_HP_GROWTH = 1.6, BOSS_HP_DEEP = 1;
 // 보스 공격 예고 시간: 표시가 보이면 대시로 대부분 피할 수 있어서 20% 빨리 발동한다 (2026-10-17)
 const BOSS_WIND = 0.8;
+// 3~6세계 보스를 훨씬 어렵게: 세계별 체력 배율 · 패턴 속도(보스의 시간이 그만큼 빨리 흐른다, 기절 중은 그대로) · 피해 배율 (2026-10-17)
+const BOSS_WORLD_HP = [1, 1, 1.3, 1.45, 1.6, 1.8], BOSS_WORLD_TEMPO = [1, 1, 1.12, 1.18, 1.24, 1.3], BOSS_WORLD_DMG = [1, 1, 1.1, 1.15, 1.2, 1.25];
 const BOSS_RAMP_LATE = 0.1; // 4세계부터 보스 체력 추가 상승: 4세계 ×1.05, 5세계 ×1.21, 6세계 ×1.53
 
 class Boss {
@@ -1184,8 +1186,9 @@ class Boss {
     this.name = BOSS_NAMES[i];
     this.colors = BOSS_COLORS[i];
     const k = Math.max(0, stage - (G.firstWorld || 1)); // 이 길에서 몇 번째 보스인가 (0부터)
-    this.maxHp = this.hp = Math.round(BOSS_HP_BASE * Math.pow(BOSS_HP_GROWTH, lateRamp(k, BOSS_RAMP_LATE)) * (stage >= 4 ? BOSS_HP_DEEP : 1));
-    this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + BOSS_DMG_STEP * routeLevel(stage)) * deepMult(stage, DEEP_DMG_MULT) * (1 + 0.05 * (G.player.lv - 1)));
+    this.maxHp = this.hp = Math.round(BOSS_HP_BASE * Math.pow(BOSS_HP_GROWTH, lateRamp(k, BOSS_RAMP_LATE)) * (stage >= 4 ? BOSS_HP_DEEP : 1) * BOSS_WORLD_HP[i]);
+    this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + BOSS_DMG_STEP * routeLevel(stage)) * deepMult(stage, DEEP_DMG_MULT) * (1 + 0.05 * (G.player.lv - 1)) * BOSS_WORLD_DMG[i]);
+    this.tempo = BOSS_WORLD_TEMPO[i];
     this.speed = 46; this.superArmor = true; this.scale = 1;
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
     this.state = 'intro'; this.st = 1.5; this.t = 0; this.dir = 0;
@@ -1284,6 +1287,7 @@ class Boss {
   }
 
   update(dt, p) {
+    if (this.state !== 'stun') dt *= this.tempo || 1; // 세계별 패턴 속도
     if (this.kind === 5) { this.updateTrio(dt, p); return; }
     this.t += dt; this.flash -= dt; this.st -= dt; this.disguiseCd -= dt;
     const dx = p.x - this.x, dy = p.y - this.y, d = Math.hypot(dx, dy) || 1;
