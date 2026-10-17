@@ -1306,7 +1306,7 @@ class Enemy {
       if (this.brokenT <= 0) this.guard = true;
     }
     if (this.stun > 0 || this.frozenT > 0) { this.attacking = false; if (this.state !== 'chase') { this.state = 'recover'; this.st = 0.3; } return; }
-    const slow = 1 - 0.15 * (this.chill || 0);
+    const slow = 1 - 0.1 * (this.chill || 0); // 냉기 중첩당 -10% (빙결이 6중첩이 되며 0.15 → 0.1)
     const mv = (vx, vy) => this.flying ? World.fly(this, vx * slow * dt, vy * slow * dt) : this.steer(vx * slow, vy * slow, dt);
     const chase = p.alive && d < 420;
     if (!chase && Math.random() < dt * 0.5) this.wander = Math.random() * Math.PI * 2;

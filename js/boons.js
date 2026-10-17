@@ -31,6 +31,11 @@ const POISON_SRC = ['poison_basic', 'poison_spray', 'poison_charge', 'poison_spe
 
 // 상태이상 기본 수치
 const SHOCK_VULN = 0.2;     // 감전된 적이 받는 피해 +20%
+// 얼음 (2026-10-17: 너무 강해서 낮춤) — 빙결 4 → 6중첩, 빙결 시간 1+0.5×Lv → 1+0.25×Lv초, 녹은 뒤 3초는 다시 안 얼고, 큰 냉기(차지 · 특수) 1+Lv → 1+⌈Lv/2⌉
+const FREEZE_AT = 6;
+const FREEZE_IMMUNE = 3;
+const freezeTime = lv => 1 + 0.25 * Math.max(1, lv);
+const iceBig = lv => 1 + Math.ceil(lv / 2);
 const POISON_MAX = 8;       // 독 최대 중첩
 const POISON_TIME = 5;      // 마지막으로 독을 건 뒤 사라지기까지
 const POISON_RAMP_MAX = 2;  // 독이 계속 걸려 있으면 피해가 최대 2배까지 가속
@@ -54,13 +59,13 @@ const BOONS = [
 
   // ── ❄ 얼음: 냉기 (중첩당 이동 속도 -15%, 4중첩이면 빙결) ──
   { id: 'ice_basic', el: 'frost', slot: 'basic', name: '서리 칼날',
-    desc: lv => `기본공격이 냉기를 1중첩 건다. 빙결 시간 ${1 + 0.5 * lv}초.` },
+    desc: lv => `기본공격이 냉기를 1중첩 건다 (${FREEZE_AT}중첩이면 빙결). 빙결 시간 ${freezeTime(lv)}초.` },
   { id: 'ice_shard', el: 'frost', needs: 'ice_basic', name: '얼음 파편',
     desc: lv => `휘두를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
   { id: 'ice_charge', el: 'frost', slot: 'charge', name: '빙결 회오리',
-    desc: lv => `회전베기에 맞은 적에게 냉기 ${1 + lv}중첩.` },
+    desc: lv => `회전베기에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
   { id: 'ice_special', el: 'frost', slot: 'special', name: '빙창 검기',
-    desc: lv => `검기에 맞은 적에게 냉기 ${1 + lv}중첩, 검기가 지나간 길이 얼어붙는다.` },
+    desc: lv => `검기에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 검기가 지나간 길이 얼어붙는다.` },
   { id: 'ice_dash', el: 'frost', slot: 'dash', name: '얼음 길',
     desc: lv => `대시한 길이 ${1.5 + 0.5 * lv}초간 얼어붙어 위에 선 적에게 냉기.` },
   { id: 'shatter', el: 'frost', name: '파쇄', req: () => ownsAny(CHILL_SRC),
@@ -147,8 +152,8 @@ const BOON_FORMS = {
     fire_special:   { name: '폭염 투척', desc: lv => `던진 창이 반환점에서 폭발한다. 주변에 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상. 창에 맞은 적도 화상.` },
     ice_basic:      { name: '서리 창날' },
     ice_shard:      { name: '빙결 관통', desc: lv => `찌를 때마다 창끝에서 얼음 파편 ${1 + lv}개가 앞으로 날아간다 (공격력의 ${pct(0.25 + 0.05 * lv)} + 냉기). 뒤쪽에서 관통당한 적일수록 냉기가 더 쌓인다.` },
-    ice_charge:     { name: '서리 꿰뚫기', desc: lv => `관통 찌르기에 맞은 적에게 냉기 ${1 + lv}중첩.` },
-    ice_special:    { name: '서리 창', desc: lv => `창에 맞은 적에게 냉기 ${1 + lv}중첩, 반환점에 ${2 + 0.5 * lv}초간 얼음 장판이 생긴다.` },
+    ice_charge:     { name: '서리 꿰뚫기', desc: lv => `관통 찌르기에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
+    ice_special:    { name: '서리 창', desc: lv => `창에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 반환점에 ${2 + 0.5 * lv}초간 얼음 장판이 생긴다.` },
     elec_basic:     { name: '번개 창날' },
     elec_chain:     { name: '피뢰 관통', desc: lv => `찌르기가 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전. 관통한 적끼리도 번개로 이어진다.` },
     elec_charge:    { name: '뇌전 꿰뚫기', desc: lv => `관통 찌르기 직후 창끝 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
@@ -175,7 +180,7 @@ const BOON_FORMS = {
     fire_special:   { name: '화염 마력탄', desc: lv => `마력탄이 맞으면 작게 폭발한다 (주변에 공격력의 ${pct(0.25 + 0.1 * lv)} + 화상).` },
     ice_basic:      { name: '서리 마법봉' },
     ice_shard:      { name: '얼음 파편 마력탄', needs: 'ice_special', desc: lv => `마력탄이 맞으면 얼음 파편 ${1 + lv}개가 사방으로 튄다 (공격력의 ${pct(0.2 + 0.05 * lv)} + 냉기 1중첩).` },
-    ice_charge:     { name: '빙결 마법진', desc: lv => `마법진 폭발에 맞은 적에게 냉기 ${1 + lv}중첩.` },
+    ice_charge:     { name: '빙결 마법진', desc: lv => `마법진 폭발에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
     ice_special:    { name: '서리 마력탄', desc: lv => `마력탄에 맞은 적에게 냉기 ${lv >= 3 ? 2 : 1}중첩.` },
     elec_basic:     { name: '번개 마법봉' },
     elec_chain:     { name: '연쇄 마력탄', needs: 'elec_special', desc: lv => `마력탄이 맞으면 번개가 옆 적에게 ${1 + lv}번 튄다 (한 번에 공격력의 ${pct(0.25 + 0.1 * lv)}) + 감전.` },
@@ -203,8 +208,8 @@ const BOON_FORMS = {
     fire_special:   { name: '작열 받아치기', desc: lv => `받아치면 주변이 폭발한다. 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
     ice_basic:      { name: '서리 쌍검' },
     ice_shard:      { name: '얼음 파편 연타', desc: lv => `찌를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
-    ice_charge:     { name: '빙결 연참', desc: lv => `연참에 베인 적에게 냉기 ${1 + lv}중첩.` },
-    ice_special:    { name: '서리 받아치기', desc: lv => `받아치면 주변 적에게 냉기 ${1 + lv}중첩, 발밑이 얼어붙는다.` },
+    ice_charge:     { name: '빙결 연참', desc: lv => `연참에 베인 적에게 냉기 ${iceBig(lv)}중첩.` },
+    ice_special:    { name: '서리 받아치기', desc: lv => `받아치면 주변 적에게 냉기 ${iceBig(lv)}중첩, 발밑이 얼어붙는다.` },
     elec_basic:     { name: '번개 쌍검' },
     elec_chain:     { name: '연쇄 번개 쌍검' },
     elec_charge:    { name: '뇌전 연참', desc: lv => `연참이 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
@@ -445,9 +450,11 @@ const FX = {
   },
   chill(t, n) {
     if (t.type === 'totem' || t.frozenT > 0) return;
-    t.chill = Math.min(4, (t.chill || 0) + n); t.chillT = 3;
-    if (t.chill >= 4 && t.type !== 'boss') {
-      t.frozenT = 1 + 0.5 * Math.max(1, this.lv('ice_basic'));
+    // 막 녹은 적은 잠깐 다시 얼지 않는다 (냉기는 쌓이지만 빙결 직전에서 멈춘다)
+    t.chill = Math.min(t.thawT > 0 ? FREEZE_AT - 1 : FREEZE_AT, (t.chill || 0) + n); t.chillT = 3;
+    if (t.chill >= FREEZE_AT && t.type !== 'boss') {
+      t.frozenT = freezeTime(this.lv('ice_basic'));
+      t.thawT = t.frozenT + FREEZE_IMMUNE;
       t.chill = 0; t.attacking = false;
       G.text(t.x, t.y - t.r - 14, '빙결!', '#bfefff', 12, 0.7);
       Sfx.freeze();
@@ -467,6 +474,7 @@ const FX = {
     if (t.overheatT > 0) t.overheatT -= dt;
     if (t.chill > 0) { t.chillT -= dt; if (t.chillT <= 0) t.chill = 0; }
     if (t.frozenT > 0) t.frozenT -= dt;
+    if (t.thawT > 0) t.thawT -= dt;
     const ps = t.poison;
     if (ps && ps.stacks > 0) {
       ps.t -= dt; ps.tick -= dt;
@@ -537,14 +545,14 @@ const FX = {
     } else if (kind === 'spin' || kind === 'lunge' || kind === 'rush' || kind === 'circle') {
       if (this.lv('fire_charge')) this.burn(t, 2);
       const ic = this.lv('ice_charge');
-      if (ic) this.chill(t, 1 + ic);
+      if (ic) this.chill(t, iceBig(ic));
       if (this.lv('poison_charge')) this.poison(t, 1);
     } else if (kind === 'spear') {
       // 던진 창: 폭발 · 장판 · 낙뢰는 반환점에서 (onSpearApex)
       if (this.lv('fire_special')) this.burn(t, 1);
       if (this.lv('elec_special')) this.shock(t);
       const is = this.lv('ice_special');
-      if (is && !t.dead) this.chill(t, 1 + is);
+      if (is && !t.dead) this.chill(t, iceBig(is));
       const pspc = this.lv('poison_special');
       if (pspc && !t.dead) this.poison(t, 1 + pspc);
       const hw = this.lv('heal_wave'), p = G.player;
@@ -555,7 +563,7 @@ const FX = {
       const fs = this.lv('fire_special');
       if (fs && !t.dead) this.explode(t.x, t.y, 50, atk * (0.6 + 0.3 * fs), '#ff7a3c', true);
       const is = this.lv('ice_special');
-      if (is && !t.dead) this.chill(t, 1 + is);
+      if (is && !t.dead) this.chill(t, iceBig(is));
       const pspc = this.lv('poison_special');
       if (pspc && !t.dead) this.poison(t, 1 + pspc);
       const hw = this.lv('heal_wave'), p = G.player;
@@ -745,7 +753,7 @@ const FX = {
     const fs = this.lv('fire_special');
     if (fs) this.explode(x, y, 70, atk * (0.8 + 0.4 * fs), '#ff7a3c', true);
     const is = this.lv('ice_special');
-    if (is) { for (const e of this.near(x, y, 70)) this.chill(e, 1 + is); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; this.zone(x + Math.cos(a) * 22, y + 4 + Math.sin(a) * 16, 'ice', 1.5 + 0.5 * is); } }
+    if (is) { for (const e of this.near(x, y, 70)) this.chill(e, iceBig(is)); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; this.zone(x + Math.cos(a) * 22, y + 4 + Math.sin(a) * 16, 'ice', 1.5 + 0.5 * is); } }
     const es = this.lv('elec_special');
     if (es) { const list = this.near(x, y, 120).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, 2 + es); for (const e of list) this.skyBolt(e, atk * (0.8 + 0.4 * es)); }
     const ps = this.lv('poison_special');
