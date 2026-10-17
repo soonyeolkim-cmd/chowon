@@ -96,15 +96,44 @@ const GIFT_CODE = 'lumi1017', GIFT_EMBLEMS = 10;
 const DEV_BUILD = TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null;
 const TEST_SAVE = !!DEV_BUILD && !DEV_LOCAL;
 
+// 프로필(저장 칸) 3개. 1번은 예전 저장 이름 그대로 'meta' (2026-10-17)
+const SAVE_SLOTS = 3;
+const slotKey = n => (n === 1 ? 'meta' : 'meta' + n);
+// 누적 자원이 없던 예전 저장: 지금 가진 것 + 강화 · 숙련 · 해금에 쓴 것으로 어림한다
+function estTotals(d) {
+  const sum = (arr, lv) => arr.slice(0, lv || 0).reduce((a, b) => a + b, 0);
+  let shards = d.shards || 0, essence = typeof d.essence === 'number' ? d.essence : Object.values(d.essence || {}).reduce((a, b) => a + b, 0), emblems = d.emblems || 0;
+  for (const u of UPGRADES) shards += sum(u.cost, (d.up || {})[u.id]);
+  for (const [w, ms] of Object.entries(d.wup || {})) {
+    const W0 = WEAPONS[w === 'gauntlet' ? 'sai' : w]; if (!W0) continue;
+    for (const m of W0.mastery) essence += sum(m.cost, ms[m.id]);
+  }
+  for (const w of d.unlocked || []) emblems += (WEAPONS[w === 'gauntlet' ? 'sai' : w] || {}).unlockCost || 0;
+  return { shards, essence, emblems };
+}
+
 const Meta = {
-  data: null,
-  load() {
-    let d = store.get('meta') || {};
+  data: null, slot: 1,
+  // 프로필 고르는 화면용: 그 칸의 진행 상황 (비었으면 null)
+  summary(n) {
+    const d = store.get(slotKey(n));
+    if (!d) return null;
+    const e = estTotals(d);
+    return {
+      runs: d.runs || 0, clears: d.clears || 0, best: d.best || 0, bestEasy: d.bestEasy || 0, tier: d.tier || 1, mode: d.mode,
+      unlocked: (d.unlocked || ['sword']).length, playT: d.playT || 0,
+      totShards: d.totShards ?? e.shards, totEssence: d.totEssence ?? e.essence, totEmblems: d.totEmblems ?? e.emblems,
+    };
+  },
+  load(slot) {
+    this.slot = clamp(slot || +store.get('slot') || 1, 1, SAVE_SLOTS);
+    let d = store.get(slotKey(this.slot)) || {};
     // 전체 해금 모드로 쓰던 저장은 다른 모드에서 처음 상태로 되돌린다
     if (DEV_LOCAL && DEV_MODE !== 'all' && (d.devAll || d.shards >= 9999)) d = {};
     // 로컬 테스트(창 해금 · 시험 빌드 숙련)로 쓰던 저장은 일반 모드로 돌아올 때 한 번 처음 상태로 (배포된 게임 저장은 건드리지 않는다)
     if (DEV_LOCAL && !DEV_MODE && !DEV_BUILD && !d.normal1) d = {};
     if (DEV_BUILD) d.normal1 = false;
+    const est = estTotals(d);
     this.data = {
       shards: d.shards || 0, up: d.up || {}, seen: d.seen || {},
       runs: d.runs || 0, best: d.best || 0, clears: d.clears || 0,
@@ -123,6 +152,9 @@ const Meta = {
       // 무기의 정수 (예전 저장의 무기별 정수 { sword: 12, spear: 3 } 은 합쳐서 옮긴다)
       normal1: d.normal1 !== false && !DEV_BUILD, // 로컬 일반 모드로 시작한 저장 표시
       essence: typeof d.essence === 'number' ? d.essence : Object.values(d.essence || {}).reduce((a, b) => a + b, 0),
+      // 지금까지 모은 자원 (쓴 것 포함) · 플레이 시간(초): 프로필 화면에 보인다
+      totShards: d.totShards ?? est.shards, totEssence: d.totEssence ?? est.essence, totEmblems: d.totEmblems ?? est.emblems,
+      playT: d.playT || 0,
     };
     // 건틀릿은 쌍검으로 바뀌었다 (2026-10-17): 해금 · 장착 · 숙련을 그대로 옮긴다
     { const D = this.data;
@@ -139,9 +171,9 @@ const Meta = {
     }
     // 선물 코드 (?gift=코드): 이 기기의 진짜 저장에 영웅의 증표를 한 번만 넣는다 (2026-10-17, 휴대폰 시험용)
     if (!TEST_SAVE && new URLSearchParams(location.search).get('gift') === GIFT_CODE && !this.data.gifts.includes(GIFT_CODE)) {
-      this.data.gifts.push(GIFT_CODE); this.data.emblems += GIFT_EMBLEMS;
+      this.data.gifts.push(GIFT_CODE); this.data.emblems += GIFT_EMBLEMS; this.data.totEmblems += GIFT_EMBLEMS;
       this.giftNote = `선물: 영웅의 증표 ${GIFT_EMBLEMS}개를 받았어요!`;
-      store.set('meta', this.data);
+      this.save();
       try { history.replaceState(null, '', location.pathname); } catch (_) {}
     }
     if (DEV_MODE === 'all') this.unlockAll();
@@ -183,7 +215,7 @@ const Meta = {
     this.save();
     return true;
   },
-  save() { store.set('meta', this.data); },
+  save() { store.set(slotKey(this.slot), this.data); store.set('slot', this.slot); },
   lv(id) { return this.data.up[id] || 0; },
   nextCost(u) { const lv = this.lv(u.id); return lv >= u.max ? null : u.cost[lv]; },
   buy(u) {

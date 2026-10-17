@@ -15,7 +15,8 @@ const EASY_DMG_TAKEN = 1 / 3;        // 쉬움 모드: 받는 피해 배율 (1/3
 const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
 // 회복 하트는 몬스터가 아니라 봉인석을 부술 때만 나온다 (2026-10-17)
 const STAGE_DIFF_STEP = 0.2;      // 스테이지마다 적이 강해지는 정도
-const stageLabel = idx => `${Math.ceil(idx / STAGES_PER_WORLD)}-${(idx - 1) % STAGES_PER_WORLD + 1}`;
+const stageLabelRaw = idx => `${Math.ceil(idx / STAGES_PER_WORLD)}-${(idx - 1) % STAGES_PER_WORLD + 1}`;
+const stageLabel = stageLabelRaw;
 
 
 // ── 배경음악: 마을 · 세계마다 · 보스 · 엔딩 (Ninja Adventure 음악, CC0). 설정에서 끌 수 있다 ──
@@ -116,7 +117,7 @@ function trackHeading(e, x0, y0, dt) {
 // 지금 들려줄 곡
 function musicTarget() {
   const st = G.state;
-  if (st === 'title' || (st === 'settings' && G.settingsFrom === 'title')) return 'title';
+  if (st === 'title' || st === 'profiles' || (st === 'settings' && G.settingsFrom === 'title')) return 'title';
   if (st === 'village' || (st === 'settings' && G.settingsFrom === 'village')) return 'village';
   if (st === 'ending') return 'ending';
   if (st === 'over') return null;
@@ -204,6 +205,7 @@ const G = {
     const tn = (this.tierInfo || tierInfo(1)).n;
     Meta.data.essBest[tn] = Math.max(Meta.data.essBest[tn] || 0, this.essRunBest || 0);
     Meta.data.shards += this.gotShards; Meta.data.essence += this.gotEssence;
+    Meta.data.totShards += this.gotShards; Meta.data.totEssence += this.gotEssence;
     Meta.save();
   },
   // ── 로그라이트: 런 시작 / 마을 ──
@@ -815,7 +817,7 @@ const G = {
             this.tierFirst = !Meta.data.tierCleared[info.n];
             if (this.tierFirst) {
               Meta.data.tierCleared[info.n] = true;
-              if (info.emblem) { Meta.data.emblems += EMBLEM_PER_CLEAR; this.runEmblems += EMBLEM_PER_CLEAR; }
+              if (info.emblem) { Meta.data.emblems += EMBLEM_PER_CLEAR; Meta.data.totEmblems += EMBLEM_PER_CLEAR; this.runEmblems += EMBLEM_PER_CLEAR; }
               else if (info.bonusShards) this.earn(info.bonusShards);
               // 다음에 고를 등급을 새로 열린 등급으로
               const next = playableTiers().filter(n => n > info.n)[0];
@@ -2264,6 +2266,69 @@ function drawRewardResult(y) {
   label(`보상 ×${P.total.toFixed(2)}  (${parts.join(' · ')})   ·   보유 ◆ ${Meta.data.shards} · ⚔ ${Meta.data.essence}`, W / 2, y + 18, 11, P.fam < 1 ? '#ff9a7a' : '#ccd', 'center', '600');
 }
 
+// ── 프로필 고르기: 저장 칸 3개, 칸마다 지금까지의 진행 상황 (2026-10-17) ──
+function openProfiles() { G.state = 'profiles'; G.pf = { sel: (Meta.slot || 1) - 1, t: 0, axis: 0, axisX: 0 }; Sfx.pickup(); }
+function profileLayout() {
+  const n = SAVE_SLOTS, gap = 12, avail = W - inset.l - inset.r - 32;
+  const w = Math.min(230, (avail - gap * (n - 1)) / n), h = Math.min(250, H - inset.t - inset.b - 120);
+  const x0 = (W - (w * n + gap * (n - 1))) / 2, y = Math.max(inset.t + 64, (H - h) / 2);
+  const cards = Array.from({ length: n }, (_, i) => ({ x: x0 + i * (w + gap), y, w, h }));
+  cards.back = { x: W / 2 - 70, y: y + h + 12, w: 140, h: 30 };
+  return cards;
+}
+const fmtPlay = t => (t < 60 ? '1분 미만' : t < 3600 ? `${Math.floor(t / 60)}분` : `${Math.floor(t / 3600)}시간 ${Math.floor((t % 3600) / 60)}분`);
+function handleProfileInput(dt, inp) {
+  const m = G.pf;
+  m.t += dt;
+  if (m.t < 0.2) return;
+  const { dx, dy } = menuAxis(m, inp, dt);
+  if (dx || dy) { m.sel = stepSel(m.sel, dx || dy, SAVE_SLOTS); Sfx.pickup(); }
+  const L = profileLayout();
+  let pick = null;
+  if (inp.tap) {
+    if (inRectPt(inp.tap, L.back)) { G.state = 'title'; G.titleT = 0; Sfx.pickup(); return; }
+    const i = L.findIndex(r => inRectPt(inp.tap, r));
+    if (i >= 0) pick = i;
+  } else if (inp.confirm) pick = m.sel;
+  if (pick === null) { if (inp.back) { G.state = 'title'; G.titleT = 0; } return; }
+  Meta.load(pick + 1); Meta.save(); Sfx.boon();
+  G.goVillage();
+}
+function drawProfiles(blink) {
+  overlay(0.62);
+  const L = profileLayout(), m = G.pf;
+  label('프로필 선택', W / 2, L[0].y - 34, 24, '#ffe08a', 'center', '900');
+  L.forEach((r, i) => {
+    const s = Meta.summary(i + 1), sel = m.sel === i, cx = r.x + r.w / 2;
+    ctx.fillStyle = sel ? 'rgba(58,50,96,0.96)' : 'rgba(20,26,34,0.92)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.2)'; ctx.lineWidth = sel ? 2 : 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    label(`프로필 ${i + 1}`, cx, r.y + 20, 16, sel ? '#ffd24a' : '#fff', 'center', '900');
+    const foot = (t, c) => label(t, cx, r.y + r.h - 18, 13, sel && blink ? '#ffd24a' : c, 'center', '800');
+    if (!s) { label('비어 있음', cx, r.y + r.h / 2, 14, '#8a96a0', 'center', '700'); foot('새 모험 시작', '#ccd'); return; }
+    const stageLabel = i => (i > STAGES_PER_WORLD * FINAL_STAGE ? '완주' : stageLabelRaw(i)); // 31 = 끝까지 깸
+    const best = s.best ? stageLabel(s.best) + (s.bestEasy ? ` (쉬움 ${stageLabel(s.bestEasy)})` : '') : s.bestEasy ? `쉬움 ${stageLabel(s.bestEasy)}` : '-';
+    const rows = [
+      ['최고 기록', best], ['완주', `${s.clears}회`], ['도전', `${s.runs}회`], ['플레이 시간', fmtPlay(s.playT)],
+      ['무기', `${s.unlocked} / ${WEAPON_ORDER.length}종`],
+      null, // 구분선: 아래는 지금까지 모은 자원
+      ['◆ 정령의 조각', s.totShards], ['⚔ 무기의 정수', s.totEssence], ['✦ 영웅의 증표', s.totEmblems],
+    ];
+    const top = r.y + 44, rh = Math.min(19, (r.h - 82) / rows.length), lx = r.x + 12, rx = r.x + r.w - 12;
+    rows.forEach((row, j) => {
+      const yy = top + j * rh;
+      if (!row) { ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(lx, yy, r.w - 24, 1); label('모은 자원', lx, yy + rh * 0.45, 10, '#8a96a0', 'left', '700'); return; }
+      label(row[0], lx, yy + rh * 0.6, 11, '#aab4c0', 'left', '600');
+      label(String(row[1]), rx, yy + rh * 0.6, 12, '#fff', 'right', '700');
+    });
+    foot(`이어하기 · 봉인 등급 ${s.tier}${s.mode === 'easy' ? ' · 쉬움' : ''}`, '#c8b8ff');
+  });
+  const b = L.back;
+  ctx.fillStyle = 'rgba(20,26,34,0.85)'; ctx.fillRect(b.x, b.y, b.w, b.h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
+  label('← 처음 화면', b.x + b.w / 2, b.y + b.h / 2, 12, '#ccd', 'center', '700');
+  const d = Input.state.device;
+  if (d !== 'touch' && b.y + b.h + 14 < H - inset.b - 4) label(d === 'gamepad' ? '←→ 고르기 · A 결정 · B 돌아가기' : '←→ 고르기 · Enter/Z 결정 · Esc 돌아가기', W / 2, b.y + b.h + 14, 12, '#aab', 'center', '600');
+}
 function overlay(alpha) { ctx.fillStyle = `rgba(5,12,5,${alpha})`; ctx.fillRect(0, 0, W, H); }
 
 function drawBanner() {
@@ -2338,14 +2403,14 @@ function render() {
     label('봉인의 숲', W / 2, H * 0.2, big, '#ffe08a');
     const story = '마물에게 습격당한 숲 마을. 견습 검사 리안은 숲의 정령 루미와 함께 봉인석의 비밀을 쫓는다.';
     wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, H * 0.2 + big * 0.9 + i * 20, 14, '#d8e8d0', 'center', '500'));
-    const md = Meta.data;
-    label(`로그라이트 · 쓰러지면 처음부터 · 정령의 조각으로 영구 강화${md.best ? `   (최고 기록: ${stageLabel(md.best)})` : ''}${md.bestEasy ? `  (쉬움: ${stageLabel(md.bestEasy)})` : ''}`, W / 2, H * 0.45, 12, '#c8b8ff', 'center', '600');
-    label(`봉인 등급 ${md.tier}   ·   난이도: ${md.mode === 'easy' ? '쉬움 (받는 피해 1/3)' : '일반'}  ·  마을에서 바꿀 수 있어요`, W / 2, H * 0.45 + 18, 12, md.mode === 'easy' ? '#8ff0b0' : '#aab', 'center', '600');
+    label('로그라이트 · 쓰러지면 처음부터 · 정령의 조각으로 영구 강화', W / 2, H * 0.45, 12, '#c8b8ff', 'center', '600');
     const { move, A, P, D } = keyNames();
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
     if (Input.state.device === 'keyboard') label(`조작 방식: ${Input.settings.kbMode === 'mouse' ? '키보드+마우스' : '키보드만'}  ·  마을의 ⚙ 설정 > 키보드에서 바꿀 수 있어요`, W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
     label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, H * 0.56 + 20, 12, '#b8c8b8', 'center', '500');
     if (blink) label(`${tap} 시작`, W / 2, H * 0.78, 20, '#ffd24a');
+  } else if (G.state === 'profiles') {
+    drawProfiles(blink);
   } else if (G.state === 'village' || (G.state === 'settings' && G.settingsFrom === 'village')) {
     drawVillage(blink);
     drawTestMark();
@@ -2424,6 +2489,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   G.time += dt;
+  if (Meta.data && G.state !== 'title' && G.state !== 'profiles' && G.state !== 'paused' && G.state !== 'settings') Meta.data.playT += dt; // 플레이 시간
   Input.update();
   layoutButtons();
   Music.update(dt, musicTarget(), G.state === 'paused' || G.state === 'settings');
@@ -2434,8 +2500,12 @@ function frame(now) {
     G.cam.x = World.pw / 2 + Math.cos(G.time * 0.15) * 300;
     G.cam.y = World.ph / 2 + Math.sin(G.time * 0.2) * 200;
     // 브라우저는 처음 누른 뒤에야 소리를 낸다: 음악이 켜져 있으면 첫 입력은 시작 화면 음악을 틀고, 다음 입력에 출발
-    if (inp.start) { if (MUSIC_ON && Input.settings.bgm && !G.titleHeard) { G.titleHeard = true; G.titleT = 0; } else if (!(G.titleT < 0.4)) G.goVillage(); }
+    if (inp.start) { if (MUSIC_ON && Input.settings.bgm && !G.titleHeard) { G.titleHeard = true; G.titleT = 0; } else if (!(G.titleT < 0.4)) openProfiles(); }
     G.titleT = (G.titleT || 0) + dt;
+  } else if (G.state === 'profiles') {
+    G.cam.x = World.pw / 2 + Math.cos(G.time * 0.15) * 300;
+    G.cam.y = World.ph / 2 + Math.sin(G.time * 0.2) * 200;
+    handleProfileInput(dt, inp);
   } else if (G.state === 'play') {
     if (inp.pause) openPause();
     else {
