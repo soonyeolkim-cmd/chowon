@@ -1520,16 +1520,11 @@ function drawSettings(blink) {
 // 마을의 '처음 화면' 버튼 (왼쪽 위, 루미 그림 자리). 패드 · 키보드에선 ⚙ 에서 ← 로 간다 (2026-10-17)
 function villageHome() { return { x: inset.l + 12, y: inset.t + 12, w: 96, h: 32 }; }
 function drawHome(r, sel) {
-  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(30,36,48,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.85)'; ctx.fillRect(r.x, r.y, r.w, r.h);
   if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
-  else { ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
-  // 도트 집 모양: 지붕 · 몸통 · 문
-  const hx = r.x + 18, hy = r.y + r.h / 2 + 1, c = sel ? '#ffd24a' : '#fff';
-  ctx.fillStyle = c;
-  ctx.beginPath(); ctx.moveTo(hx - 9, hy - 2); ctx.lineTo(hx, hy - 10); ctx.lineTo(hx + 9, hy - 2); ctx.closePath(); ctx.fill();
-  ctx.fillRect(hx - 6, hy - 3, 12, 10);
-  ctx.fillStyle = 'rgba(30,36,48,1)'; ctx.fillRect(hx - 2, hy + 1, 4, 6);
-  label('처음 화면', r.x + 34, r.y + r.h / 2 + 1, 12, c, 'left', '800');
+  else { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
+  // 프로필 화면의 '← 처음 화면' 버튼과 같은 글씨
+  label('← 처음 화면', r.x + r.w / 2, r.y + r.h / 2 + 1, 12, sel ? '#ffd24a' : '#ccd', 'center', '700');
 }
 function villageGoTitle() { Meta.save(); G.state = 'title'; G.titleT = 0; G.titleHeard = true; Sfx.pickup(); }
 
