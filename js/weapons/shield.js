@@ -55,6 +55,7 @@ addWeapon('shield', {
   dashCdMult: 0.9 / DASH_CD, // 대시 1회 · 0.9초 충전
   dashGuard: SHIELD_GUARD_AFTER, // 대시 = 방패 대시 (무적 · 저스트 회피 대신 정면 막기, entities.js · game.js hurtPlayer)
   wallSlam: true,            // 3타째 밀치기 · 돌려치기로 벽에 밀면 벽꿍
+  slamBoon: 'ambush',        // 기습 축복이 방패에선 '벽치기'(벽꿍 강화)가 된다 (2026-10-18)
   skillCd: 0,
   basic: (p, mag) => p.startBash(mag),
   basicAfterDash: p => p.startShieldSlam(),
@@ -148,6 +149,7 @@ BOON_FORMS.shield = {
   atk_wave:       { name: '돌려치기 강화', desc: lv => `돌려치기 범위 +${10 * lv}%, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
   atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
   sharp:          { name: '날 선 방패' },
+  ambush:         { name: '벽치기', desc: lv => `벽꿍 피해 +${60 * lv}%, 벽꿍 기절 +${(0.3 * lv).toFixed(1)}초.` }, // 기습 대신
   lifesteal:      { name: '흡혈 방패' },
   guard_spin:     { name: '굳건한 강타', desc: lv => `방패 강타 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
   heal_wave:      { name: '치유의 돌려치기', desc: lv => `돌려치기가 적을 맞히면 체력 ${0.5 + 0.5 * lv} 회복 (한 번 돌 때 한 번).` },

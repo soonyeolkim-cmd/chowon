@@ -399,11 +399,12 @@ Object.assign(FX, {
   wallSlam(e) {
     e.slamT = 0; e.kvx = e.kvy = 0;
     if (e.dead) return;
-    e.stun = Math.max(e.stun || 0, 1.0);
+    const sb = G.player.weapon.slamBoon ? this.lv(G.player.weapon.slamBoon) : 0; // 벽꿍 강화 (방패: 기습 자리)
+    e.stun = Math.max(e.stun || 0, 1.0 + 0.3 * sb);
     G.text(e.x, e.y - e.r - 18, '벽꿍!', '#ffb84a', 13, 0.8);
     G.burst(e.x, e.y, 10, ['#d8c8a8', '#fff'], 150);
     G.shake = Math.max(G.shake, 4); Sfx.guardBreak();
-    this.damage(e, G.player.atk * WALL_SLAM_MULT, '#ffb84a', 13);
+    this.damage(e, G.player.atk * WALL_SLAM_MULT * (1 + 0.6 * sb), '#ffb84a', sb ? 15 : 13);
   },
 });
 

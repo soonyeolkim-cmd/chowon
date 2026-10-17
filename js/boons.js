@@ -602,7 +602,7 @@ const FX = {
     if (role === 'fin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
     if (role === 'dash') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
-    const am = this.lv('ambush');
+    const am = p.weapon.slamBoon === 'ambush' ? 0 : this.lv('ambush'); // 방패: 기습 대신 벽꿍 강화 (FX.wallSlam)
     if (am && t && offGuard(t, p)) { m *= 1 + 0.1 + 0.2 * am; t.ambushHit = true; } // 기습: 옆 · 뒤에서, 또는 무방비
     return m * this.shockMult(t);
   },
