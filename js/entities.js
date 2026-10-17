@@ -64,7 +64,7 @@ const MOVES = {
   // 마법봉: 기본공격은 약하고, 마력탄 한 발도 약하지만 여러 발을 쏟아 낸다
   bonk:    { mult: 0.8, kb: 160, guardBreak: false },
   bonkFin: { mult: 1.2, kb: 300, guardBreak: true },    // 2타째
-  orb:     { mult: 0.6, kb: 60, guardBreak: false },    // 마력탄 한 발
+  orb:     { mult: 0.8, kb: 60, guardBreak: false },    // 마력탄 한 발 (0.6 → 0.8, 2026-10-17)
   circle:  { mult: 2.4, kb: 260, guardBreak: true },    // 마법진 폭발 (차지)
   pulse:   { mult: 1.0, kb: 340, guardBreak: false },   // 마력 파동 (대시 공격)
 };
