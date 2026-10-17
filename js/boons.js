@@ -123,7 +123,7 @@ const BOONS = [
   { id: 'dash_guard', el: 'guard', name: '잔상 보호막', desc: lv => `대시 후 1초간 받는 피해 -${30 + 10 * lv}%.` },
   { id: 'tough', el: 'guard', name: '강인한 체력', maxLv: 5, onPick: p => { p.maxHp += 15; p.hp += 15; },
     desc: () => '최대 체력 +15 (즉시 회복). 5번까지 겹친다.' },
-  { id: 'spring', el: 'guard', name: '생명의 샘', desc: lv => `스테이지를 클리어할 때마다 최대 체력의 ${10 + 5 * lv}% 회복.` },
+  { id: 'spring', el: 'guard', name: '생명의 샘', desc: lv => `스테이지를 클리어할 때마다 체력 ${5 + 5 * lv} 회복.` },
   { id: 'leaf', el: 'guard', name: '잎사귀 방패', desc: lv => `${20 - 4 * lv}초마다 받는 피해 1회를 막아 주는 방패가 생긴다.` },
   { id: 'skin', el: 'guard', name: '굳은 피부', desc: lv => `받는 피해 -${4 + 4 * lv}%.` },
   { id: 'second', el: 'guard', name: '두 번째 기회', maxLv: 1, rare: true, onPick: () => { G.reviveLeft++; },
@@ -592,7 +592,7 @@ const FX = {
   // 스테이지 클리어: 생명의 샘
   onStageClear(stats) {
     const sp = this.lv('spring');
-    if (sp) stats.hp = Math.min(stats.maxHp, (stats.hp || stats.maxHp) + Math.round(stats.maxHp * (0.1 + 0.05 * sp) * (curse('heal') ? 0.5 : 1)));
+    if (sp) stats.hp = Math.min(stats.maxHp, (stats.hp || stats.maxHp) + Math.round((5 + 5 * sp) * (curse('heal') ? 0.5 : 1))); // 10 · 15 · 20 (비율 → 고정값, 2026-10-17)
   },
 
   // 공격 쪽 배율들 (Player 가 사용)
