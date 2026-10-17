@@ -193,7 +193,11 @@ const RUSH_WIDTH = 16;          // 연참 판정 폭
 const PARRY_TIME = 0.4;         // 받아치기 막는 시간
 const PARRY_TRIPLE = 0.6;       // 3타째 직후 교차 받아치기
 const PARRY_STUN = 0.8;         // 반격에 맞은 적 기절 (보스 제외)
-const PARRY_WIDE_R = 70;        // 교차 받아치기 반격 범위
+const PARRY_WIDE_R = 70;        // 교차 받아치기: 주변 적도 함께 벤다
+const RIPOSTE_TIME = 0.14;      // 반격으로 베고 지나가는 시간 (무적)
+const RIPOSTE_SAFE = 0.35;      // 도착한 뒤에도 이만큼 무적
+const RIPOSTE_PAST = 30;        // 적을 지나 이만큼 더 간다
+const RIPOSTE_MAX = 150;        // 반격 돌진 최대 거리
 const WHIRL_R = 40;             // 선풍 베기 반경
 
 // 창 수치

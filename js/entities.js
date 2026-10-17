@@ -468,31 +468,36 @@ class Player {
     if (wide) G.text(this.x, this.y - 24, '교차 받아치기', '#7fe0ff', 12, 0.6);
     Sfx.swing(false);
   }
-  // 막았다: 피해 없이 반격 치명타 + 기절 + 기세 +2
+  // 막았다: 피해 없이 반격. 공격한 적을 향해 직선으로 베고 지나간다 (지나가는 동안 · 도착한 뒤 잠깐 무적)
+  // 길 위의 적은 모두 반격 치명타 + 기절, 기세 +2. 교차 받아치기는 주변 적도 함께 벤다
   parry(src) {
     this.parryT = 0;
-    this.invuln = Math.max(this.invuln, 0.5);
-    const list = [];
-    if (this.parryWide) for (const t of G.targets()) { if (Math.hypot(t.x - this.x, t.y - this.y) < PARRY_WIDE_R + t.r) list.push(t); }
-    else {
-      let best = null, bd = 90;
-      for (const t of G.targets()) { const d = t === src ? 0 : Math.hypot(t.x - this.x, t.y - this.y) - t.r; if (d < bd) { bd = d; best = t; } }
-      if (best) list.push(best);
-    }
-    for (const t of list) {
-      const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
-      this.counterT = 1; // 반격은 언제나 치명타 (deal 이 쓰고 지운다)
-      this.deal(t, 'riposte', dx / d, dy / d);
-      if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, PARRY_STUN);
-    }
-    if (list[0]) this.facing = Math.atan2(list[0].y - this.y, list[0].x - this.x);
-    this.act = { kind: 'riposte', t: 0, dur: 0.22, hit: new Set(list), wide: this.parryWide };
+    let target = null, bd = 120;
+    for (const t of G.targets()) { const d = t === src ? -1 : Math.hypot(t.x - this.x, t.y - this.y) - t.r; if (d < bd) { bd = d; target = t; } }
+    const dir = target ? Math.atan2(target.y - this.y, target.x - this.x) : this.facing;
+    const len = target ? clamp(Math.hypot(target.x - this.x, target.y - this.y) + target.r + RIPOSTE_PAST, 50, RIPOSTE_MAX) : 50;
+    this.facing = dir;
+    this.invuln = Math.max(this.invuln, RIPOSTE_TIME + RIPOSTE_SAFE);
+    this.act = { kind: 'riposte', t: 0, dur: RIPOSTE_TIME + 0.3, dash: RIPOSTE_TIME, hit: new Set(), x0: this.x, y0: this.y, px: this.x, py: this.y, len, marks: [], wide: this.parryWide };
+    if (this.parryWide) for (const t of G.targets()) { if (Math.hypot(t.x - this.x, t.y - this.y) < PARRY_WIDE_R + t.r) this.riposteHit(t); }
     this.momentum = Math.min(MOMENTUM_MAX, this.momentum + 2); this.momT = MOMENTUM_TIME;
-    G.text(this.x, this.y - 30, '받아치기!', '#7fe0ff', 15, 0.9);
-    G.fxRing(this.x, this.y, '#7fe0ff', this.parryWide ? PARRY_WIDE_R : 40);
-    G.hitstop = Math.max(G.hitstop, 0.09); G.shake = Math.max(G.shake, 5);
-    Sfx.guardBreak(); Input.rumble(0.6, 140);
+    G.text(this.x, this.y - 30, '받아치기!', '#7fe0ff', 16, 0.9);
+    G.fxRing(this.x, this.y, '#ffffff', 26); G.fxRing(this.x, this.y, '#7fe0ff', this.parryWide ? PARRY_WIDE_R : 44);
+    G.burst(this.x, this.y - 4, 18, ['#ffffff', '#bff4ff', '#7fe0ff'], 220);
+    G.hitstop = Math.max(G.hitstop, 0.08); G.shake = Math.max(G.shake, 6);
+    Sfx.guardBreak(); Sfx.dodge(); Input.rumble(0.7, 160);
     FX.onParry(this);
+  }
+  riposteHit(t) {
+    const a = this.act;
+    if (a.hit.has(t)) return;
+    a.hit.add(t);
+    const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
+    this.counterT = 1; // 반격은 언제나 치명타 (deal 이 쓰고 지운다)
+    this.deal(t, 'riposte', dx / d, dy / d);
+    if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, PARRY_STUN);
+    a.marks.push({ x: t.x, y: t.y - 4, t: a.t, ang: this.facing + rand(-0.5, 0.5) });
+    G.burst(t.x, t.y - 4, 12, ['#ffffff', '#bff4ff', '#ffe18a'], 200);
   }
 
   // 선풍 베기 (대시 직후 공격): 쌍검으로 한 바퀴 돌며 주변을 벤다
@@ -606,7 +611,26 @@ class Player {
       if (a.t > a.dur * 0.15) this.hitArc(a, this.whirlR, Math.PI);
       return;
     }
-    if (a.kind === 'parry' || a.kind === 'riposte') return;
+    if (a.kind === 'riposte') { // 반격: 직선으로 베고 지나간다
+      if (a.t <= a.dash + dt) {
+        const sp = a.len / a.dash;
+        World.move(this, fx * sp * dt, fy * sp * dt);
+        this.trail.push({ x: this.x, y: this.y, life: 0.3 });
+        const x0 = a.px, y0 = a.py, x1 = this.x, y1 = this.y, ddx = x1 - x0, ddy = y1 - y0, L2 = ddx * ddx + ddy * ddy || 1;
+        for (const t of G.targets()) {
+          const k = clamp(((t.x - x0) * ddx + (t.y - y0) * ddy) / L2, 0, 1);
+          if (Math.hypot(t.x - (x0 + ddx * k), t.y - (y0 + ddy * k)) <= RUSH_WIDTH + 4 + t.r) this.riposteHit(t);
+        }
+        a.px = this.x; a.py = this.y;
+      } else if (!a.ended) { // 도착: 한 번 더 번쩍
+        a.ended = true; a.x1 = this.x; a.y1 = this.y;
+        G.fxRing(this.x, this.y, '#bff4ff', 30); G.burst(this.x, this.y - 4, 10, ['#ffffff', '#7fe0ff'], 160);
+        G.slowT = Math.max(G.slowT, 0.2); // 도착한 순간 잠깐 느리게
+        Sfx.swing(true);
+      }
+      return;
+    }
+    if (a.kind === 'parry') return;
     if (a.kind === 'poke' || a.kind === 'pokeFin') {
       if (a.t < a.dur * 0.4 && !a.noStep && this.inMag >= STEP_MIN) World.move(this, fx * 60 * dt, fy * 60 * dt);
       if (a.t > a.dur * 0.2) this.hitSpear(a, a.len, SPEAR_WIDTH, SPEAR_PIERCE);
@@ -946,9 +970,25 @@ class Player {
       if (ss) ElFx.arc(g, ss, x, cy, 16, f - 1.1, f + 1.1, 3, k);
       else { g.strokeStyle = `rgba(127,224,255,${k})`; g.lineWidth = 3; g.beginPath(); g.arc(x, cy, 16, f - 1.1, f + 1.1); g.stroke(); }
     } else if (a && a.kind === 'riposte') {
-      const pr = a.t / a.dur;
-      for (const side of [-1, 1]) { const [hx, hy] = at(10, side * 3); saiSprite(g, hx, hy, f + side * 0.5 * (1 - 2 * pr), 6); }
-      slashFx('cutX', 22, a.wide ? 2.4 : 1.8, pr, false);
+      const moving = !a.ended, fade = moving ? 1 : clamp(1 - (a.t - a.dash) / 0.3, 0, 1);
+      for (const side of [-1, 1]) { const [hx, hy] = at(moving ? 10 : 6, side * 4); saiSprite(g, hx, hy, f + side * (moving ? 0.12 : 0.9), moving ? 6 : 0); }
+      // 베고 지나간 길: 넓은 빛 + 가운데 흰 선
+      const x0 = a.x0, y0 = a.y0 - 1, x1 = moving ? x : a.x1, y1 = moving ? cy : a.y1 - 1, ss = ElFx.slot('special');
+      g.lineCap = 'round';
+      g.strokeStyle = ss ? ElFx.rgba(ss.el, 0.35 * fade) : `rgba(127,224,255,${0.35 * fade})`; g.lineWidth = 14;
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      g.strokeStyle = ss ? ElFx.rgba(ss.el, 0.8 * fade) : `rgba(191,244,255,${0.8 * fade})`; g.lineWidth = 6;
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      g.strokeStyle = `rgba(255,255,255,${fade})`; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      if (ss && Math.random() < 0.8) { const k = Math.random(); ElFx.spark(ss, x0 + (x1 - x0) * k, y0 + (y1 - y0) * k, 2); }
+      // 맞은 자리마다 X자 베기
+      for (const m of a.marks) {
+        const q = (a.t - m.t) / 0.28;
+        if (q < 0 || q >= 1) continue;
+        const img = ss ? ElFx.tinted(ART.img.cutX, ss.el) : ART.img.cutX, fr = Math.min(3, Math.floor(q * 4)) * 32;
+        g.save(); g.translate(m.x, m.y); g.rotate(m.ang); g.drawImage(img, fr, 0, 32, 32, -40, -40, 80, 80); g.restore();
+      }
     } else if (a && a.kind === 'whirl') {
       const pr = a.t / a.dur, ang = f + pr * Math.PI * 2;
       for (const side of [-1, 1]) { const q = ang + (side > 0 ? 0 : Math.PI); saiSprite(g, x + Math.cos(q) * 10, cy + Math.sin(q) * 10, q, 6); }
