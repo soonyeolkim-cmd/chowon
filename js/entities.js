@@ -52,6 +52,7 @@ const MULTISPIN_MULT = 0.5;
 // 이보다 약한 방향 입력이면 기본공격 때 앞으로 나가지 않는다. 전진하는 매 프레임 다시 본다
 // (패드 스틱은 손을 떼도 몇 프레임 동안 기울어진 값이 남아서, 시작할 때만 보면 서서 쳐도 나가 버린다)
 const STEP_MIN = 0.5;
+const PLAYER_HURT_SCALE = 0.75; // 플레이어 피격 판정 = 몸 반경(9)의 75% → 6.75
 // 기본공격 계열 (기본 · 마무리 · 대시 공격): 기본공격 축복이 붙는다
 const isBasicKind = k => { const r = MOVES[k] && MOVES[k].role; return r === 'basic' || r === 'fin' || r === 'dash'; };
 const DASH_CD = 0.7;        // 대시 1회 충전 시간 (초, 모든 무기 공통)
@@ -103,6 +104,7 @@ class Player {
   get dashMax() { return this.weapon.dashCharges || DASH_CHARGES; }
   get dashSpeed() { return this.weapon.dashSpeed || 340; }
   get spearOut() { return !!this.spearShot && !this.spearShot.done; } // 창을 던져서 손이 빈 상태
+  get hurtR() { return this.r * PLAYER_HURT_SCALE; } // 맞는 판정 반경: 몸(지형 충돌)보다 조금 작게 (2026-10-17)
   get dashCdBase() { return DASH_CD * (this.weapon.dashCdMult || 1) * (1 - 0.08 * Meta.lv('agi')); }
   mastery(id) { return Meta.wlv(this.weaponId, id); }
   get specialCdBase() { const w = this.weapon; return Math.max(w.cdFloor, w.specialCd - w.cdPerLv * FX.lv('atk_wave') - w.cdPerMastery * this.mastery('wave')); }
@@ -556,7 +558,7 @@ class Enemy {
       if (this.state === 'tail') {
         if (this.st <= 0) {
           G.burst(this.x, this.y, 10, ['#c9b48a', '#fff'], 140);
-          if (p.alive && d < TREX_TAIL_R + p.r) G.hurtPlayer(this.dmg, { x: this.x, y: this.y, attacking: true });
+          if (p.alive && d < TREX_TAIL_R + p.hurtR) G.hurtPlayer(this.dmg, { x: this.x, y: this.y, attacking: true });
           this.state = 'recover'; this.st = 0.6;
         }
       } else {
@@ -590,7 +592,7 @@ class Enemy {
 
     // 넉백 등으로 숲 · 물 위에 떠 있게 되면 플레이어 쪽으로 천천히 돌아온다
     if (this.flying && !World.reachable(this.x, this.y)) World.fly(this, dx / d * 70 * dt, dy / d * 70 * dt);
-    if (p.alive && this.spawnT <= 0 && !this.burrowed && d < this.r + p.r - 1) {
+    if (p.alive && this.spawnT <= 0 && !this.burrowed && d < this.r + p.hurtR - 1) {
       G.hurtPlayer(this.attacking ? Math.round(this.dmg * 1.5) : this.dmg, this);
     }
   }
@@ -651,7 +653,7 @@ class Enemy {
     const dx = p.x - this.x, dy = p.y - this.y, len = this.type === 'statue' ? STATUE_BEAM_LEN : EYE_BEAM_LEN;
     for (const a of this.beamAngles || [this.aimDir]) {
       const c = Math.cos(a), s = Math.sin(a), along = dx * c + dy * s, perp = Math.abs(dx * s - dy * c);
-      if (along > 0 && along < len && perp < 9 + p.r) {
+      if (along > 0 && along < len && perp < 9 + p.hurtR) {
         this.beamHit = true;
         G.hurtPlayer(this.shotDmg, { x: this.x, y: this.y, attacking: true });
         return;
@@ -677,7 +679,7 @@ class Enemy {
       if (this.st <= 0) {
         this.state = 'up'; this.st = 1.8; this.burrowed = false; this.attacking = true;
         G.burst(this.x, this.y + 4, 14, ['#8a6a4a', '#c8a878', '#fff'], 150); G.shake = Math.max(G.shake, 3);
-        if (p.alive && d < MOLE_POP_R + p.r) G.hurtPlayer(Math.round(this.dmg * 1.3), { x: this.x, y: this.y, attacking: true, area: true });      }
+        if (p.alive && d < MOLE_POP_R + p.hurtR) G.hurtPlayer(Math.round(this.dmg * 1.3), { x: this.x, y: this.y, attacking: true, area: true });      }
     }
   }
 
@@ -689,7 +691,7 @@ class Enemy {
       if (d < 34 || this.st <= 0) { this.state = 'boom'; this.st = 0.4; }
     } else if (this.st <= 0) {
       G.burst(this.x, this.y, 22, ['#ff9a3c', '#ffd24a', '#fff'], 220); G.fxRing(this.x, this.y, '#ff7a3c', FLAM_BOOM_R); G.shake = Math.max(G.shake, 6); Sfx.boom();
-      if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < FLAM_BOOM_R + p.r) G.hurtPlayer(Math.round(this.shotDmg * 1.6), { x: this.x, y: this.y, attacking: true, area: true });
+      if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < FLAM_BOOM_R + p.hurtR) G.hurtPlayer(Math.round(this.shotDmg * 1.6), { x: this.x, y: this.y, attacking: true, area: true });
       this.hp = 0; G.killEnemy(this);
     }
   }
@@ -709,7 +711,7 @@ class Enemy {
       if (this.st <= 0) {
         this.state = 'slash'; this.st = 0.25; this.burrowed = false; this.attacking = true;
         G.burst(this.x, this.y, 12, ['#ff5a5a', '#2a0a0a'], 160); Sfx.swing(true);
-        if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < DEMON_SLASH_R + p.r) G.hurtPlayer(Math.round(this.dmg * 1.2), { x: this.x, y: this.y, attacking: true });
+        if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < DEMON_SLASH_R + p.hurtR) G.hurtPlayer(Math.round(this.dmg * 1.2), { x: this.x, y: this.y, attacking: true });
       }
       return;
     }
@@ -735,7 +737,7 @@ class Enemy {
       if (this.st <= 0) {
         this.air = 0; this.attacking = false; this.state = 'recover'; this.st = 0.8; this.cd = rand(2.2, 3);
         G.burst(this.x, this.y + 6, 10, ['#c9b48a', '#fff'], 130);
-        if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < LION_POUNCE_R + p.r) G.hurtPlayer(Math.round(this.dmg * 1.2), { x: this.x, y: this.y, attacking: true });
+        if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < LION_POUNCE_R + p.hurtR) G.hurtPlayer(Math.round(this.dmg * 1.2), { x: this.x, y: this.y, attacking: true });
       }
       return;
     }
@@ -1037,7 +1039,7 @@ class EnemyShot {
       this.x = L.x0 + (L.tx - L.x0) * k; this.y = L.y0 + (L.ty - L.y0) * k; this.h = Math.sin(k * Math.PI) * 90;
       if (k >= 1) {
         G.burst(this.x, this.y, 16, ['#8a6a4a', '#c9b48a', '#fff'], 180); G.shake = Math.max(G.shake, 4); Sfx.slam();
-        if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.r) G.hurtPlayer(this.dmg, { x: this.x, y: this.y, attacking: true });
+        if (p.alive && Math.hypot(p.x - this.x, p.y - this.y) < this.r + p.hurtR) G.hurtPlayer(this.dmg, { x: this.x, y: this.y, attacking: true });
         this.done = true;
       }
       return;
@@ -1049,7 +1051,7 @@ class EnemyShot {
     this.x += Math.cos(this.dir) * this.speed * dt;
     this.y += Math.sin(this.dir) * this.speed * dt;
     if (this.life <= 0 || World.shotBlockedAt(this.x, this.y + 6)) { this.pop(); return; } // 물 위로는 날아간다
-    if (p.alive && Math.hypot(p.x - this.x, p.y - 4 - this.y) < this.r + p.r) {
+    if (p.alive && Math.hypot(p.x - this.x, p.y - 4 - this.y) < this.r + p.hurtR) {
       const before = p.hp;
       G.hurtPlayer(this.dmg, { x: this.x, y: this.y, attacking: true });
       if (this.slow && p.hp < before) p.slowT = this.slow;
@@ -1286,10 +1288,10 @@ class Boss {
         if (h.t > 0) continue;
         h.fired = true;
         let hit = false;
-        if (h.kind === 'circle') hit = Math.hypot(p.x - h.x, p.y - h.y) < h.r + p.r;
+        if (h.kind === 'circle') hit = Math.hypot(p.x - h.x, p.y - h.y) < h.r + p.hurtR;
         else {
           const c = Math.cos(h.a), s = Math.sin(h.a), dx = p.x - h.x, dy = p.y - h.y, along = dx * c + dy * s;
-          hit = along > -10 && along < h.len && Math.abs(dx * s - dy * c) < h.w + p.r;
+          hit = along > -10 && along < h.len && Math.abs(dx * s - dy * c) < h.w + p.hurtR;
         }
         if (h.look === 'bamboo') { G.burst(h.x, h.y, 8, ['#8ad84a', '#d8f0a0'], 120); Sfx.thrust(); }
         else if (h.look === 'root') { G.shake = Math.max(G.shake, 5); Sfx.slam(); }
@@ -1347,7 +1349,7 @@ class Boss {
       case 'axeSpin':
         this.attacking = true;
         if (this.enraged && p.alive) this.steer(dx / d * this.speed * 1.4, dy / d * this.speed * 1.4, dt);
-        if (!this.spinHit && p.alive && d < AXE_SPIN_R + p.r) { this.spinHit = true; G.hurtPlayer(Math.round(this.dmg * 1.1), this); }
+        if (!this.spinHit && p.alive && d < AXE_SPIN_R + p.hurtR) { this.spinHit = true; G.hurtPlayer(Math.round(this.dmg * 1.1), this); }
         if (Math.random() < 0.5) G.dust(this.x + rand(-30, 30), this.y + 18);
         if (this.st <= 0) { this.state = 'recover'; this.st = 0.8; }
         break;
@@ -1359,7 +1361,7 @@ class Boss {
           G.shake = 9; Sfx.slam(); Input.rumble(0.7, 180);
           G.burst(this.x, this.y + 10, 20, ['#c9b48a', '#fff'], 200);
           this.attacking = true;
-          if (d < 84 + p.r) G.hurtPlayer(Math.round(this.dmg * 1.3), this);
+          if (d < 84 + p.hurtR) G.hurtPlayer(Math.round(this.dmg * 1.3), this);
           if (this.enraged) G.rings.push({ x: this.x, y: this.y, r: 30, max: 240, dmg: Math.round(this.dmg * 0.8), hit: false });
           this.state = 'recover'; this.st = 0.7;
         }
@@ -1436,7 +1438,7 @@ class Boss {
         if (!this.tongueHit && ext > 0.2 && p.alive) {
           const c = Math.cos(this.dir), s = Math.sin(this.dir), ox = this.x + c * 14, oy = this.y - 6 + s * 14;
           const ddx = p.x - ox, ddy = p.y - oy, along = ddx * c + ddy * s;
-          if (along > 0 && along < this.tongueLen && Math.abs(ddx * s - ddy * c) < 10 + p.r && !(p.dashT > 0 || p.invuln > 0)) {
+          if (along > 0 && along < this.tongueLen && Math.abs(ddx * s - ddy * c) < 10 + p.hurtR && !(p.dashT > 0 || p.invuln > 0)) {
             this.tongueHit = true;
             G.hurtPlayer(Math.round(this.dmg * 0.7), { x: this.x, y: this.y, attacking: true });
             // 끌어당긴다
@@ -1470,7 +1472,7 @@ class Boss {
       }
     }
     const noTouch = this.state === 'intro' || this.state === 'hopAir' || this.state === 'hidden';
-    if (p.alive && !noTouch && d < this.r + p.r - 2) {
+    if (p.alive && !noTouch && d < this.r + p.hurtR - 2) {
       G.hurtPlayer(this.attacking ? this.dmg : Math.round(this.dmg * 0.6), this);
     }
   }
@@ -1772,7 +1774,7 @@ class Dragon {
       const segs = this.segments();
       for (let i = 0; i < segs.length; i++) {
         const s = segs[i];
-        if (Math.hypot(p.x - s.x, p.y - s.y) < (i ? 13 : 18) + p.r) { G.hurtPlayer(Math.round(this.dmg * 0.5), { x: s.x, y: s.y }); break; }
+        if (Math.hypot(p.x - s.x, p.y - s.y) < (i ? 13 : 18) + p.hurtR) { G.hurtPlayer(Math.round(this.dmg * 0.5), { x: s.x, y: s.y }); break; }
       }
     }
   }
@@ -1830,7 +1832,7 @@ class Dragon {
     if (this.beamHit || !p.alive) return;
     const c = Math.cos(this.dir), s = Math.sin(this.dir), dx = p.x - this.x, dy = p.y - this.y;
     const along = dx * c + dy * s;
-    if (along > 0 && along < ICE_BEAM_LEN && Math.abs(dx * s - dy * c) < 14 + p.r) {
+    if (along > 0 && along < ICE_BEAM_LEN && Math.abs(dx * s - dy * c) < 14 + p.hurtR) {
       this.beamHit = true; G.hurtPlayer(Math.round(this.dmg * 1.0), { x: this.x, y: this.y, attacking: true });
       p.slowT = 1.5; G.text(p.x, p.y - 30, '꽁꽁!', '#bfefff', 13, 0.8);
     }
