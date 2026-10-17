@@ -133,6 +133,7 @@ const Music = (() => {
 // 적이 바라보는 방향: 방패병은 방패 방향, 나머지는 실제로 움직이는 방향 (가만히 있으면 마지막 방향 유지)
 function trackHeading(e, x0, y0, dt) {
   if (e.type === 'shield') { e.heading = e.facing; return; }
+  if (e.kvx || e.kvy || e.stun > 0) return; // 넉백 · 경직으로 밀리는 건 바라보는 방향이 아니다
   const dx = e.x - x0, dy = e.y - y0;
   if (dx * dx + dy * dy > Math.pow(12 * dt, 2)) e.heading = Math.atan2(dy, dx);
   else if (e.heading === undefined) e.heading = Math.atan2(G.player.y - e.y, G.player.x - e.x);

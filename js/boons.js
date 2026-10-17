@@ -297,8 +297,9 @@ const ElFx = {
 
 // 기습 판정: 적이 바라보는(움직이는) 방향에서 AMBUSH_ANGLE 이상 벗어난 쪽에서 때리면 옆 · 뒤. 기절 · 빙결이면 무방비.
 const AMBUSH_ANGLE = 70 * Math.PI / 180;
+const AMBUSH_STUN = 0.2; // 맞을 때마다 붙는 짧은 경직(0.15초)은 무방비로 치지 않는다
 function offGuard(t, p) {
-  if (t.stun > 0 || t.frozenT > 0) return true;
+  if (t.stun > AMBUSH_STUN || t.frozenT > 0) return true;
   if (t.heading === undefined) return false;
   const from = Math.atan2(p.y - t.y, p.x - t.x); // 적이 보기에 플레이어가 있는 방향
   return Math.abs(angDiff(from, t.heading)) > AMBUSH_ANGLE;
