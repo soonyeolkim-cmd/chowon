@@ -37,7 +37,7 @@ whirl:   { mult: 1.3, kb: 220, guardBreak: false, role: 'dash', momentum: true }
 // 쌍검(사이): 가장 빠른 연타 + 기세. 사거리가 가장 짧고, 강한 한 방은 받아치기 타이밍에 달렸다 (2026-10-17, 건틀릿을 대신함)
 addWeapon('sai', {
   name: '정령의 쌍검',
-  style: '연타형 · 가장 빠른 쌍검 연타와 기세, 받아치기 · 사거리가 가장 짧음',
+  style: '차지형 · 그림자 연참 2단(잔영 베기)과 기세, 받아치기 · 사거리가 가장 짧음', // 차지 2단 특화 (2026-10-17)
   essence: '무기의 정수',
   unlockCost: 2,             // 영웅의 증표: 창 1 · 쌍검 2 · 마법봉 3 (뒤 무기일수록 하나씩 더, 2026-10-17)
   moves: { basic: '3연타', charged: '그림자 연참', special: '받아치기', dashAttack: '선풍 베기' },
@@ -58,7 +58,7 @@ addWeapon('sai', {
     ['기본 · 3연타', `${A} ${A} ${A}`, '아주 빠르지만 짧다 · 3타째 X자 베기 · 가드 브레이크'],
     ['기세', '기본공격을 맞힐 때마다 +1 (최대 5)', `한 칸마다 공격 · 이동 속도 +5% · ${MOMENTUM_TIME}초 못 때리거나 맞으면 0`],
     ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20% · 맞히면 2초 안의 받아치기는 충전 소모 없음, 평타를 누르면 잔영 베기'],
-    ['잔영 베기', `연참 적중 뒤 2초 안에 ${A}`, '보는 방향으로 베고 지나가며 반격 치명타 + 기절 · 무적'],
+    ['차지 2단 · 잔영 베기', `연참 적중 뒤 2초 안에 ${A}`, '보는 방향으로 한 번 더 연참 · 언제나 치명타 + 기절 · 무적 · 연참 축복이 그대로 붙음'],
     ['특수 · 받아치기', `${P} (쿨타임 3초)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2 · 성공하면 쿨타임이 바로 풀려 연속 반격'],
     ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.sai.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
     ['선풍 베기', `${D} → ${A}`, '한 바퀴 돌며 주변을 벤다', 'thrust'],
@@ -102,28 +102,28 @@ Object.assign(WEAPONS.sai, {
 BOON_FORMS.sai = {
   fire_basic:     { name: '불꽃 쌍검' },
   fire_bolt:      { name: '화염구 연타', desc: lv => `찌를 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
-  fire_charge:    { name: '화염 연참', desc: lv => `연참에 베인 적에게 화상 2중첩, 지나간 길에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
-  fire_special:   { name: '작열 받아치기', desc: lv => `받아치기 · 잔영 베기 때 주변이 폭발한다. 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
+  fire_charge:    { name: '화염 연참', desc: lv => `연참 · 잔영 베기에 베인 적에게 화상 2중첩, 지나간 길에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
+  fire_special:   { name: '작열 받아치기', desc: lv => `받아치면 주변이 폭발한다. 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
   ice_basic:      { name: '서리 쌍검' },
   ice_shard:      { name: '얼음 파편 연타', desc: lv => `찌를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
-  ice_charge:     { name: '빙결 연참', desc: lv => `연참에 베인 적에게 냉기 ${iceBig(lv)}중첩.` },
-  ice_special:    { name: '서리 받아치기', desc: lv => `받아치기 · 잔영 베기 때 주변 적에게 냉기 ${iceBig(lv)}중첩, 발밑이 얼어붙는다.` },
+  ice_charge:     { name: '빙결 연참', desc: lv => `연참 · 잔영 베기에 베인 적에게 냉기 ${iceBig(lv)}중첩.` },
+  ice_special:    { name: '서리 받아치기', desc: lv => `받아치면 주변 적에게 냉기 ${iceBig(lv)}중첩, 발밑이 얼어붙는다.` },
   elec_basic:     { name: '번개 쌍검' },
   elec_chain:     { name: '연쇄 번개 쌍검' },
-  elec_charge:    { name: '뇌전 연참', desc: lv => `연참이 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '뇌격 받아치기', desc: lv => `받아치기 · 잔영 베기 때 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
+  elec_charge:    { name: '뇌전 연참', desc: lv => `연참 · 잔영 베기가 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+  elec_special:   { name: '뇌격 받아치기', desc: lv => `받아치면 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
   poison_basic:   { name: '독날 쌍검' },
-  poison_charge:  { name: '독안개 연참', desc: lv => `지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
-  poison_special: { name: '독 받아치기', desc: lv => `받아치기 · 잔영 베기 때 주변 적에게 독 ${1 + lv}중첩.` },
+  poison_charge:  { name: '독안개 연참', desc: lv => `연참 · 잔영 베기가 지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
+  poison_special: { name: '독 받아치기', desc: lv => `받아치면 주변 적에게 독 ${1 + lv}중첩.` },
   atk_combo:      { name: '연속 베기' },
-  atk_spin:       { name: '연참 강화', desc: lv => `차지 시간 -${15 * lv}%, 연참 거리 +${15 * lv}%.` },
-  atk_multispin:  { name: '그림자 분신', desc: lv => `연참 뒤 그림자가 같은 길을 ${lv}번 더 벤다. 그림자 베기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
+  atk_spin:       { name: '연참 강화', desc: lv => `차지 시간 -${15 * lv}%, 연참 · 잔영 베기 거리 +${15 * lv}%.` },
+  atk_multispin:  { name: '그림자 분신', desc: lv => `연참 · 잔영 베기 뒤 그림자가 같은 길을 ${lv}번 더 벤다. 그림자 베기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_wave:       { name: '받아치기 강화', desc: lv => `막는 시간 +${(0.1 * lv).toFixed(1)}초, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
   atk_thrust:     { name: '선풍 강화', desc: lv => `선풍 베기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
   sharp:          { name: '날카로운 쌍검' },
   lifesteal:      { name: '흡혈 쌍검' },
-  guard_spin:     { name: '수호의 연참', desc: lv => `연참이 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
-  heal_wave:      { name: '치유의 받아치기', desc: lv => `받아치기 · 잔영 베기마다 체력 ${3 * lv} 회복.` },
+  guard_spin:     { name: '수호의 연참', desc: lv => `연참 · 잔영 베기가 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
+  heal_wave:      { name: '치유의 받아치기', desc: lv => `받아칠 때마다 체력 ${3 * lv} 회복.` },
 };
 
 extendPlayer({
@@ -167,8 +167,10 @@ extendPlayer({
       const k = clamp(((t.x - x0) * dx + (t.y - y0) * dy) / L2, 0, 1);
       if (Math.hypot(t.x - (x0 + dx * k), t.y - (y0 + dy * k)) > RUSH_WIDTH + t.r) continue;
       a.hit.add(t);
+      if (a.echo) this.counterT = 1; // 잔영 베기: 언제나 치명타 (deal 이 쓰고 지운다)
       this.deal(t, 'rush', fx, fy, { mult, kb });
-      if (!a.freed) { // 첫 적중: 반짝 + 푸른 원, 받아치기 무료
+      if (a.echo) { if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, PARRY_STUN); }
+      else if (!a.freed) { // 첫 적중: 반짝 + 푸른 원, 받아치기 무료
         a.freed = true; this.freeSpecialT = RUSH_FREE_T;
         G.fxRing(this.x, this.y, '#7fe0ff', 40); G.fxRing(this.x, this.y, '#ffffff', 22);
         G.burst(this.x, this.y - 4, 14, ['#ffffff', '#bff4ff', '#7fe0ff'], 200);
@@ -190,16 +192,17 @@ extendPlayer({
   },
   // 막았다: 피해 없이 반격. 공격한 적을 향해 직선으로 베고 지나간다 (지나가는 동안 · 도착한 뒤 잠깐 무적)
   // 길 위의 적은 모두 반격 치명타 + 기절, 기세 +2. 교차 받아치기는 주변 적도 함께 벤다
-  // 잔영 베기: 연참이 맞은 뒤 (무료 받아치기 대신) 평타를 누르면 보는 방향으로 바로 반격 돌진. 반격처럼 치명타 + 기절
+  // 잔영 베기 = 그림자 연참 2단: 연참이 맞은 뒤 2초 안에 평타를 누르면 보는 방향으로 한 번 더 연참.
+  // 연참과 같은 동작이라 연참 축복(속성 연참 · 연참 강화 · 그림자 분신 · 수호의 연참)이 그대로 붙고, 언제나 치명타 + 기절 (2026-10-17)
   startPursuit(mag) {
     this.freeSpecialT = 0; this.aim(mag);
-    this.invuln = Math.max(this.invuln, RIPOSTE_TIME + RIPOSTE_SAFE);
-    this.act = { kind: 'riposte', t: 0, dur: RIPOSTE_TIME + 0.3, dash: RIPOSTE_TIME, hit: new Set(), x0: this.x, y0: this.y, px: this.x, py: this.y, len: PURSUIT_LEN, marks: [], wide: false };
-    this.atkBuffer = 0; this.atkCd = 0.3; this.comboT = 0; this.finisherT = 0;
+    const ms = FX.lv('atk_multispin');
+    this.act = { kind: 'rush', echo: true, t: 0, dur: RUSH_TIME + 0.14 + 0.1 * ms, dur0: RUSH_TIME, hit: new Set(), x0: this.x, y0: this.y, px: this.x, py: this.y, mom: 0, extra: ms, cuts: 0, len: PURSUIT_LEN * this.rushLen / RUSH_LEN };
+    this.invuln = Math.max(this.invuln, RUSH_TIME + RIPOSTE_SAFE);
+    this.atkBuffer = 0; this.atkCd = 0.3 + 0.1 * ms; this.comboT = 0; this.finisherT = 0;
     G.text(this.x, this.y - 30, '잔영 베기!', '#c8b4ff', 16, 0.9);
     G.fxRing(this.x, this.y, '#ffffff', 22); G.burst(this.x, this.y - 4, 12, ['#ffffff', '#c8b4ff', '#7fe0ff'], 200);
     G.shake = Math.max(G.shake, 4); Sfx.dash(); Input.rumble(0.5, 120);
-    FX.onParry(this); // 받아치기 축복(폭발 · 냉기 · 낙뢰 · 독 · 치유)이 잔영 베기에도 그대로
   },
   parry(src) {
     this.parryT = 0;
