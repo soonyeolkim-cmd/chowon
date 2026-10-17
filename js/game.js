@@ -221,6 +221,7 @@ const G = {
     const worlds = ROUTES[this.tierInfo.route].worlds;
     this.firstWorld = worlds[0]; this.finalWorld = worlds[worlds.length - 1]; this.route = this.tierInfo.route;
     this.startStage(DEV_BUILD && DEV_BUILD.world || this.firstWorld, 1, Meta.startStats(), true); // 시험 빌드는 정한 세계부터 (?build=swamp)
+    this.curseNote = { t: 4.5 }; // 봉인의 반발 안내 (반발이 없으면 안 보인다)
     this.giftPending = Meta.lv('gift') > 0; // 정령의 첫 선물: 첫 스테이지가 열리면 축복 카드 3장 중 하나를 고르게 한다 (2026-10-17)
     if (familiarMult(this.tier) < 1) this.hintBox = { text: '여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', t: 5 };
   },
@@ -1099,7 +1100,7 @@ function drawHud() {
   if (G.phase === 'totems') {
     const seal = G.totems[0];
     const goal = seal && seal.shielded ? `웨이브 ${Math.max(1, G.waveIdx + 1)} / ${G.waves.length}` : '봉인석을 부숴라!';
-    label(`${G.tier > 1 ? `등급 ${G.tier} · ` : ''}${G.stage}-${G.sub}  ·  ${goal}`, cxm, inset.t + 22, 14, '#e8d8ff', 'center', '700');
+    label(`봉인 등급 ${G.tier || 1} · ${G.stage}-${G.sub}  ·  ${goal}` /* 상태창엔 봉인 등급만 (반발은 일시정지 · 축복 창), 2026-10-17 */, cxm, inset.t + 22, 14, '#e8d8ff', 'center', '700');
   }
   else if (boss) {
     label(boss.name, cxm, inset.t + 20, 14, boss.enraged ? '#ff8a6a' : '#ffe08a', 'center', '700');
@@ -1311,8 +1312,11 @@ function openPause() {
   G.pm = { sel: 0, view: 'menu', axis: 0, t: 0, qsel: 1 };
 }
 function pauseLayout() {
-  const w = Math.min(320, W - 40), h = 42, gap = 10, n = PAUSE_ITEMS.length;
-  const y0 = H / 2 - (n * (h + gap)) / 2 + 20;
+  // 아래쪽에 반발 줄 · 안내 줄 자리를 남기고, 좁은 화면에선 버튼을 낮춘다 (2026-10-17)
+  const n = PAUSE_ITEMS.length, curseN = G.tierInfo ? wrap(curseLineText(), Math.min(W - 40, 760), 11, '600').length : 0;
+  const bottom = H - inset.b - 30 - curseN * 15 - 6, top = inset.t + 70;
+  const gap = 10, h = clamp(((bottom - top) - gap * (n - 1)) / n, 30, 42), w = Math.min(320, W - 40);
+  const y0 = Math.max(top, Math.min(H / 2 - (n * (h + gap)) / 2 + 20, bottom - n * (h + gap) + gap));
   return PAUSE_ITEMS.map((it, i) => ({ it, x: W / 2 - w / 2, y: y0 + i * (h + gap), w, h }));
 }
 function quitLayout() {
@@ -1417,6 +1421,7 @@ function drawPauseMenu(big, blink, tap) {
   const d = Input.state.device;
   const how = d === 'touch' ? '항목을 탭하세요' : d === 'gamepad' ? '↑↓ 고르기 · A 결정 · B 돌아가기' : '↑↓ 고르기 · Enter/Z 결정 · Esc 돌아가기';
   label(how, W / 2, H - inset.b - 18, 12, '#aab', 'center', '600');
+  if (G.tierInfo) drawCurseLines(H - inset.b - 38); // 이번 모험의 반발
 }
 
 // ── 설정: 키보드 · 게임패드 키 설정, 진동 · 화면 흔들림 ───────
@@ -1798,11 +1803,7 @@ function drawBoonScreen() {
     : d === 'gamepad' ? `십자키로 고르고 ${keyNames().A}를 길게 눌러서 선택`
     : `← → 로 고르고 ${keyNames().A}를 길게 눌러서 선택`;
   if (!o.auto) label(how + '  ·  시간이 지나면 무작위로 결정', W / 2, H - inset.b - 16, 12, '#ddd', 'center', '600');
-  // 이번 모험의 봉인 등급과 반발 (불리한 규칙): 축복을 고를 때 늘 보이게 (2026-10-17)
-  const ti = G.tierInfo || tierInfo(1);
-  const curseLine = ti.curses.length ? '봉인 등급 ' + ti.n + ' · 반발: ' + ti.curses.map(id => CURSES[id].name + ' (' + CURSES[id].desc + ')').join(' · ') : '봉인 등급 ' + ti.n + ' · 반발 없음';
-  const cl = wrap(curseLine, Math.min(W - 40, 760), 11, '600');
-  cl.forEach((l, i) => label(l, W / 2, H - inset.b - 34 - (cl.length - 1 - i) * 15, 11, ti.curses.length ? '#ff9a7a' : '#8a96a0', 'center', '600'));
+  drawCurseLines(H - inset.b - 34); // 이번 모험의 봉인 등급과 반발 (2026-10-17)
   const rb = L.reroll;
   if (rb && Meta.lv('choice') > 0) {
     // 다시 뽑기: 카드와 같은 어두운 판 + 금빛 테두리, 남은 횟수는 마름모, 키는 작은 키캡 (2026-10-17)
@@ -2459,6 +2460,29 @@ function drawGiftFx(f, p) {
 }
 function overlay(alpha) { ctx.fillStyle = `rgba(5,12,5,${alpha})`; ctx.fillRect(0, 0, W, H); }
 
+// 이번 모험의 봉인 등급과 반발(불리한 규칙)을 아래쪽부터 위로 쌓아 쓴다: 축복 창 · 일시정지 (2026-10-17)
+function curseLineText() {
+  const ti = G.tierInfo || tierInfo(1);
+  return ti.curses.length ? '봉인 등급 ' + ti.n + ' · 반발: ' + ti.curses.map(id => CURSES[id].name + ' (' + CURSES[id].desc + ')').join(' · ') : '봉인 등급 ' + ti.n + ' · 반발 없음';
+}
+function drawCurseLines(yBottom) {
+  const ti = G.tierInfo || tierInfo(1), cl = wrap(curseLineText(), Math.min(W - 40, 760), 11, '600');
+  cl.forEach((l, i) => label(l, W / 2, yBottom - (cl.length - 1 - i) * 15, 11, ti.curses.length ? '#ff9a7a' : '#8a96a0', 'center', '600'));
+}
+// 모험을 시작할 때: 첫 스테이지 이름 띠 아래에 이번 판의 반발을 몇 초 보여 준다
+function drawCurseNote() {
+  const n = G.curseNote;
+  if (!n || n.t <= 0) return;
+  n.t -= 1 / 60;
+  const ti = G.tierInfo || tierInfo(1);
+  if (!ti.curses.length) return;
+  ctx.globalAlpha = clamp(Math.min(n.t, 0.5) * 2, 0, 1);
+  const big = clamp(Math.min(W, H) * 0.075, 22, 40), y = H * 0.3 + big * 1.55;
+  const lines = wrap('봉인의 반발 · ' + ti.curses.map(id => CURSES[id].name + ' (' + CURSES[id].desc + ')').join(' · '), Math.min(W - 40, 700), 12, '700');
+  ctx.fillStyle = 'rgba(40,6,6,0.6)'; ctx.fillRect(0, y - 11, W, lines.length * 17 + 6);
+  lines.forEach((l, i) => label(l, W / 2, y + i * 17, 12, '#ff9a7a', 'center', '700'));
+  ctx.globalAlpha = 1;
+}
 function drawBanner() {
   const b = G.banner;
   if (!b) return;
@@ -2547,6 +2571,7 @@ function render() {
   } else {
     drawHud();
     drawBanner();
+    drawCurseNote();
     drawHint();
     drawTestMark();
     if (Input.state.device === 'touch' && G.state === 'play') drawTouchControls();
