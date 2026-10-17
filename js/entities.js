@@ -107,7 +107,7 @@ class Player {
   get specialCdBase() { const w = this.weapon; return Math.max(w.cdFloor, w.specialCd - w.cdPerLv * FX.lv('atk_wave') - w.cdPerMastery * this.mastery('wave')); }
   // 특수공격 충전: 무기에 specialCharges 가 있으면 대시처럼 여러 번 쌓아 둔다 (쌍검 2회, 2026-10-17)
   get specMax() { return this.weapon.specialCharges || 1; }
-  get specialCdShown() { return this.specMax > 1 ? (this.specStock > 0 ? 0 : this.specRecharge) : this.specialCd; } // 화면에 보이는 남은 쿨타임
+  get specialCdShown() { if (this.freeSpecialT > 0) return 0; return this.specMax > 1 ? (this.specStock > 0 ? 0 : this.specRecharge) : this.specialCd; } // 화면에 보이는 남은 쿨타임
   get skillCdBase() { return this.weapon.skillCd || 1; }
   get chargeTime() { return this.weapon.chargeTime * (1 - 0.15 * FX.lv('atk_spin')) * (1 - 0.1 * this.mastery('spin')); }
 

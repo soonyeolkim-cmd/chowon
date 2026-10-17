@@ -1198,7 +1198,7 @@ function drawTouchControls() {
   ctx.globalAlpha = 1;
   padButton(B.special, p.specialCdShown, p.specialCdBase, '#4fc3ff', b => {
     (p.weapon.padIcon || WEAPONS.sword.padIcon)(b, p); // 무기마다 특수 버튼 그림
-  }, p.finisherT > 0 && G.has('triple'));
+  }, (p.finisherT > 0 && G.has('triple')) || p.freeSpecialT > 0); // 빛남: 삼연 · 무료 받아치기
   // 전용스킬 (무기에 있을 때만 보인다)
   padButton(B.skill, p.skillCd, p.skillCdBase, '#ffd24a', b => {
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.4, 0, Math.PI * 2); ctx.stroke();
@@ -1213,7 +1213,7 @@ function drawTouchControls() {
     }
     ctx.stroke();
   });
-  if (p.specMax > 1 && B.special && B.special.visible) drawBadge(B.special.x + B.special.r * 0.62, B.special.y - B.special.r * 0.62, p.specStock, p.specStock ? '#4fc3ff' : '#ff9a7a');
+  if (p.specMax > 1 && B.special && B.special.visible) drawBadge(B.special.x + B.special.r * 0.62, B.special.y - B.special.r * 0.62, p.specStock, p.freeSpecialT > 0 ? '#ffffff' : p.specStock ? '#4fc3ff' : '#ff9a7a');
   if (p.dashMax > 1 && B.dash && B.dash.visible) drawBadge(B.dash.x + B.dash.r * 0.62, B.dash.y - B.dash.r * 0.62, p.dashStock, p.dashStock ? '#8ff0b0' : '#ff9a7a');
   ctx.globalAlpha = 1;
 }
