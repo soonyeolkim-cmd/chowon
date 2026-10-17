@@ -193,7 +193,7 @@ const BOON_FORMS = {
     sharp:          { name: '예리한 마력' },
     lifesteal:      { name: '흡혈 마법봉' },
     guard_spin:     { name: '수호의 마법진', desc: lv => `마법진을 그릴 때 잠깐 무적, 그 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
-    heal_wave:      { name: '치유의 마력탄', desc: lv => `마력탄이 적에게 맞을 때마다 체력 ${0.5 * lv} 회복.` },
+    heal_wave:      { name: '치유의 마력탄', desc: lv => `마력탄이 적에게 맞을 때마다 체력 ${+(0.2 * lv).toFixed(1)} 회복 (5발이면 ${lv}).` },
   },
   // 쌍검: 기본 = 3연타, 차지 = 그림자 연참, 특수 = 받아치기, 대시 공격 = 선풍 베기
   sai: {
@@ -674,7 +674,7 @@ const FX = {
     const ps = this.lv('poison_special');
     if (ps && !t.dead) this.poison(t, 1 + Math.floor(ps / 2));
     const hw = this.lv('heal_wave'), p = G.player;
-    if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + 0.5 * hw);
+    if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + 0.2 * hw); // 한 발 0.5 → 0.2 (5발에 1, 2026-10-17)
     // ── 마력탄 강화 축복 (특수 슬롯이 있어야 나온다) ──
     const ch = this.lv('elec_chain');
     if (ch) this.chainJump(t, 1 + ch, atk * (0.25 + 0.1 * ch)); // 연쇄 마력탄
