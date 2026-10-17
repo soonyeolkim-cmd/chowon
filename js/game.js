@@ -1199,6 +1199,15 @@ function drawArcProgress(b, frac, color, width = 4) {
   ctx.beginPath(); ctx.arc(b.x, b.y, b.r + 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac); ctx.stroke();
 }
 
+// 가상 패드 투명도: 화면을 덜 가리게 (2026-10-17). 누르고 있는 동안은 조금 진하게
+const TOUCH_ALPHA = 0.55, TOUCH_ALPHA_HELD = 0.8;
+// fn 안에서 그리는 모든 것에 투명도 k 를 곱한다 (안에서 globalAlpha 를 바꿔도 그 값 × k)
+function withAlpha(k, fn) {
+  const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha');
+  Object.defineProperty(ctx, 'globalAlpha', { configurable: true, get() { return d.get.call(ctx) / k; }, set(v) { d.set.call(ctx, v * k); } });
+  ctx.globalAlpha = 1;
+  try { fn(); } finally { delete ctx.globalAlpha; ctx.globalAlpha = 1; }
+}
 function drawTouchControls() {
   const j = Input.joy, B = Input.buttons, p = G.player;
   const active = j.id !== null;
@@ -2701,7 +2710,7 @@ function render() {
     drawCurseNote();
     drawHint();
     drawTestMark();
-    if (Input.state.device === 'touch' && G.state === 'play') drawTouchControls();
+    if (Input.state.device === 'touch' && G.state === 'play') withAlpha(Input.pointers.size ? TOUCH_ALPHA_HELD : TOUCH_ALPHA, drawTouchControls); // 가상 패드는 반투명
     if (G.state === 'story') drawDialog();
     if (G.state === 'boon') drawBoonScreen();
     drawUiButton(Input.buttons.pause, 'pause');
