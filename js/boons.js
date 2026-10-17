@@ -112,7 +112,7 @@ const BOONS = [
   { id: 'ambush', el: 'might', name: '기습', desc: lv => `적의 옆이나 등 뒤에서 때리면 피해 +${10 + 20 * lv}%. 기절 · 빙결된 적도 무방비로 친다.` },
 
   // ── 🛡 방어: 누적 패시브 (생존) ──
-  { id: 'lifesteal', el: 'guard', name: '흡혈 칼날', desc: lv => `적을 쓰러뜨릴 때마다 체력 ${2 * lv} 회복.` },
+  { id: 'lifesteal', el: 'guard', name: '흡혈 칼날', desc: lv => `적을 쓰러뜨릴 때마다 체력 ${1 + lv} 회복.` },
   { id: 'guard_spin', el: 'guard', name: '수호의 회전', desc: lv => `회전베기 중 무적, 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
   { id: 'heal_wave', el: 'guard', name: '치유의 검기', desc: lv => `검기에 맞은 적 하나마다 체력 ${lv} 회복.` },
   { id: 'dash_guard', el: 'guard', name: '잔상 보호막', desc: lv => `대시 후 1초간 받는 피해 -${30 + 10 * lv}%.` },
@@ -684,7 +684,7 @@ const FX = {
   onKill(e) {
     const p = G.player;
     const ls = this.lv('lifesteal');
-    if (ls && p.alive) p.hp = Math.min(p.maxHp, p.hp + 2 * ls);
+    if (ls && p.alive) p.hp = Math.min(p.maxHp, p.hp + 1 + ls); // 기본 2, 레벨당 +1
     const cb = this.lv('chain_burst');
     if (cb && e.burn && e.burn.stacks > 0) this.explode(e.x, e.y, 55, p.atk * (0.8 + 0.4 * cb), '#ff7a3c', true);
     // 독의 기본 성질: 독에 걸린 적이 죽으면 주변 2명에게 절반만큼 전염

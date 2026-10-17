@@ -763,7 +763,11 @@ const ENEMY_HP_MULT = 5.6;   // 1.5 → 3.75 → 5.6 (몬스터가 너무 빨리
 const ENEMY_HP_STEP = 0.6;    // 세계 하나 갈 때마다 체력 +60% (스테이지마다 +12%씩 쌓임). 2026-10-17: 1~3세계가 너무 쉽다는 의견
 // 강해지는 정도는 '이 길에서 얼마나 왔나' 기준 (깊은 숲은 4세계부터 새로 시작하니까), 깊은 숲은 처음부터 이만큼 더 세다
 const DEEP_HP_MULT = 1, DEEP_DMG_MULT = 1; // 1~6세계를 한 번에 가므로 깊은 숲 추가 배율 없음
-const routeLevel = stage => Math.max(0, stage - (G.firstWorld || 1)); // 이 길에서 몇 세계째인가 (스테이지마다 0.2씩)
+// 이 길에서 몇 세계째인가 (스테이지마다 0.2씩). 4세계부터는 한 세계마다 더 크게 오른다 (2026-10-17)
+// 실제 레벨 L → L + RAMP_LATE × (L-2)²  ·  4세계 3.35, 5세계 5.4, 6세계 8.15 (예전 3 · 4 · 5)
+const RAMP_LATE = 0.35;
+const lateRamp = (L, k) => L + k * Math.pow(Math.max(0, L - 2), 2);
+const routeLevel = stage => lateRamp(Math.max(0, stage - (G.firstWorld || 1)), RAMP_LATE);
 const deepMult = (stage, m) => (stage >= 4 ? m : 1);
 
 // shot: 투사체 피해(배율 전), keep: 유지하려는 거리, rate: 공격 간격(초), wind: 쏘기 전 예고(초)
@@ -1444,6 +1448,7 @@ const BOSS_COLORS = [['#8a6d3b', '#a88a52'], ['#6a7a8a', '#8b9aa8'], ['#4b2f6b',
 // 바루 둔갑: 숨어 있는 시간, 그중 몇 초가 지나면 루미가 찾아 주는가
 const BARU_HIDE = 7, BARU_LUMI_FIND = 4;
 const BOSS_HP_BASE = 2970, BOSS_HP_GROWTH = 1.6, BOSS_HP_DEEP = 1;
+const BOSS_RAMP_LATE = 0.1; // 4세계부터 보스 체력 추가 상승: 4세계 ×1.05, 5세계 ×1.21, 6세계 ×1.53
 
 class Boss {
   constructor(x, y, stage) {
@@ -1452,7 +1457,7 @@ class Boss {
     this.name = BOSS_NAMES[i];
     this.colors = BOSS_COLORS[i];
     const k = Math.max(0, stage - (G.firstWorld || 1)); // 이 길에서 몇 번째 보스인가 (0부터)
-    this.maxHp = this.hp = Math.round(BOSS_HP_BASE * Math.pow(BOSS_HP_GROWTH, k) * (stage >= 4 ? BOSS_HP_DEEP : 1));
+    this.maxHp = this.hp = Math.round(BOSS_HP_BASE * Math.pow(BOSS_HP_GROWTH, lateRamp(k, BOSS_RAMP_LATE)) * (stage >= 4 ? BOSS_HP_DEEP : 1));
     this.dmg = Math.round(16 * ENEMY_DMG_MULT * (1 + BOSS_DMG_STEP * routeLevel(stage)) * deepMult(stage, DEEP_DMG_MULT) * (1 + 0.05 * (G.player.lv - 1)));
     this.speed = 46; this.superArmor = true; this.scale = 1;
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
