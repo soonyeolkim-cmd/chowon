@@ -2099,13 +2099,13 @@ function drawVillage(blink) {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정 · 왼쪽 위 처음 화면'
-    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · ${padName(3)} 봉인 등급 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · ${keyNames().P} 봉인 등급 · Esc 설정`;
+    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
   if (v.tierView) drawTierView();
 }
 
 // ── 봉인 등급 창: 왼쪽 등급 목록, 오른쪽 고른 등급의 내역 (반발 · 보상 · 증표 · 정수) (2026-10-17) ──
-// 등급이 늘어나도 위아래로 고르고 스크롤한다. 패드: ↑↓ 고르기 · A 정하기 · B / Y 닫기
+// 등급이 늘어나도 위아래로 고르고 스크롤한다. 패드: ↑↓ 고르기 · A 정하기 · B 닫기 (Y 바로 열기는 뺐다, 2026-10-17)
 const TIER_ROW = 34;
 // 숫자 뒤 조사: 끝자리 읽는 소리로 (1 일 · 2 이 · 3 삼 …, 0 은 십 · 백)
 const josaEul = n => ['을', '을', '를', '을', '를', '를', '을', '을', '을', '를'][n % 10];
@@ -2144,7 +2144,7 @@ function handleTierView(dt, inp) {
   const tv = G.village.tierView, L = tierViewLayout();
   tv.t += dt;
   if (tv.t < 0.15) return;
-  if (inp.back || inp.reroll || inp.pause) { G.village.tierView = null; Sfx.pickup(); return; }
+  if (inp.back || inp.pause) { G.village.tierView = null; Sfx.pickup(); return; }
   const vdir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0, dir = axisRepeat(tv, vdir, dt);
   tv.axis = vdir;
   if (dir) { const k = clamp(tv.sel + dir, 0, TIER_MAX - 1); if (k !== tv.sel) { tv.sel = k; tv.msg = null; tierScrollTo(k); Sfx.pickup(); } }
@@ -2219,7 +2219,7 @@ function drawTierView() {
   ctx.fillStyle = can ? '#3f8a3b' : 'rgba(50,56,70,0.95)'; ctx.fillRect(P.x, P.y, P.w, P.h);
   label(Meta.data.tier === n ? '지금 선택된 등급' : open ? '이 등급으로 도전' : '🔒 아직 잠김', P.x + P.w / 2, P.y + P.h / 2 + 1, 13, can ? '#fff' : '#99a', 'center', '800');
   const d = Input.state.device;
-  const how = tv.msg || (d === 'touch' ? '등급을 탭해서 보고, 한 번 더 탭하거나 버튼으로 정해요' : d === 'gamepad' ? '↑↓ 고르기 · A 정하기 · B / Y 닫기' : '↑↓ 고르기 · Enter 정하기 · Esc 닫기');
+  const how = tv.msg || (d === 'touch' ? '등급을 탭해서 보고, 한 번 더 탭하거나 버튼으로 정해요' : d === 'gamepad' ? '↑↓ 고르기 · A 정하기 · B 닫기' : '↑↓ 고르기 · Enter 정하기 · Esc 닫기');
   label(how, L.x + L.w / 2, L.y + L.h + 12 > H - inset.b - 6 ? L.y + L.h - 8 : L.y + L.h + 12, 11, tv.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
@@ -2273,7 +2273,6 @@ function handleVillageInput(dt, inp) {
   if (v.t < 0.5) { Input.wheel = 0; return; }
   if (!v.armed) { if (inp.attackHeld || Input.pointers.size) return; v.armed = true; }
   if (v.tierView) { handleTierView(dt, inp); return; }
-  if (inp.reroll) { openTierView(); return; } // 패드 Y · 키보드 특수 키: 봉인 등급 창
   let L = villageLayout();
   const n = L.items.length;
   const inRect = (pt, r) => pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
