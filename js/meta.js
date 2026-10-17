@@ -71,6 +71,8 @@ const TEST_BUILDS = {
   // 체인라이트닝 도사: 뇌격 마력탄 · 연쇄 마력탄 Lv5 · 과충전 · 정전기 · 마력 증폭 (+ 마력탄 숙련 3)
   // 화염 마법사: 화염 마력탄 · 화염구 마력탄 Lv5 · 불씨 · 연쇄 폭발 · 마력 증폭 (+ 마력탄 숙련 3)
   flame: { weapon: 'staff', mastery: { wave: 3 }, boons: { fire_special: 5, fire_bolt: 5, kindling: 3, chain_burst: 3, atk_wave: 3, sharp: 3, vital: 3 } },
+  // 얼음 마법사: 서리 마력탄 · 얼음 파편 마력탄 Lv5 · 파쇄 · 한기 · 마력 증폭 (+ 마력탄 숙련 3)
+  frost: { weapon: 'staff', mastery: { wave: 3 }, boons: { ice_special: 5, ice_shard: 5, shatter: 3, frostbite: 3, atk_wave: 3, sharp: 3, vital: 3 } },
   chain: { weapon: 'staff', mastery: { wave: 3 }, boons: { elec_special: 5, elec_chain: 5, overcharge: 3, static: 3, atk_wave: 3, sharp: 3, vital: 3 } },
   barrage: { weapon: 'staff', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 5, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
   // 쌍검 첫 손맛: 축복 없이 무기만 (숙련도 0)
