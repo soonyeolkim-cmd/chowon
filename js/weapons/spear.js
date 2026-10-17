@@ -15,7 +15,9 @@ const SWEEP_HALF = Math.PI / 3;  // 후려치기 범위: 앞쪽 120도
 const SPEAR_PIERCE_LEN = 96;   // 관통 찌르기 길이 (기본 찌르기 74)
 const SPEAR_THROW_RANGE = 100; // 투척 비거리
 const SPEAR_SPEED = 1.1;       // 창 공격 속도 배율 (찌르기 · 투척 · 후려치기, 1.1 = 10% 빠르게)
-const WALL_SLAM_MULT = 0.8;    // 벽꿍 추가 피해 (공격력 배율)
+const WALL_SLAM_MULT = 0.8;
+const SPEAR_BEAM_LEN = 220;     // 창기 일섬 (차지 2단): 창끝에서 일직선으로 뻗는 빛 (기본 찌르기의 3배, 2026-10-18)
+const SPEAR_BEAM_WIDTH = 15;    // 벽꿍 추가 피해 (공격력 배율)
 const SPEAR_AIM = { range: 110, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 const THROW_AIM = { range: 200, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 
@@ -23,7 +25,8 @@ Object.assign(MOVES, {
 // 창
 poke:     { mult: 1.15, kb: 140, guardBreak: false, role: 'basic', light: true },
 pokeFin:  { mult: 1.75, kb: 340, guardBreak: true, role: 'fin' },
-lunge:    { mult: 2.6, kb: 320, guardBreak: true, role: 'charge' },   // 관통 찌르기 (차지): 한 줄만 맞히는 대신 회전베기(2.2)보다 세다
+lunge:    { mult: 2.6, kb: 320, guardBreak: true, role: 'charge' },
+spearBeam: { mult: 3.0, kb: 280, guardBreak: true, role: 'charge' }, // 창기 일섬 (차지 2단): 멀리 한 줄 전부 관통   // 관통 찌르기 (차지): 한 줄만 맞히는 대신 회전베기(2.2)보다 세다
 spear:    { mult: 0.7, kb: 120, guardBreak: false, role: 'special', light: true, ranged: true },   // 창 투척 (갈 때 한 번 · 올 때 절반), 1.25 → 0.7 (2026-10-17)
 sweep:    { mult: 1.0, kb: 240, guardBreak: true, role: 'dash' },   // 후려치기 (창 대시 공격)
 });
@@ -47,12 +50,14 @@ addWeapon('spear', {
   skillCd: 0,
   basic: (p, mag) => p.startPoke(mag),
   basicAfterDash: p => p.startSweep(),
-  charged: (p, mag) => p.startLunge(mag),
+  charged: (p, mag, full2) => (full2 ? p.startSpearBeam(mag) : p.startLunge(mag)), // 2단까지 모으면 창기 일섬
+  charge2Time: 0.45, // 차지 2단: 1단을 다 모은 뒤 0.45초 더
   special: (p, mag) => p.throwSpear(mag),
   skill: null,
   rows: (A, P, D) => [
     ['기본 · 2연 찌르기', `${A} ${A}`, '창끝 ×1.25 · 붙으면 ×0.6 · 최대 3명 관통'],
-    ['차지 · 관통 찌르기', `${A} 길게 눌렀다 떼기`, '강하고 긴 찌르기 (회전베기보다 셈) · 전부 관통 · 가드 브레이크'],
+    ['차지 · 관통 찌르기', `${A} 길게 눌렀다 떼기`, '강하고 긴 찌르기 · 전부 관통 · 가드 브레이크'],
+    ['차지 2단 · 창기 일섬', `${A} 더 길게 (푸른 고리까지) 눌렀다 떼기`, '창끝에서 빛의 창기가 일직선으로 약 220까지 뻗는다 · 줄 위 전부 관통 · 가장 센 한 방 · 가드 브레이크'],
     ['특수 · 창 투척', `${P} (쿨타임 2초)`, '갔다 돌아오며 관통 (돌아올 땐 절반) · 그동안 공격 불가'],
     ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.spear.dashCdMult).toFixed(2)}초 · 2회)`, '짧은 무적 이동 · 검보다 짧고 느리다'],
     ['후려치기', `${D} → ${A}`, '앞쪽 120도를 휩쓸기 · 바깥쪽일수록 아픔 · 가드 브레이크', 'thrust'],
@@ -125,28 +130,28 @@ Object.assign(WEAPONS.spear, {
 BOON_FORMS.spear = {
   fire_basic:     { name: '불꽃 창날' },
   fire_bolt:      { name: '화염 관통', desc: lv => `2타째 찌르기가 앞으로 불길을 내뿜는다. 줄 위의 적에게 공격력의 ${pct(0.5 + 0.2 * lv)} 피해 + 화상, 불길이 잠시 남는다.` },
-  fire_charge:    { name: '불꽃 꿰뚫기', desc: lv => `관통 찌르기에 맞은 적에게 화상 2중첩, 찌른 줄을 따라 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
+  fire_charge:    { name: '불꽃 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬에 맞은 적에게 화상 2중첩, 찌른 줄을 따라 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
   fire_special:   { name: '폭염 투척', desc: lv => `던진 창이 반환점에서 폭발한다. 주변에 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상. 창에 맞은 적도 화상.` },
   ice_basic:      { name: '서리 창날' },
   ice_shard:      { name: '빙결 관통', desc: lv => `찌를 때마다 창끝에서 얼음 파편 ${1 + lv}개가 앞으로 날아간다 (공격력의 ${pct(0.25 + 0.05 * lv)} + 냉기). 뒤쪽에서 관통당한 적일수록 냉기가 더 쌓인다.` },
-  ice_charge:     { name: '서리 꿰뚫기', desc: lv => `관통 찌르기에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
+  ice_charge:     { name: '서리 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
   ice_special:    { name: '서리 창', desc: lv => `창에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 반환점에 ${2 + 0.5 * lv}초간 얼음 장판이 생긴다.` },
   elec_basic:     { name: '번개 창날' },
   elec_chain:     { name: '피뢰 관통', desc: lv => `찌르기가 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전. 관통한 적끼리도 번개로 이어진다.` },
-  elec_charge:    { name: '뇌전 꿰뚫기', desc: lv => `관통 찌르기 직후 창끝 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+  elec_charge:    { name: '뇌전 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 직후 창끝 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
   elec_special:   { name: '피뢰 창', desc: lv => `반환점에 낙뢰가 떨어진다 (주변에 공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전. 날아가는 창에 맞은 적도 감전.` },
   poison_basic:   { name: '독날 창날' },
   poison_spray:   { name: '독 창끝', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
   poison_charge:  { name: '독안개 꿰뚫기', desc: lv => `찌른 줄을 따라 ${2 + 0.5 * lv}초간 독안개가 남는다. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독창', desc: lv => `창에 맞은 적에게 독 ${1 + lv}중첩, 반환점에 ${2 + 0.5 * lv}초간 독 웅덩이가 생긴다.` },
   atk_combo:      { name: '연속 찌르기', desc: lv => `기본공격 속도 +${15 * lv}%, 2타째 피해 +${30 * lv}%.` },
-  atk_multispin:  { name: '연환 꿰뚫기', desc: lv => `관통 찌르기 뒤 정령의 창이 같은 줄을 ${lv}번 더 찌른다. 추가 찌르기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
-  atk_spin:       { name: '꿰뚫기 강화', desc: lv => `차지 시간 -${15 * lv}%, 관통 찌르기 길이 +${10 * lv}%.` },
+  atk_multispin:  { name: '연환 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 뒤 정령의 창이 같은 줄을 ${lv}번 더 찌른다. 추가 찌르기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
+  atk_spin:       { name: '꿰뚫기 강화', desc: lv => `차지 시간 -${15 * lv}%, 관통 찌르기 · 창기 일섬 길이 +${10 * lv}%.` },
   atk_wave:       { name: '투척 강화', desc: lv => `창 비거리·속도 +${20 * lv}%, 투척 쿨타임 -${(0.15 * lv).toFixed(2)}초 (최소 0.5초).` },
   atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
   sharp:          { name: '날카로운 창' },
   lifesteal:      { name: '흡혈 창날' },
-  guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
+  guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 · 창기 일섬 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
   heal_wave:      { name: '치유의 회수', desc: lv => `돌아오는 창이 적을 맞히면 투척마다 체력 ${0.5 + 0.5 * lv} 회복 (여러 마리 · 삼연 투척이어도 한 번).` },
 };
 
@@ -178,6 +183,18 @@ extendPlayer({
     G.text(this.x, this.y - 24, '관통 찌르기', '#ffd24a', 12, 0.6);
     Sfx.thrust();
     FX.onPierce(this, this.act.len);
+  },
+  // 창기 일섬 (차지 2단): 창끝에서 빛의 창기가 일직선으로 멀리 뻗는다. 줄 위의 적을 모두 관통, 먼 쪽은 창끝 보너스
+  get beamLen() { return SPEAR_BEAM_LEN * (1 + 0.1 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')); },
+  startSpearBeam(mag) {
+    this.finisherT = 0;
+    this.aim(mag, THROW_AIM);
+    const ms = FX.lv('atk_multispin');
+    this.act = { kind: 'spearBeam', t: 0, dur: 0.42 + 0.1 * ms, dur0: 0.42, hit: new Set(), pierced: 0, len: this.beamLen, extra: ms, stabs: 0 };
+    this.atkCd = 0.6 + 0.1 * ms; this.charge = 0; this.comboT = 0;
+    G.text(this.x, this.y - 26, '창기 일섬!', '#7fe0ff', 14, 0.7);
+    Sfx.thrust(); Sfx.wave(true);
+    FX.onPierce(this, this.act.len); // 속성 꿰뚫기 축복: 줄을 따라 불길 · 독안개, 수호의 자세
   },
   // 창 투척: 갔다가 자동으로 돌아온다. 돌아올 때까지 공격할 수 없다
   // 2타째 직후에 던지면 정령의 힘으로 만든 창 두 자루가 함께 날아간다 (삼연 투척)
@@ -237,7 +254,7 @@ extendPlayer({
     for (const [along, t] of list) {
       if (maxN && a.pierced >= maxN) break;
       a.hit.add(t); a.pierced++;
-      if (a.kind === 'lunge') { this.deal(t, a.kind, fx, fy, a.opts); continue; }
+      if (a.kind === 'lunge' || (a.kind === 'spearBeam' && a.opts)) { this.deal(t, a.kind, fx, fy, a.opts); continue; }
       const tip = along > len * SPEAR_TIP, haft = along < SPEAR_HAFT;
       if (tip) G.burst(t.x - fx * t.r, t.y - fy * t.r, 6, ['#fff', '#ffe18a'], 160);
       this.deal(t, a.kind, fx, fy, { mult: tip ? SPEAR_TIP_MULT : haft ? SPEAR_HAFT_MULT : 1, tip });
@@ -270,6 +287,19 @@ extendPlayer({
           g.strokeStyle = `rgba(255,255,255,${0.7 * e})`; g.lineWidth = a.kind === 'pokeFin' ? 3 : 2;
           g.beginPath(); g.moveTo(x + c * 30, cy + s * 30); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
         }
+      }
+    } else if (a && a.kind === 'spearBeam') {
+      const p = clamp(a.t / a.dur0, 0, 1), e = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85;
+      spearSprite(g, x, cy, f, -12 + 30 * Math.min(1, p / 0.15));
+      const L = a.len * Math.min(1, p / 0.12), cs = ElFx.slot('charge');
+      if (cs) ElFx.line(g, cs, x + c * 26, cy + s * 26, x + c * L, cy + s * L, 10, 0.8 * e);
+      else { g.strokeStyle = `rgba(127,224,255,${0.55 * e})`; g.lineWidth = 12; g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * L, cy + s * L); g.stroke(); }
+      g.strokeStyle = `rgba(255,255,255,${0.95 * e})`; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * L, cy + s * L); g.stroke();
+      if (Math.random() < 0.8 * e) G.particles.push({ x: x + c * rand(30, L), y: cy + s * rand(30, L), vx: rand(-20, 20), vy: rand(-30, -5), life: 0.3, max: 0.3, color: Math.random() < 0.5 ? '#bff4ff' : '#fff', size: 2, grav: 0 });
+      if (a.phantomAt !== undefined && a.t - a.phantomAt < 0.1) {
+        const q = 1 - (a.t - a.phantomAt) / 0.1;
+        g.strokeStyle = `rgba(127,224,255,${0.8 * q})`; g.lineWidth = 5; g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
       }
     } else if (a && a.kind === 'lunge') {
       const p = Math.min(1, a.t / (a.dur0 || a.dur)), e = p < 0.25 ? p / 0.25 : 1 - (p - 0.25) / 0.75;
@@ -316,6 +346,22 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.opts = { mult: MULTISPIN_MULT, kb: a.stabs < a.extra ? 40 : undefined };
         this.hitSpear(a, a.len, SPEAR_WIDTH + 2, 0);
         G.burst(this.x + fx * a.len, this.y - 1 + fy * a.len, 5, ['#7fe0ff', '#fff'], 120); Sfx.thrust();
+      }
+      return true;
+    }
+    if (a.kind === 'spearBeam') {
+      const d0 = a.dur0;
+      if (a.t > 0.06 && !a.fired) { // 쏜 순간 줄 전체를 한 번에
+        a.fired = true;
+        this.hitSpear(a, a.len, SPEAR_BEAM_WIDTH, 0);
+        G.shake = Math.max(G.shake, 6); G.hitstop = Math.max(G.hitstop, 0.05); Input.rumble(0.7, 160);
+        G.burst(this.x + fx * a.len, this.y - 2 + fy * a.len, 12, ['#bff4ff', '#fff', '#7fe0ff'], 200);
+        FX.onLungeEnd(this, a.len); // 뇌전 꿰뚫기: 끝 쪽 낙뢰
+      }
+      if (a.fired && a.stabs < (a.extra || 0) && a.t >= 0.06 + 0.1 * (a.stabs + 1)) { // 연환: 창기가 다시 뻗는다
+        a.stabs++; a.hit = new Set(); a.phantomAt = a.t;
+        a.opts = { mult: MULTISPIN_MULT, kb: a.stabs < a.extra ? 40 : undefined };
+        this.hitSpear(a, a.len, SPEAR_BEAM_WIDTH, 0); Sfx.thrust();
       }
       return true;
     }
@@ -372,10 +418,10 @@ Object.assign(FX, {
       if (pc) this.zone(p.x + c * d, p.y + s * d + 4, 'poison', 2 + 0.5 * pc);
     }
   },
-  onLungeEnd(p) {
+  onLungeEnd(p, len) {
     const ec = this.lv('elec_charge');
     if (ec) {
-      const tx = p.x + Math.cos(p.facing) * p.pierceLen * 0.7, ty = p.y + Math.sin(p.facing) * p.pierceLen * 0.7;
+      const L = (len || p.pierceLen) * 0.7, tx = p.x + Math.cos(p.facing) * L, ty = p.y + Math.sin(p.facing) * L;
       const list = this.near(tx, ty, 110).sort((a, b) => Math.hypot(a.x - tx, a.y - ty) - Math.hypot(b.x - tx, b.y - ty)).slice(0, 2 + ec);
       for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
     }

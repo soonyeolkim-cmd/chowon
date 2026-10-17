@@ -1233,6 +1233,7 @@ function drawTouchControls() {
   ctx.stroke();
   // 길게 누르는 중: 회전베기 충전 게이지
   if (p.charge > 0) drawArcProgress(a, p.charge, p.charge >= 1 ? '#ffd24a' : 'rgba(255,255,255,0.8)', 5);
+  if (p.charge2 > 0) drawArcProgress({ x: a.x, y: a.y, r: a.r + 6 }, p.charge2, '#7fe0ff', 4); // 차지 2단
 
   // 특수공격 (초승달 검기)
   ctx.globalAlpha = 1;

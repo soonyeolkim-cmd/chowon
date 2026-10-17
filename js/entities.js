@@ -141,10 +141,17 @@ class Player {
         const before = this.charge;
         this.charge = Math.min(1, this.charge + dt / this.chargeTime);
         if (before < 1 && this.charge >= 1) { Sfx.charged(); G.ring(this.x, this.y, '#ffd24a', 30); }
+        // 차지 2단 (2026-10-18): 1단을 다 모은 뒤 계속 누르고 있으면 더 모인다
+        const c2 = this.weapon.charge2Time;
+        if (c2 && this.charge >= 1) {
+          const b2 = this.charge2 || 0;
+          this.charge2 = Math.min(1, b2 + dt / (c2 * this.chargeTime / this.weapon.chargeTime));
+          if (b2 < 1 && this.charge2 >= 1) { Sfx.charged(); Sfx.zap(); G.ring(this.x, this.y, '#7fe0ff', 44); G.text(this.x, this.y - 30, '최대 충전!', '#7fe0ff', 12, 0.6); }
+        }
       }
     } else {
-      if (this.charge >= 1 && this.dashT <= 0) this.weapon.charged(this, mag);
-      this.holdT = 0; this.charge = 0;
+      if (this.charge >= 1 && this.dashT <= 0) this.weapon.charged(this, mag, (this.charge2 || 0) >= 1); // 셋째 값: 2단까지 모았나
+      this.holdT = 0; this.charge = 0; this.charge2 = 0;
     }
 
     if (this.dashT > 0) {
@@ -347,6 +354,12 @@ class Player {
         g.strokeStyle = full ? `rgba(255,210,74,${0.6 + Math.sin(G.time * 30) * 0.3})` : 'rgba(255,255,255,0.6)';
         g.lineWidth = full ? 3 : 2;
         g.beginPath(); g.arc(this.x, this.y + 2, 16, -Math.PI / 2, a1); g.stroke();
+      }
+      if (this.charge2 > 0) { // 차지 2단
+        const full2 = this.charge2 >= 1, b1 = -Math.PI / 2 + Math.PI * 2 * this.charge2;
+        g.strokeStyle = full2 ? `rgba(127,224,255,${0.7 + Math.sin(G.time * 34) * 0.3})` : 'rgba(127,224,255,0.7)';
+        g.lineWidth = full2 ? 3 : 2;
+        g.beginPath(); g.arc(this.x, this.y + 2, 21, -Math.PI / 2, b1); g.stroke();
       }
     }
     // 대시 잔상
