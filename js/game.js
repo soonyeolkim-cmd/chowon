@@ -7,7 +7,7 @@ const FONT = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,san
 const FINAL_STAGE = 6;            // 마지막 세계 (한 번의 모험으로 1~6)
 const STAGES_PER_WORLD = 5;
 const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
-const ENEMY_COST = { demon: 2, lantern: 1, statue: 2, babydragon: 1, lion: 1, trex: 2, cyclops2: 2, lizard: 1, kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
+const ENEMY_COST = { demon: 2, lantern: 1, statue: 2, babydragon: 1, lion: 1, trex: 2, cyclops2: 2, lizard: 1, kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, fish: 1, moth: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
 const DEEP_SHARD_MULT = 0.6;          // 깊은 숲(세계 4~6): 정령의 조각은 덜
 const DEEP_ESSENCE_MULT = 2;          // 깊은 숲(세계 4~6): 무기의 정수는 두 배
@@ -168,10 +168,11 @@ const ENEMY_POOLS = [
   [['slime', 30], ['bat', 10], ['mole', 15], ['mushroom', 45]],            // 세계 1 · 슬라임 대왕의 들판
   [['racoon', 25], ['bear', 15], ['snake', 30], ['owl', 30]],              // 세계 2 · 너구리 패거리
   [['shield', 20], ['skull', 25], ['eye', 25], ['flam', 30]],              // 세계 3 · 봉인의 망령들
-  [['kappa', 25], ['axolot', 30], ['spider', 30], ['mollusc', 15]],         // 세계 4 · 늪의 주민들
+  [['kappa', 20], ['axolot', 20], ['spider', 20], ['mollusc', 10], ['fish', 15], ['moth', 15]], // 세계 4 · 늪의 주민들 (물고기 · 나방 추가 2026-10-17)
   [['lion', 25], ['trex', 15], ['cyclops2', 30], ['lizard', 30]],          // 세계 5 · 우마왕의 투사들
   [['demon', 25], ['lantern', 25], ['statue', 20], ['babydragon', 30]],    // 세계 6 · 봉인의 수호자들
 ];
+const NEEDS_WATER = ['fish']; // 물이 있는 지도에만 나오는 몬스터
 const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard', 'babydragon']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
 // 루미의 조언: 같은 조언은 한 판에 한 번, 모두 합쳐 이 횟수까지만 (익숙해지면 그만 말한다)
 const HINT_MAX = 1; // 같은 조언은 한 번만 (3 → 1, 너무 자주 나온다는 의견 2026-10-17)
@@ -190,6 +191,8 @@ const MONSTER_HINTS = {
   axolot: '도롱뇽의 분홍 침에 맞으면 잠깐 대시를 못 해요!',
   spider: '거미줄이 깔린 곳에 들어가면 느려져요. 돌아가요!',
   mollusc: '달팽이는 단단해요. 지나간 점액 위에서는 느려져요!',
+  fish: "물고기는 물속에 숨어 있다가 '!' 뒤에 뭍으로 튀어나와요. 물가에서 조금 떨어지고, 뭍에서 파닥일 때 잡아요!",
+  moth: '나방이 뿌리는 인분은 천천히 따라와요. 맞으면 느려지니 옆으로 크게 피하고, 가까이 붙어서 잡아요!',
   lion: '동굴사자가 웅크리면 곧 덮쳐요! 빨간 원 밖으로 피해요!',
   trex: "티렉스는 '!' 뒤에 길게 돌진하고, 멈추면 꼬리를 휘둘러요!",
   cyclops2: '외눈 거인이 바위를 던지면 떨어질 자리에 그림자가 생겨요. 바위 뒤에 숨어도 넘어와요!',
@@ -246,7 +249,7 @@ const G = {
     this.rerolls = Meta.lv('choice');
     const worlds = ROUTES[this.tierInfo.route].worlds;
     this.firstWorld = worlds[0]; this.finalWorld = worlds[worlds.length - 1]; this.route = this.tierInfo.route;
-    this.startStage(this.firstWorld, 1, Meta.startStats(), true);
+    this.startStage(DEV_BUILD && DEV_BUILD.world || this.firstWorld, 1, Meta.startStats(), true); // 시험 빌드는 정한 세계부터 (?build=swamp)
     if (familiarMult(this.tier) < 1) this.hintBox = { text: '여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', t: 5 };
   },
   goVillage() {
@@ -474,7 +477,8 @@ const G = {
   },
 
   pickType() {
-    const pool = ENEMY_POOLS[Math.min(this.stage, ENEMY_POOLS.length) - 1];
+    let pool = ENEMY_POOLS[Math.min(this.stage, ENEMY_POOLS.length) - 1];
+    if (!World.tiles.includes(T.WATER)) pool = pool.filter(([t]) => !NEEDS_WATER.includes(t)); // 물이 없는 지도엔 물고기가 안 나온다
     let r = Math.random() * pool.reduce((s, [, w]) => s + w, 0);
     for (const [type, w] of pool) { if ((r -= w) <= 0) return type; }
     return 'slime';

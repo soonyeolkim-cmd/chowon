@@ -1257,6 +1257,10 @@ const ENEMY = {
   axolot:   { hp: 26, speed: 44, dmg: 6, xp: 7, r: 9, color: '#ff9ad0', ranged: true, shot: 7, keep: 150, rate: 2.4, wind: 0.5 },
   spider:   { hp: 24, speed: 50, dmg: 6, xp: 7, r: 9, color: '#d84a4a', ranged: true, shot: 5, keep: 165, rate: 2.8, wind: 0.6 },
   mollusc:  { hp: 110, speed: 24, dmg: 10, xp: 12, r: 12, color: '#c8b8a0', heavy: true },
+  // 늪 물고기: 물속에 숨어 다니다가 '!' 뒤에 뭍으로 튀어나와 덮친다. 뭍에서 파닥이는 동안 잡는다 (2026-10-17)
+  fish:     { hp: 30, speed: 64, dmg: 10, xp: 7, r: 9, color: '#e8d84a' },
+  // 나방: 이리저리 흔들리며 날다가 천천히 따라오는 인분 세 발 (맞으면 잠깐 느려짐)
+  moth:     { hp: 18, speed: 80, dmg: 5, xp: 6, r: 8, color: '#ffb0d8', flying: true, ranged: true, shot: 5, keep: 105, rate: 2.6, wind: 0.5 },
   tadpole:  { hp: 10, speed: 96, dmg: 5, xp: 1, r: 6, color: '#2a3a30' },      // 개굴대왕이 부르는 올챙이
   // 세계 5 · 우마왕의 투사들
   lion:     { hp: 38, speed: 80, dmg: 12, xp: 8, r: 11, color: '#d8a050' },
@@ -1328,6 +1332,8 @@ class Enemy {
       if (this.burrowed && Math.random() < dt * 6) G.particles.push({ x: this.x + rand(-6, 6), y: this.y + 4, vx: 0, vy: -10, life: 0.5, max: 0.5, color: '#bfefff', size: 2, grav: 0 });
       // 거리와 상관없이 늘 쫓아온다 → 물속에 숨어 안 나오는 갓파가 생기지 않게
       this.lungeAI(dt, p, dx, dy, d, p.alive, swim, 60, 0.4, 300, 0.18);
+    } else if (this.type === 'fish') {
+      this.fishAI(dt, p, dx, dy, d, chase);
     } else if (this.type === 'mollusc') {
       if (chase) mv(dx / d * this.speed, dy / d * this.speed);
       // 지나간 자리에 미끄덩한 점액
@@ -1367,6 +1373,11 @@ class Enemy {
       this.flamRage(dt, p, dx, dy, d, mv);
     } else if (this.ranged) {
       this.rangedAI(dt, p, dx, dy, d, chase, mv);
+      if (this.type === 'moth' && this.state !== 'aim') { // 나방: 종잡을 수 없게 흔들린다
+        const ox = this.x, oy = this.y;
+        World.fly(this, Math.cos(this.t * 6.3) * 55 * dt, Math.sin(this.t * 4.1) * 55 * dt);
+        if (!World.reachable(this.x, this.y)) { this.x = ox; this.y = oy; }
+      }
     } else if (this.type === 'shield') {
       // 방패는 천천히 플레이어 쪽으로 돈다 → 옆이나 뒤로 돌아가면 뚫린다
       const want = Math.atan2(dy, dx), turn = (this.state === 'chase' ? 2.2 : 0.6) * dt;
@@ -1423,6 +1434,7 @@ class Enemy {
     else if (this.type === 'flam') shot(a, { kind: 'fire', speed: 185, r: 6, life: 2.2 });
     else if (this.type === 'axolot') { shot(a, { kind: 'spit', speed: 160, r: 6, life: 2, nodash: 1.6 }); shot(a + 0.25, { kind: 'spit', speed: 140, r: 5, life: 2, nodash: 1.6 }); }
     else if (this.type === 'spider') shot(a, { kind: 'web', speed: 150, r: 6, life: 1.4, web: true });
+    else if (this.type === 'moth') for (const o of [-0.4, 0, 0.4]) shot(a + o, { kind: 'dust', speed: 95, r: 5, life: 2.4, homing: 1.3, slow: 1.0 });
     else if (this.type === 'cyclops2') { const p = G.player; G.eshots.push(new EnemyShot(x, y, a, { kind: 'boulder', r: BOULDER_R, dmg, life: 1.1, lob: { x0: x, y0: y, tx: p.x, ty: p.y, dur: 1.1 } })); }
     else if (this.type === 'lizard') for (const sp of [210, 175, 140]) shot(a, { kind: 'rock', speed: sp, r: 5, life: 1.8 });
     else if (this.type === 'lantern') for (let i = 0; i < 8; i++) shot(i / 8 * Math.PI * 2 + this.t, { kind: 'fire', speed: 115, r: 6, life: 2.4 });
@@ -1531,6 +1543,45 @@ class Enemy {
   }
 
   // 헤엄 이동 (물 통과, 나무 · 바위에 막히면 옆으로 비킨다)
+  // 늪 물고기: 물속(맞지 않음)에서 플레이어 가까운 물가로 헤엄친다 → '!' → 뭍으로 튀어나와 덮침 → 뭍에서 파닥 → 물로 돌아간다
+  fishAI(dt, p, dx, dy, d, chase) {
+    const inW = World.inWater(this.x, this.y + 4);
+    const swimTo = (tx, ty, sp, waterOnly) => {
+      const L = Math.hypot(tx - this.x, ty - this.y);
+      if (L < 2) return;
+      const a = Math.atan2(ty - this.y, tx - this.x), s = Math.min(L, sp * dt), nx = this.x + Math.cos(a) * s, ny = this.y + Math.sin(a) * s;
+      if ((!waterOnly || World.inWater(nx, ny + 4)) && !World.swimBlocked(nx, ny, this.r)) { this.x = nx; this.y = ny; }
+    };
+    if (this.state === 'windup') { // 물 위로 고개를 내민다 (이때는 맞는다)
+      this.burrowed = false;
+      if (this.st > 0.2) this.lungeDir = Math.atan2(dy, dx); // 마지막 순간엔 방향 고정
+      if (this.st <= 0) { this.state = 'lunge'; this.st = FISH_LEAP_T; this.attacking = true; Sfx.lunge(); G.burst(this.x, this.y + 4, 8, ['#bfefff', '#fff'], 120); }
+      return;
+    }
+    if (this.state === 'lunge') {
+      this.burrowed = false;
+      this.swim(Math.cos(this.lungeDir) * FISH_LEAP_SPEED, Math.sin(this.lungeDir) * FISH_LEAP_SPEED, dt);
+      if (this.st <= 0) { this.attacking = false; const wet = World.inWater(this.x, this.y + 4); this.state = wet ? 'chase' : 'flop'; this.st = wet ? 1.2 : FISH_FLOP; }
+      return;
+    }
+    if (this.state === 'flop') { this.burrowed = false; if (this.st <= 0) { this.state = 'back'; this.st = 0; } return; } // 뭍에서 파닥 (잡을 기회)
+    if (!inW) { // 뭍: 가까운 물로 돌아간다. 물이 없는 곳이면 걸어서 덮친다
+      this.burrowed = false;
+      this.homeT = (this.homeT || 0) - dt;
+      if (!this.home || this.homeT <= 0) { this.home = nearestWater(this.x, this.y, this.x, this.y); this.homeT = 1; }
+      if (this.home) swimTo(this.home.x, this.home.y, this.speed * 1.4, false);
+      else this.lungeAI(dt, p, dx, dy, d, chase, (vx, vy) => this.steer(vx, vy, dt), 70, 0.6, 320, 0.3);
+      return;
+    }
+    if (this.state === 'back') this.st = 1.0; // 물로 돌아온 뒤 잠깐 쉰다 (바로 또 튀어나오지 않게)
+    this.burrowed = true; this.state = 'chase';
+    if (Math.random() < dt * 4) G.particles.push({ x: this.x + rand(-5, 5), y: this.y + 4, vx: 0, vy: -10, life: 0.5, max: 0.5, color: '#bfefff', size: 2, grav: 0 });
+    this.spotT = (this.spotT || 0) - dt;
+    if (!this.spot || this.spotT <= 0) { this.spot = nearestWater(this.x, this.y, p.x, p.y); this.spotT = 0.5; }
+    if (this.spot) swimTo(this.spot.x, this.spot.y, this.speed, true);
+    if (p.alive && d < FISH_LEAP_RANGE && this.st <= 0 && this.spawnT <= 0) { this.state = 'windup'; this.st = FISH_WIND; this.lungeDir = Math.atan2(dy, dx); }
+  }
+
   swim(vx, vy, dt) {
     let a = Math.atan2(vy, vx);
     const want = Math.hypot(vx, vy) * dt;
@@ -1698,6 +1749,12 @@ class Enemy {
   drawMonster(g, white, look) {
     const A = MONSTER_ART[this.type], x = this.x;
     if (this.burrowed && this.type === 'demon') return; // 사라짐
+    if (this.burrowed && this.type === 'fish') { // 물속: 물결과 지느러미만 보인다
+      g.strokeStyle = 'rgba(200,240,255,0.6)'; g.lineWidth = 1.5;
+      g.beginPath(); g.ellipse(x, this.y + 4, 9 + Math.sin(this.t * 7) * 2, 3.5, 0, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = '#e8d84a'; g.beginPath(); g.moveTo(x - 4, this.y + 3); g.lineTo(x + 1, this.y - 5); g.lineTo(x + 4, this.y + 3); g.closePath(); g.fill();
+      return;
+    }
     if (this.burrowed && this.type === 'kappa') { // 물속: 머리 접시와 물결만 보인다
       g.strokeStyle = 'rgba(200,240,255,0.6)'; g.lineWidth = 1.5;
       g.beginPath(); g.ellipse(x, this.y + 4, 10 + Math.sin(this.t * 6) * 2, 4, 0, 0, Math.PI * 2); g.stroke();
@@ -1733,10 +1790,27 @@ class Enemy {
 const MONSTER_ART = {
   mushroom: { scale: 2 }, mole: { scale: 2 }, racoon: { scale: 2 }, bear: { scale: 2.4 }, snake: { scale: 2 },
   owl: { scale: 2 }, skull: { scale: 2 }, eye: { scale: 2 }, flam: { scale: 2 },
-  kappa: { scale: 2 }, axolot: { scale: 2 }, spider: { scale: 2 }, mollusc: { scale: 2.2 },
+  kappa: { scale: 2 }, axolot: { scale: 2 }, spider: { scale: 2 }, mollusc: { scale: 2.2 }, fish: { scale: 2 }, moth: { scale: 2 },
   lion: { scale: 2.2 }, trex: { scale: 2.4 }, cyclops2: { scale: 2.4 }, lizard: { scale: 2 },
   demon: { scale: 2.2 }, lantern: { scale: 2 }, statue: { scale: 2.5 }, babydragon: { scale: 2 },
 };
+// 늪 물고기 수치
+const FISH_LEAP_RANGE = 150;  // 이 거리 안이면 튀어나올 준비
+const FISH_WIND = 0.6;        // '!' 예고
+const FISH_LEAP_SPEED = 360;  // 튀어나오는 속도
+const FISH_LEAP_T = 0.32;     // 튀어나오는 시간 (약 115 거리)
+const FISH_FLOP = 1.2;        // 뭍에서 파닥이는 시간
+// (sx, sy) 주변 8칸 안의 물칸 중 (tx, ty) 에 가장 가까운 곳의 중심
+function nearestWater(sx, sy, tx, ty) {
+  const cx = Math.floor(sx / TILE), cy = Math.floor(sy / TILE);
+  let best = null, bd = Infinity;
+  for (let j = cy - 8; j <= cy + 8; j++) for (let i = cx - 8; i <= cx + 8; i++) {
+    if (World.tile(i, j) !== T.WATER) continue;
+    const x = (i + 0.5) * TILE, y = (j + 0.5) * TILE - 4, d = Math.hypot(x - tx, y - ty);
+    if (d < bd) { bd = d; best = { x, y }; }
+  }
+  return best;
+}
 const DEMON_SLASH_R = 36;     // 도깨비 기습 범위
 const STATUE_BEAM_LEN = 300;  // 석상 광선 길이
 const LION_POUNCE_R = 32;  // 사자 덮치기 범위
@@ -1823,7 +1897,7 @@ class EnemyShot {
     g.globalAlpha = 1;
   }
 }
-const SHOT_COLOR = { spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c', leaf: '#8ad84a', spit: '#ff9ad0', web: '#e8e8f0', rock: '#b8a890', boulder: '#8a6a4a', venom: '#9be15d' };
+const SHOT_COLOR = { dust: '#f6c8ff', spore: '#c86ad8', feather: '#e8dcc0', dart: '#7ad84a', orb: '#a070ff', fire: '#ff8a3c', leaf: '#8ad84a', spit: '#ff9ad0', web: '#e8e8f0', rock: '#b8a890', boulder: '#8a6a4a', venom: '#9be15d' };
 
 // 플레이어의 검기 · 던진 창이 지나가며 적 투사체를 지운다
 function clearShotsNear(x, y, r) {

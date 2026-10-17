@@ -26,6 +26,8 @@ const ART_FILES = {
   axolot:    'Actor/Monster/Axolot/SpriteSheet.png',
   spider:    'Actor/Monster/SpiderRed/SpriteSheet.png',
   mollusc:   'Actor/Monster/Mollusc/Mollusc.png',
+  fish:      'Actor/Monster/Fish/SpriteSheet.png',      // 늪 물고기 (2026-10-17)
+  moth:      'Actor/Monster/Butterfly/SpriteSheet.png', // 나방
   boss4Idle: 'Actor/Boss/GiantFrog/Idle40x40.png',
   boss4Jump: 'Actor/Boss/GiantFrog/Jump.png',
   boss4Attack:'Actor/Boss/GiantFrog/Attack.png',
@@ -86,7 +88,7 @@ const ART_FILES = {
 // 피격 시 하얗게, 공격 예고 시 빨갛게 번쩍일 그림들
 const ART_FLASH = ['hero', 'spirit', 'slime', 'bat', 'cyclope', 'skeleton',
   'mushroom', 'mole', 'racoon', 'bear', 'snake', 'owl', 'skull', 'eye', 'flam',
-  'kappa', 'axolot', 'spider', 'mollusc', 'boss4Idle', 'boss4Jump', 'boss4Attack', 'boss4Charge', 'boss4Hit',
+  'kappa', 'axolot', 'spider', 'mollusc', 'fish', 'moth', 'boss4Idle', 'boss4Jump', 'boss4Attack', 'boss4Charge', 'boss4Hit',
   'lion', 'trex', 'cyclops2', 'lizard', 'beast',
   'demon', 'lantern', 'statue', 'babydragon',
   'dragonGreenHead', 'dragonGreenBody1', 'dragonGreenBody2', 'dragonGreenEnd', 'dragonGreenWing', 'dragonBlueHead', 'dragonBlueBody1', 'dragonBlueBody2', 'dragonBlueEnd', 'dragonBlueWing', 'dragonRedHead', 'dragonRedBody1', 'dragonRedBody2', 'dragonRedEnd', 'dragonRedWing',
