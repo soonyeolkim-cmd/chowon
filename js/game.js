@@ -1200,7 +1200,9 @@ function drawArcProgress(b, frac, color, width = 4) {
 }
 
 // 가상 패드 투명도: 화면을 덜 가리게 (2026-10-17). 누르고 있는 동안은 조금 진하게
-const TOUCH_ALPHA = 0.55, TOUCH_ALPHA_HELD = 0.8;
+// 설정 > 기타 > 가상 패드 투명도 (진하기). 누르고 있는 동안은 +0.25
+const PAD_ALPHA_OPTS = [0.3, 0.45, 0.55, 0.7, 0.85, 1];
+const padAlpha = held => Math.min(1, (Input.settings.padAlpha ?? 0.55) + (held ? 0.25 : 0));
 // fn 안에서 그리는 모든 것에 투명도 k 를 곱한다 (안에서 globalAlpha 를 바꿔도 그 값 × k)
 function withAlpha(k, fn) {
   const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha');
@@ -1461,7 +1463,8 @@ function settingsRows(tab) {
   return [{ kind: 'toggle', key: 'sfx', name: '효과음', value: S.sfx ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'bgm', name: MUSIC_ON ? '배경음악' : '배경음악 (곧 추가돼요)', value: S.bgm ? '켜짐' : '꺼짐' },
     { kind: 'toggle', key: 'rumble', name: '진동 (게임패드 · 휴대폰)', value: S.rumble ? '켜짐' : '꺼짐' },
-    { kind: 'toggle', key: 'shake', name: '화면 흔들림', value: S.shake ? '켜짐' : '꺼짐' }];
+    { kind: 'toggle', key: 'shake', name: '화면 흔들림', value: S.shake ? '켜짐' : '꺼짐' },
+    { kind: 'cycle', key: 'padAlpha', opts: PAD_ALPHA_OPTS, name: '가상 패드 투명도 (터치)', value: Math.round((S.padAlpha ?? 0.55) * 100) + '%  ▸' }];
 }
 function settingsLayout() {
   const s = G.su, rows = settingsRows(s.tab);
@@ -1477,6 +1480,7 @@ function settingsAct(row) {
   const s = G.su;
   if (row.kind === 'reset') { Input.resetBinds(row.dev); s.msg = '기본값으로 되돌렸어요'; Sfx.level(); return; }
   if (row.kind === 'toggle') { Input.settings[row.key] = !Input.settings[row.key]; Input.saveSettings(); Sfx.pickup(); return; }
+  if (row.kind === 'cycle') { const o = row.opts, k = o.indexOf(Input.settings[row.key]); Input.settings[row.key] = o[(k + 1) % o.length]; Input.saveSettings(); Sfx.pickup(); return; } // 누를 때마다 다음 값
   if (row.kind === 'padlayout') {
     Input.settings.padLayout = Input.settings.padLayout === 'switch' ? 'xbox' : 'switch'; Input.saveSettings(); Sfx.pickup();
     s.msg = Input.settings.padLayout === 'switch' ? '스위치 레이아웃: A 선택 (오른쪽) · B 취소 (아래)' : 'Xbox 레이아웃: A 선택 (아래) · B 취소 (오른쪽)';
@@ -2710,7 +2714,7 @@ function render() {
     drawCurseNote();
     drawHint();
     drawTestMark();
-    if (Input.state.device === 'touch' && G.state === 'play') withAlpha(Input.pointers.size ? TOUCH_ALPHA_HELD : TOUCH_ALPHA, drawTouchControls); // 가상 패드는 반투명
+    if (Input.state.device === 'touch' && G.state === 'play') withAlpha(padAlpha(Input.pointers.size > 0), drawTouchControls); // 가상 패드는 반투명
     if (G.state === 'story') drawDialog();
     if (G.state === 'boon') drawBoonScreen();
     drawUiButton(Input.buttons.pause, 'pause');
