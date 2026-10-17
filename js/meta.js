@@ -75,6 +75,7 @@ const TEST_BUILDS = {
   parry: { weapon: 'sai', mastery: { wave: 3 }, boons: { elec_special: 3, atk_wave: 3, heal_wave: 3, vital: 3, overcharge: 3, sharp: 3 } },
   bolt: { weapon: 'sword', mastery: { combo: 3 }, boons: { elec_basic: 3, elec_chain: 3, static: 3, overcharge: 3, atk_combo: 3, sharp: 3, vital: 3, ambush: 3 } },
 };
+const GIFT_CODE = 'lumi1017', GIFT_EMBLEMS = 10;
 // 시험 빌드 (?build=sai 등): 로컬과 배포 사이트 모두. 배포 사이트에서는 진짜 저장을 건드리지 않게 따로 저장한다 (2026-10-17, 휴대폰 시험용)
 const DEV_BUILD = TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null;
 const TEST_SAVE = !!DEV_BUILD && !DEV_LOCAL;
@@ -100,6 +101,7 @@ const Meta = {
       midEmblem: !!d.midEmblem, // 세계 3 보스 증표를 받았나
       tiers7: !!d.tiers7,      // 7등급(1~6세계 한 번에) 구조로 옮긴 저장인가
       emblems: d.emblems || 0,
+      gifts: d.gifts || [],     // 이미 쓴 선물 코드
       weapon: d.weapon || 'sword', unlocked: d.unlocked || ['sword'],
       wup: d.wup || {},          // 무기별 숙련: { sword: { combo: 2, ... } }
       // 무기의 정수 (예전 저장의 무기별 정수 { sword: 12, spear: 3 } 은 합쳐서 옮긴다)
@@ -118,6 +120,13 @@ const Meta = {
       this.data.tierCleared = {};
       this.data.tier = 1;
       this.data.tiers7 = true;
+    }
+    // 선물 코드 (?gift=코드): 이 기기의 진짜 저장에 영웅의 증표를 한 번만 넣는다 (2026-10-17, 휴대폰 시험용)
+    if (!TEST_SAVE && new URLSearchParams(location.search).get('gift') === GIFT_CODE && !this.data.gifts.includes(GIFT_CODE)) {
+      this.data.gifts.push(GIFT_CODE); this.data.emblems += GIFT_EMBLEMS;
+      this.giftNote = `선물: 영웅의 증표 ${GIFT_EMBLEMS}개를 받았어요!`;
+      store.set('meta', this.data);
+      try { history.replaceState(null, '', location.pathname); } catch (_) {}
     }
     if (DEV_MODE === 'all') this.unlockAll();
     if (DEV_MODE === 'spear' && !this.data.unlocked.includes('spear')) {

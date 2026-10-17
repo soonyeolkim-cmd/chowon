@@ -174,7 +174,7 @@ const ENEMY_POOLS = [
 ];
 const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard', 'babydragon']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
 // 루미의 조언: 같은 조언은 한 판에 한 번, 모두 합쳐 이 횟수까지만 (익숙해지면 그만 말한다)
-const HINT_MAX = 3;
+const HINT_MAX = 1; // 같은 조언은 한 번만 (3 → 1, 너무 자주 나온다는 의견 2026-10-17)
 const MONSTER_HINTS = {
   orc: "외눈이는 '!' 표시 뒤에 돌진해요. 부딪히기 직전에 대시해서 피해요!",
   mushroom: '버섯이 몸을 부풀리면 곧 포자를 뿜어요! 포자 사이로 비켜서 다가가요. 검기나 던진 창은 날아오는 투사체를 지워요.',
@@ -253,7 +253,8 @@ const G = {
     Meta.save();
     World.generate((Math.random() * 1e9) | 0, 0);
     this.player = null; this.boss = null; this.enemies = []; this.totems = [];
-    this.village = { tab: 0, sel: villageItems(0).length, t: 0, armed: false, axis: 0, axisX: 0, flash: {}, msg: null, scroll: 0, drag: null };
+    this.village = { tab: 0, sel: villageItems(0).length, t: 0, armed: false, axis: 0, axisX: 0, flash: {}, msg: Meta.giftNote || null, scroll: 0, drag: null };
+    Meta.giftNote = null;
     this.state = 'village';
   },
   // 무기의 정수 (모든 무기 공통)
