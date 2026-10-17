@@ -143,6 +143,7 @@ const ENEMY_POOLS = [
   [['demon', 25], ['lantern', 25], ['statue', 20], ['babydragon', 30]],    // 세계 6 · 봉인의 수호자들
 ];
 const NEEDS_WATER = ['fish']; // 물이 있는 지도에만 나오는 몬스터
+const SPAWN_MIN_FROM_PLAYER = 100; // 웨이브 마물이 생기는 자리: 플레이어와 최소 이만큼 (2026-10-17)
 const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard', 'babydragon']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
 // 루미의 조언: 같은 조언은 한 판에 한 번, 모두 합쳐 이 횟수까지만 (익숙해지면 그만 말한다)
 const HINT_MAX = 1; // 같은 조언은 한 번만 (3 → 1, 너무 자주 나온다는 의견 2026-10-17)
@@ -708,6 +709,7 @@ const G = {
     }
     this.waveIdx = -1; this.waveT = 1.2; this.spawnQueue = [];
   },
+  // 웨이브의 마물은 플레이어에게서 SPAWN_MIN_FROM_PLAYER 이상 떨어진 곳에 나온다
   // 웨이브의 마물은 한꺼번에가 아니라 0.3초 간격으로 차례차례 나온다
   spawnWave(list) {
     this.spawnQueue = list.map((type, i) => ({ type, t: i * WAVE_SPAWN_GAP }));
@@ -719,7 +721,8 @@ const G = {
     for (const q of this.spawnQueue) q.t -= dt;
     while (this.spawnQueue.length && this.spawnQueue[0].t <= 0) {
       const { type } = this.spawnQueue.shift();
-      const pos = World.findSpawn(c.x, c.y, 60, 170) || World.findSpawn(c.x, c.y, 40, 260);
+      const p = this.player, av = p ? { x: p.x, y: p.y, d: SPAWN_MIN_FROM_PLAYER } : undefined; // 플레이어와 최소 거리 (2026-10-17)
+      const pos = World.findSpawn(c.x, c.y, 60, 170, 14, av) || World.findSpawn(c.x, c.y, 40, 300, 14, av) || World.findSpawn(c.x, c.y, 40, 260);
       if (!pos) continue;
       this.enemies.push(new Enemy(type, pos.x, pos.y, this.diff, this.player.lv));
       this.burst(pos.x, pos.y, 8, [sealTheme().hex, '#fff'], 90);

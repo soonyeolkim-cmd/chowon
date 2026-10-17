@@ -167,11 +167,13 @@ const World = {
     e.y = Math.max(TILE * 2, Math.min(this.ph - TILE * 2, e.y + dy));
   },
 
-  findSpawn(px, py, minD, maxD, r = 14) {
+  // avoid: { x, y, d } 이 점에서 d 보다 가까운 자리는 고르지 않는다 (플레이어 바로 옆에 마물이 생기지 않게)
+  findSpawn(px, py, minD, maxD, r = 14, avoid) {
     for (let i = 0; i < 40; i++) {
       const a = Math.random() * Math.PI * 2, d = minD + Math.random() * (maxD - minD);
       const x = px + Math.cos(a) * d, y = py + Math.sin(a) * d;
       if (x < TILE * 3 || y < TILE * 3 || x > this.pw - TILE * 3 || y > this.ph - TILE * 3) continue;
+      if (avoid && Math.hypot(x - avoid.x, y - avoid.y) < avoid.d) continue;
       if (!this.blocked(x, y, r) && this.reachable(x, y)) return { x, y };
     }
     return null;
