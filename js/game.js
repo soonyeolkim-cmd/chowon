@@ -1940,7 +1940,8 @@ function drawPauseScreen(big, blink, tap) {
     } else if (it.t === 'note') {
       it.lines.forEach((l, k) => label((k ? '  ' : '· ') + l, v.x + 6, y + 8 + k * 16, 12, it.dim ? '#aab' : '#f0e0c8', 'left', '600'));
     } else if (it.t === 'boon') {
-      label(`${boonIcon(it.b)} ${it.b.name} Lv${it.lv}`, v.x + 4, y + 8, 13, boonColor(it.b), 'left', '700');
+      const mx = boonMaxLv(it.b), full = it.lv >= mx; // 만렙 표시 (2026-10-17)
+      label(`${boonIcon(it.b)} ${it.b.name} Lv${it.lv} / ${mx}${full ? ' · MAX' : ''}`, v.x + 4, y + 8, 13, boonColor(it.b), 'left', '700');
       it.lines.forEach((l, k) => label(l, v.x + 12, y + 24 + k * 14, 11, '#ccd', 'left', '500'));
     }
   }
