@@ -1499,7 +1499,7 @@ class Boss {
       }
       G.burst(this.x, this.y, 30, ['#7ad8ff', '#fff'], 240);
       G.text(this.x, this.y - 58, '분열!', '#9fd8ff', 18, 1.2);
-      G.lumi.say('갈라졌어요! 작은 쪽이 진짜 대왕이에요!');
+      G.lumi.say('갈라졌어요! 제일 큰 붉은 녀석이 진짜 대왕이에요!');
     } else if (this.kind === 1) {
       G.lumi.say('둔갑술을 쓸지도 몰라요! 진짜 바루를 찾아요!');
     } else if (this.kind === 2) {
