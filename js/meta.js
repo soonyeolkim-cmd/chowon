@@ -9,6 +9,7 @@ const UPGRADES = [
   { id: 'bond',   name: '루미와의 유대',  max: 2, cost: [40, 90],              desc: lv => `루미의 위기 회복량 ${Math.round(LUMI_HEAL[lv] * 100)}%${lv >= 2 ? ' + 회복할 때 1초 무적' : ''} (기본 ${Math.round(LUMI_HEAL[0] * 100)}%)` },
   { id: 'choice', name: '정령의 호감',    max: 5, cost: [40, 60, 90, 130, 180], desc: lv => `축복 다시 뽑기 ${lv}회 (런마다)` },
   { id: 'luck',   name: '조각 수집가',    max: 3, cost: [30, 60, 100],         desc: lv => `정령의 조각 획득 +${20 * lv}%` },
+  { id: 'gift',   name: '정령의 첫 선물', max: 1, cost: [150],                 desc: () => '모험을 시작할 때 무작위 축복 1개(1레벨)를 받고 출발' }, // 2026-10-17
   { id: 'revive', name: '불굴의 의지',    max: 1, cost: [150],                 desc: () => '런마다 한 번, 쓰러져도 체력 40%로 다시 일어난다' },
 ];
 

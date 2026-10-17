@@ -221,6 +221,10 @@ const G = {
     const worlds = ROUTES[this.tierInfo.route].worlds;
     this.firstWorld = worlds[0]; this.finalWorld = worlds[worlds.length - 1]; this.route = this.tierInfo.route;
     this.startStage(DEV_BUILD && DEV_BUILD.world || this.firstWorld, 1, Meta.startStats(), true); // 시험 빌드는 정한 세계부터 (?build=swamp)
+    if (Meta.lv('gift')) { // 정령의 첫 선물: 무작위 축복 하나를 1레벨로 들고 출발
+      const c = this.makeOffer(null)[0];
+      if (c) { this.boons[c.boon.id] = 1; if (c.boon.onPick) c.boon.onPick(this.player); this.toast = { s: `🎁 정령의 첫 선물: ${c.boon.name}`, t: 4 }; }
+    }
     if (familiarMult(this.tier) < 1) this.hintBox = { text: '여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', t: 5 };
   },
   goVillage() {
