@@ -170,7 +170,10 @@ const ENEMY_POOLS = [
   [['demon', 25], ['lantern', 25], ['statue', 20], ['babydragon', 30]],    // 세계 6 · 봉인의 수호자들
 ];
 const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard', 'babydragon']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
+// 루미의 조언: 같은 조언은 한 판에 한 번, 모두 합쳐 이 횟수까지만 (익숙해지면 그만 말한다)
+const HINT_MAX = 3;
 const MONSTER_HINTS = {
+  orc: "외눈이는 '!' 표시 뒤에 돌진해요. 부딪히기 직전에 대시해서 피해요!",
   mushroom: '버섯이 몸을 부풀리면 곧 포자를 뿜어요! 포자 사이로 비켜서 다가가요. 검기나 던진 창은 날아오는 투사체를 지워요.',
   mole: '흙이 들썩이는 건 땅속 두더지예요. 빨간 표시가 보이면 그 자리를 벗어나요!',
   racoon: '너구리는 치고 빠져요. 물러날 때가 공격할 기회예요!',
@@ -204,7 +207,7 @@ const G = {
   cam: { x: 0, y: 0 }, view: { x: 0, y: 0, w: 1, h: 1 },
   shake: 0, hitstop: 0, slowT: 0, hurtFlash: 0, clearDelay: 0,
   chain: 0, chainT: 0, maxChain: 0, chainPulse: 0,
-  spawnT: 0, toast: null, banner: null, hintBox: null, seen: store.get('hints') || {},
+  spawnT: 0, toast: null, banner: null, hintBox: null, seen: store.get('hints') || {}, runHints: {},
   unlocks: new Set(), dialog: null, lumi: null, lumiHeals: 0,
   runShards: 0, runKills: 0, reviveLeft: 0, rerolls: 0, runEmblems: 0, runEssence: 0, village: null,
   firstWorld: 1, finalWorld: FINAL_STAGE, route: 'all',
@@ -236,11 +239,12 @@ const G = {
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
     this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0; this.shardFrac = 0; this.essRunBest = 0;
     this.reviveLeft = Meta.lv('revive');
+    this.runHints = {}; // 이번 판에 루미가 한 조언
     this.rerolls = Meta.lv('choice');
     const worlds = ROUTES[this.tierInfo.route].worlds;
     this.firstWorld = worlds[0]; this.finalWorld = worlds[worlds.length - 1]; this.route = this.tierInfo.route;
     this.startStage(this.firstWorld, 1, Meta.startStats(), true);
-    if (familiarMult(this.tier) < 1) this.hintBox = { text: '여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', t: 5 };
+    if (familiarMult(this.tier) < 1) this.lumi.say('여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', 5);
   },
   goVillage() {
     Meta.save();
@@ -423,7 +427,6 @@ const G = {
       this.banner = { title: `${world}-${sub} · ${World.pal.name}`, sub: isBoss ? '보스전 · 세계의 주인을 쓰러뜨려라' : `봉인석이 부르는 마물 ${this.waves.length}웨이브를 막고 봉인석을 부숴라`, t: 3 };
       if (isBoss) this.spawnBoss();
     };
-    if (newRun && Meta.data.runs > 1) this.hintBox = { text: RETRY_LINES[(Math.random() * RETRY_LINES.length) | 0], t: 6 };
     this.storyOnce(n, sub === 1 ? 'start' : '', begin);
   },
 
@@ -435,7 +438,6 @@ const G = {
     this.banner = { title: `${this.boss.name} 등장!`, sub: '봉인석의 힘을 품은 이 세계의 주인', t: 3 };
     this.shake = 12; Sfx.roar();
     if (STORY[this.stage]) this.storyOnce(this.stage, 'bossIntro');
-    else this.hint('boss', '보스는 바닥의 빨간 표시를 피하고, 돌진을 벽으로 유도해서 기절시키세요!');
   },
 
   targets() {
@@ -483,9 +485,23 @@ const G = {
   chainBonus() { return 0; }, // HIT 수에 따른 피해 증가는 없앴다 (2026-10-17). HIT는 세기만 한다
 
   hint(key, text) {
-    if (this.seen[key]) return;
-    this.seen[key] = true; store.set('hints', this.seen);
-    this.hintBox = { text, t: 6 };
+    if (!this.lumi || this.runHints[key]) return;
+    const n = this.seen[key] === true ? 1 : this.seen[key] || 0;
+    if (n >= HINT_MAX) return;
+    if (this.lumi.bubble && this.lumi.bubble.t > 1) return; // 다른 말을 하는 중이면 다음 기회에
+    this.runHints[key] = true; this.seen[key] = n + 1; store.set('hints', this.seen);
+    this.lumi.say(text, clamp(2.5 + text.length * 0.06, 3.5, 7));
+  },
+  // 플레이어가 맞았을 때: 무엇에 맞았는지 보고 그 대처법을 알려 준다
+  hintHurt(src) {
+    let type = src && src.type;
+    if (!type && src) { // 투사체 · 장판: 그 자리에서 가장 가까운 몬스터 (보스전이면 보스)
+      let best = 90;
+      for (const e of this.enemies) { const d = Math.hypot(e.x - src.x, e.y - src.y); if (d < best) { best = d; type = e.type; } }
+      if (!type && this.boss && !this.boss.dead) type = 'boss';
+    }
+    if (type === 'boss') this.hint('boss', '보스 공격은 바닥의 빨간 표시를 보고 피해요! 돌진은 벽 쪽으로 유도하면 부딪혀서 기절해요.');
+    else if (type && MONSTER_HINTS[type]) this.hint(type, MONSTER_HINTS[type]);
   },
 
   hit(t, info) {
@@ -598,6 +614,7 @@ const G = {
     if (dmg && Meta.data.mode === 'easy') dmg = Math.max(1, Math.round(dmg * EASY_DMG_TAKEN));
     if (!dmg) return;
     p.hp -= dmg; p.invuln = p.hurtT = 0.8;
+    this.hintHurt(src);
     if (p.momentum > 0) { p.momentum = 0; this.text(p.x, p.y - 30, '기세 끊김', '#c8b8a8', 10, 0.5); } // 건틀릿: 맞으면 기세가 사라진다
     const dx = p.x - src.x, dy = p.y - src.y, d = Math.hypot(dx, dy) || 1;
     p.kvx = dx / d * 220; p.kvy = dy / d * 220;
@@ -670,7 +687,7 @@ const G = {
     s.atk = Math.round(s.atk * STAGE_ATK_MULT);
     s.maxHp += STAGE_HP_BONUS; s.hp = s.maxHp;
     this.startStage(this.stage + 1, 1, s);
-    this.hintBox = { text: `정령의 힘이 깃들었어요! 공격력 ${s.atk} · 최대 체력 ${s.maxHp} (체력 회복)`, t: 6 };
+    this.lumi.say(`정령의 힘이 깃들었어요! 공격력 ${s.atk} · 최대 체력 ${s.maxHp}`, 5);
   },
 
   text(x, y, s, color, size, life = 0.7) { this.texts.push({ x, y, s, color, size, life, max: life }); },
@@ -744,14 +761,8 @@ const G = {
 
   checkHints() {
     const p = this.player;
-    for (const e of this.enemies) {
-      if (Math.hypot(e.x - p.x, e.y - p.y) > 240) continue;
-      if (e.type === 'shield') this.hint('shield', this.player.weapon.shieldHint);
-      if (e.type === 'orc') this.hint('orc', "외눈이는 '!' 표시 뒤에 돌진해요. 부딪히기 직전에 대시해서 피해요!");
-      if (MONSTER_HINTS[e.type]) this.hint(e.type, MONSTER_HINTS[e.type]);
-    }
     for (const t of this.totems) {
-      if (!t.dead && Math.hypot(t.x - p.x, t.y - p.y) < 360) this.hint('totem', '봉인석의 보호막은 불려 나온 마물을 모두 쓰러뜨리면 깨져요. 그다음에 봉인석을 부숴요!');
+      if (!t.dead && t.shielded && Math.hypot(t.x - p.x, t.y - p.y) < 70) this.hint('totem', '봉인석은 보호막이 있어서 아직 안 부서져요. 불려 나온 마물을 모두 쓰러뜨리면 보호막이 깨져요!');
     }
   },
 
@@ -2239,7 +2250,7 @@ function drawBanner() {
 
 function drawHint() {
   const h = G.hintBox;
-  if (!h) return;
+  if (!h || true) return; // 조언은 루미 말풍선으로 옮겼다 (2026-10-17)
   const maxW = Math.min(W * 0.6, 500);
   const lines = wrap(h.text, maxW - 52, 13);
   const top = inset.t + (G.boss && !G.boss.dead ? 58 : 42);

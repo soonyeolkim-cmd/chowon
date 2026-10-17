@@ -183,6 +183,7 @@ STORY[6] = {
   ],
 };
 
+// (안 씀) 판 시작 무작위 조언 — 상황과 안 맞아서 루미가 그때그때 말하는 방식으로 바꿨다 (2026-10-17)
 const RETRY_LINES = [
   '괜찮아요, 다시 해 봐요! 빨간 표시가 보이면 일단 피하는 게 먼저예요.',
   '포기하지 마요! 방패병은 뒤로 돌아가거나 가드 브레이크 기술로 깨면 돼요.',
@@ -205,6 +206,7 @@ function drawPortrait(g, who, cx, cy, s) {
 }
 
 // 동행 정령: 플레이어 뒤를 따라다니며 빛나고, 가끔 말을 건다
+const BUBBLE_W = 150; // 루미 말풍선 한 줄 최대 폭 (월드 픽셀)
 class Lumi {
   constructor(x, y) { this.x = x; this.y = y - 20; this.t = 0; this.bubble = null; }
   update(dt, p) {
@@ -242,12 +244,21 @@ class Lumi {
     if (!this.bubble) return;
     g.globalAlpha = clamp(this.bubble.t * 2, 0, 1);
     g.font = `bold 9px ${FONT}`;
-    const w = g.measureText(this.bubble.text).width + 10, x = this.x, y = this.y - 14;
+    // 긴 말은 띄어쓰기 단위로 여러 줄 (한 줄 최대 BUBBLE_W)
+    const lines = [];
+    let cur = '';
+    for (const word of this.bubble.text.split(' ')) {
+      const next = cur ? cur + ' ' + word : word;
+      if (cur && g.measureText(next).width > BUBBLE_W) { lines.push(cur); cur = word; } else cur = next;
+    }
+    if (cur) lines.push(cur);
+    const w = Math.max(...lines.map(l => g.measureText(l).width)) + 10, lh = 11, h = lines.length * lh + 3;
+    const x = clamp(this.x, G.view ? G.view.x + w / 2 + 4 : -Infinity, G.view ? G.view.x + W / SCALE - w / 2 - 4 : Infinity), y = this.y - 14;
     g.fillStyle = 'rgba(255,255,240,0.95)';
-    g.fillRect(x - w / 2, y - 14, w, 13);
-    g.beginPath(); g.moveTo(x - 3, y - 1); g.lineTo(x + 3, y - 1); g.lineTo(x, y + 3); g.fill();
+    g.fillRect(x - w / 2, y - h - 1, w, h);
+    g.beginPath(); g.moveTo(this.x - 3, y - 1); g.lineTo(this.x + 3, y - 1); g.lineTo(this.x, y + 3); g.fill();
     g.fillStyle = '#2a3a2a'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(this.bubble.text, x, y - 7);
+    lines.forEach((l, i) => g.fillText(l, x, y - h - 1 + 7 + i * lh));
     g.globalAlpha = 1; g.textBaseline = 'alphabetic';
   }
 }
