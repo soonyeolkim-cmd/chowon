@@ -145,93 +145,10 @@ const BOONS = [
 // 같은 축복이라도 들고 있는 무기에 따라 이름과 효과가 달라진다. 여기 없는 축복은 모든 무기 공통.
 // name 만 있으면 설명은 원래 것을 그대로 쓴다.
 const BOON_FORMS = {
-  spear: {
-    fire_basic:     { name: '불꽃 창날' },
-    fire_bolt:      { name: '화염 관통', desc: lv => `2타째 찌르기가 앞으로 불길을 내뿜는다. 줄 위의 적에게 공격력의 ${pct(0.5 + 0.2 * lv)} 피해 + 화상, 불길이 잠시 남는다.` },
-    fire_charge:    { name: '불꽃 꿰뚫기', desc: lv => `관통 찌르기에 맞은 적에게 화상 2중첩, 찌른 줄을 따라 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
-    fire_special:   { name: '폭염 투척', desc: lv => `던진 창이 반환점에서 폭발한다. 주변에 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상. 창에 맞은 적도 화상.` },
-    ice_basic:      { name: '서리 창날' },
-    ice_shard:      { name: '빙결 관통', desc: lv => `찌를 때마다 창끝에서 얼음 파편 ${1 + lv}개가 앞으로 날아간다 (공격력의 ${pct(0.25 + 0.05 * lv)} + 냉기). 뒤쪽에서 관통당한 적일수록 냉기가 더 쌓인다.` },
-    ice_charge:     { name: '서리 꿰뚫기', desc: lv => `관통 찌르기에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
-    ice_special:    { name: '서리 창', desc: lv => `창에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 반환점에 ${2 + 0.5 * lv}초간 얼음 장판이 생긴다.` },
-    elec_basic:     { name: '번개 창날' },
-    elec_chain:     { name: '피뢰 관통', desc: lv => `찌르기가 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전. 관통한 적끼리도 번개로 이어진다.` },
-    elec_charge:    { name: '뇌전 꿰뚫기', desc: lv => `관통 찌르기 직후 창끝 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-    elec_special:   { name: '피뢰 창', desc: lv => `반환점에 낙뢰가 떨어진다 (주변에 공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전. 날아가는 창에 맞은 적도 감전.` },
-    poison_basic:   { name: '독날 창날' },
-    poison_spray:   { name: '독 창끝', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
-    poison_charge:  { name: '독안개 꿰뚫기', desc: lv => `찌른 줄을 따라 ${2 + 0.5 * lv}초간 독안개가 남는다. 안에 있는 적에게 계속 독.` },
-    poison_special: { name: '독창', desc: lv => `창에 맞은 적에게 독 ${1 + lv}중첩, 반환점에 ${2 + 0.5 * lv}초간 독 웅덩이가 생긴다.` },
-    atk_combo:      { name: '연속 찌르기', desc: lv => `기본공격 속도 +${15 * lv}%, 2타째 피해 +${30 * lv}%.` },
-    atk_multispin:  { name: '연환 꿰뚫기', desc: lv => `관통 찌르기 뒤 정령의 창이 같은 줄을 ${lv}번 더 찌른다. 추가 찌르기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
-    atk_spin:       { name: '꿰뚫기 강화', desc: lv => `차지 시간 -${15 * lv}%, 관통 찌르기 길이 +${10 * lv}%.` },
-    atk_wave:       { name: '투척 강화', desc: lv => `창 비거리·속도 +${20 * lv}%, 투척 쿨타임 -${(0.15 * lv).toFixed(2)}초 (최소 0.5초).` },
-    atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
-    sharp:          { name: '날카로운 창' },
-    lifesteal:      { name: '흡혈 창날' },
-    guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
-    heal_wave:      { name: '치유의 회수', desc: lv => `돌아오는 창에 맞은 적 하나마다 체력 ${lv} 회복.` },
-  },
-  // 마법봉: 기본 = 2연타, 차지 = 마법진, 특수 = 마력탄(구슬마다), 대시 공격 = 마력 파동
-  staff: {
-    fire_basic:     { name: '불꽃 마법봉' },
-    fire_bolt:      { name: '화염구 마력탄', needs: 'fire_special', desc: lv => `마력탄 ${STAFF_FIRE_EVERY}발마다 큰 화염구가 함께 날아가 폭발한다 (공격력의 ${pct(0.8 + 0.3 * lv)} + 화상).` },
-    fire_charge:    { name: '화염 마법진', desc: lv => `마법진 폭발에 맞은 적에게 화상 2중첩, 그 자리에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
-    fire_special:   { name: '화염 마력탄', desc: lv => `마력탄이 맞으면 작게 폭발한다 (주변에 공격력의 ${pct(0.25 + 0.1 * lv)} + 화상).` },
-    ice_basic:      { name: '서리 마법봉' },
-    ice_shard:      { name: '얼음 파편 마력탄', needs: 'ice_special', desc: lv => `마력탄이 맞으면 얼음 파편 ${1 + lv}개가 사방으로 튄다 (공격력의 ${pct(0.2 + 0.05 * lv)} + 냉기 1중첩).` },
-    ice_charge:     { name: '빙결 마법진', desc: lv => `마법진 폭발에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
-    ice_special:    { name: '서리 마력탄', desc: lv => `마력탄에 맞은 적에게 냉기 ${lv >= 3 ? 2 : 1}중첩.` },
-    elec_basic:     { name: '번개 마법봉' },
-    elec_chain:     { name: '연쇄 마력탄', needs: 'elec_special', desc: lv => `마력탄이 맞으면 번개가 옆 적에게 ${1 + lv}번 튄다 (한 번에 공격력의 ${pct(0.25 + 0.1 * lv)}) + 감전.` },
-    poison_spray:   { name: '독 웅덩이 마력탄', needs: 'poison_special', desc: lv => `마력탄이 맞은 자리에 ${1 + 0.5 * lv}초간 독 웅덩이가 남는다.` },
-    elec_charge:    { name: '뇌전 마법진', desc: lv => `마법진이 터진 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-    elec_special:   { name: '뇌격 마력탄', desc: lv => `마력탄이 감전시킨다. 감전된 적은 4초 동안 받는 피해 +${20 + 10 * (lv - 1)}%. (번개가 튀는 건 연쇄 마력탄)` },
-    poison_basic:   { name: '독 마법봉' },
-    poison_charge:  { name: '독안개 마법진', desc: lv => `마법진이 터진 자리에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
-    poison_special: { name: '독 마력탄', desc: lv => `마력탄에 맞은 적에게 독 ${1 + Math.floor(lv / 2)}중첩.` },
-    atk_combo:      { name: '연속 휘두르기', desc: lv => `기본공격 속도 +${15 * lv}%, 2타째 피해 +${30 * lv}%.` },
-    atk_spin:       { name: '마법진 강화', desc: lv => `차지 시간 -${15 * lv}%, 마법진 범위 +${15 * lv}%.` },
-    atk_multispin:  { name: '연쇄 마법진', desc: lv => `마법진이 터진 뒤 주변에 작은 마법진 ${lv}개가 이어서 터진다 (피해 ${pct(MULTISPIN_MULT)}).` },
-    atk_wave:       { name: '마력 증폭', desc: lv => `마력 구슬 최대 개수 +${lv} (기본 ${ORB_BASE}개).` },
-    atk_thrust:     { name: '마력 파동 강화', desc: lv => `마력 파동 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
-    sharp:          { name: '예리한 마력' },
-    lifesteal:      { name: '흡혈 마법봉' },
-    guard_spin:     { name: '수호의 마법진', desc: lv => `마법진을 그릴 때 잠깐 무적, 그 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
-    heal_wave:      { name: '치유의 마력탄', desc: lv => `마력탄이 적에게 맞을 때마다 체력 ${+(0.1 + 0.1 * lv).toFixed(1)} 회복.` },
-  },
-  // 쌍검: 기본 = 3연타, 차지 = 그림자 연참, 특수 = 받아치기, 대시 공격 = 선풍 베기
-  sai: {
-    fire_basic:     { name: '불꽃 쌍검' },
-    fire_bolt:      { name: '화염구 연타', desc: lv => `찌를 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
-    fire_charge:    { name: '화염 연참', desc: lv => `연참에 베인 적에게 화상 2중첩, 지나간 길에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
-    fire_special:   { name: '작열 받아치기', desc: lv => `받아치면 주변이 폭발한다. 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
-    ice_basic:      { name: '서리 쌍검' },
-    ice_shard:      { name: '얼음 파편 연타', desc: lv => `찌를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
-    ice_charge:     { name: '빙결 연참', desc: lv => `연참에 베인 적에게 냉기 ${iceBig(lv)}중첩.` },
-    ice_special:    { name: '서리 받아치기', desc: lv => `받아치면 주변 적에게 냉기 ${iceBig(lv)}중첩, 발밑이 얼어붙는다.` },
-    elec_basic:     { name: '번개 쌍검' },
-    elec_chain:     { name: '연쇄 번개 쌍검' },
-    elec_charge:    { name: '뇌전 연참', desc: lv => `연참이 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-    elec_special:   { name: '뇌격 받아치기', desc: lv => `받아치면 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
-    poison_basic:   { name: '독날 쌍검' },
-    poison_charge:  { name: '독안개 연참', desc: lv => `지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
-    poison_special: { name: '독 받아치기', desc: lv => `받아치면 주변 적에게 독 ${1 + lv}중첩.` },
-    atk_combo:      { name: '연속 베기' },
-    atk_spin:       { name: '연참 강화', desc: lv => `차지 시간 -${15 * lv}%, 연참 거리 +${15 * lv}%.` },
-    atk_multispin:  { name: '그림자 분신', desc: lv => `연참 뒤 그림자가 같은 길을 ${lv}번 더 벤다. 그림자 베기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
-    atk_wave:       { name: '받아치기 강화', desc: lv => `막는 시간 +${(0.1 * lv).toFixed(1)}초, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
-    atk_thrust:     { name: '선풍 강화', desc: lv => `선풍 베기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
-    sharp:          { name: '날카로운 쌍검' },
-    lifesteal:      { name: '흡혈 쌍검' },
-    guard_spin:     { name: '수호의 연참', desc: lv => `연참이 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
-    heal_wave:      { name: '치유의 받아치기', desc: lv => `받아칠 때마다 체력 ${3 * lv} 회복.` },
-  },
 };
 const curWeapon = () => (typeof G !== 'undefined' && G.player ? G.player.weaponId : typeof Meta !== 'undefined' && Meta.data ? Meta.data.weapon : 'sword'); // 파일을 불러오는 중엔 G · Meta 가 아직 없다
-const isSpear = () => curWeapon() === 'spear';
-const isStaff = () => curWeapon() === 'staff';
-const STAFF_FIRE_EVERY = 4; // 화염구 마력탄: 이 발수마다 화염구
+const curWeaponDef = () => WEAPONS[curWeapon()] || WEAPONS.sword;
+const enhanceSlot = () => curWeaponDef().enhanceSlot || 'basic'; // 강화 축복 · 번개 감전 강화가 붙는 칸
 for (const b of BOONS) {
   const base = { name: b.name, desc: b.desc };
   const form = () => (BOON_FORMS[curWeapon()] || {})[b.id] || {};
@@ -406,7 +323,7 @@ const FX = {
   },
   // 감전된 적이 받는 피해 배율
   // 번개 칼날 레벨마다 +10%, 과충전 레벨마다 +15%
-  shockMult(t) { return t.shockT > 0 ? 1 + SHOCK_VULN + 0.1 * Math.max(0, this.lv('elec_basic') - 1, isStaff() ? this.lv('elec_special') - 1 : 0) + 0.15 * this.lv('overcharge') : 1; },
+  shockMult(t) { return t.shockT > 0 ? 1 + SHOCK_VULN + 0.1 * Math.max(0, this.lv('elec_' + enhanceSlot()) - 1) + 0.15 * this.lv('overcharge') : 1; },
 
   skyBolt(t, dmg) {
     this.bolt(t.x + rand(-12, 12), t.y - 150, t.x, t.y);
@@ -505,7 +422,7 @@ const FX = {
   // 플레이어 공격이 맞았을 때. kind: light/finisher/thrust = 기본공격, spin = 차지공격, wave = 특수공격
   onHit(t, info) {
     const atk = this.atk(), kind = info.kind;
-    const basic = BASIC_KINDS.includes(kind);
+    const basic = isBasicKind(kind), W = curWeaponDef();
     const burning = t.burn && t.burn.stacks > 0;
     if (this.lv('shatter') && t.frozenT > 0) {
       t.frozenT = 0;
@@ -526,48 +443,16 @@ const FX = {
       if (this.lv('fire_basic')) this.burn(t, 1);
       if (this.lv('ice_basic')) this.chill(t, 1);
       if (this.lv('poison_basic')) this.poison(t, 1);
-      const ch = isStaff() ? 0 : this.lv('elec_chain'), act = G.player.act;
+      const ch = enhanceSlot() === 'basic' ? this.lv('elec_chain') : 0, act = G.player.act;
       if (ch && act && !act.chained) { act.chained = true; this.chainJump(t, 2 + ch, this.atk() * (0.45 + 0.15 * ch)); }
-      if (isSpear() && act) {
-        // 피뢰 관통: 관통한 적끼리 번개로 잇는다
-        if (ch && act.prevHit && !act.prevHit.dead && !t.dead) {
-          this.bolt(act.prevHit.x, act.prevHit.y - 6, t.x, t.y - 6); this.shock(t);
-          this.damage(t, atk * (0.45 + 0.15 * ch) * this.lightningMult(t), '#ffe14a');
-        }
-        act.prevHit = t;
-        // 빙결 관통: 뒤쪽에서 관통당한 적일수록 냉기 추가
-        const isd = this.lv('ice_shard');
-        if (isd && act.pierced > 1 && !t.dead) this.chill(t, Math.min(2, act.pierced - 1));
-        // 독 창끝
-        const pss = this.lv('poison_spray');
-        if (pss && info.tip && !t.dead) this.poison(t, 1 + pss);
-      }
-    } else if (kind === 'spin' || kind === 'lunge' || kind === 'rush' || kind === 'circle') {
+      if (act) W.onBasicHit?.(this, t, info, act, atk);
+    } else if (MOVES[kind] && MOVES[kind].role === 'charge') {
       if (this.lv('fire_charge')) this.burn(t, 2);
       const ic = this.lv('ice_charge');
       if (ic) this.chill(t, iceBig(ic));
       if (this.lv('poison_charge')) this.poison(t, 1);
-    } else if (kind === 'spear') {
-      // 던진 창: 폭발 · 장판 · 낙뢰는 반환점에서 (onSpearApex)
-      if (this.lv('fire_special')) this.burn(t, 1);
-      if (this.lv('elec_special')) this.shock(t);
-      const is = this.lv('ice_special');
-      if (is && !t.dead) this.chill(t, iceBig(is));
-      const pspc = this.lv('poison_special');
-      if (pspc && !t.dead) this.poison(t, 1 + pspc);
-      const hw = this.lv('heal_wave'), p = G.player;
-      if (hw && info.back && p.alive) p.hp = Math.min(p.maxHp, p.hp + hw);
-    } else if (kind === 'wave') {
-      const es = this.lv('elec_special');
-      if (es) this.skyBolt(t, atk * (0.8 + 0.4 * es));
-      const fs = this.lv('fire_special');
-      if (fs && !t.dead) this.explode(t.x, t.y, 50, atk * (0.6 + 0.3 * fs), '#ff7a3c', true);
-      const is = this.lv('ice_special');
-      if (is && !t.dead) this.chill(t, iceBig(is));
-      const pspc = this.lv('poison_special');
-      if (pspc && !t.dead) this.poison(t, 1 + pspc);
-      const hw = this.lv('heal_wave'), p = G.player;
-      if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + hw);
+    } else if (MOVES[kind] && MOVES[kind].role === 'special') {
+      W.onSpecialHit?.(this, t, info, atk); // 무기마다 다르다 (검기 · 던진 창 …)
     }
     const st = this.lv('static');
     if (st && !t.dead && Math.random() < 0.08 + 0.04 * st) this.skyBolt(t, atk * 1.5);
@@ -575,7 +460,7 @@ const FX = {
 
   // 기본공격을 휘두를 때
   onSwing(p, fin) {
-    if (isStaff()) return; // 마법봉의 강화 축복은 마력탄 쪽 (onOrbHit · onOrbCast)
+    if (enhanceSlot() !== 'basic') return; // 강화 축복이 다른 칸에 붙는 무기 (마법봉: 마력탄)
     const atk = p.atk, f = p.facing;
     const fb = this.lv('fire_bolt');
     if (fb) {
@@ -611,182 +496,8 @@ const FX = {
     }
   },
 
-  // ── 창 ──
-  // 찌를 때 (fin = 2타째)
-  onPoke(p, fin) {
-    const atk = p.atk, f = p.facing, c = Math.cos(f), s = Math.sin(f);
-    const fb = this.lv('fire_bolt');
-    if (fb && fin) {
-      const len = SPEAR_REACH + 60;
-      for (let d = 24; d <= len; d += 18) this.zone(p.x + c * d, p.y + s * d + 4, 'fire', 1.2 + 0.3 * fb);
-      for (let i = 0; i < 14; i++) {
-        const d = rand(20, len);
-        G.particles.push({ x: p.x + c * d, y: p.y + s * d, vx: c * 60, vy: s * 60 - 20, life: 0.4, max: 0.4, color: Math.random() < 0.5 ? '#ff7a3c' : '#ffd24a', size: 3, grav: 0 });
-      }
-      for (const t of this.near(p.x, p.y, len)) {
-        const dx = t.x - p.x, dy = t.y - p.y, along = dx * c + dy * s;
-        if (along < 0 || Math.abs(dx * s - dy * c) > 16 + t.r) continue;
-        this.burn(t, 1);
-        this.damage(t, atk * (0.5 + 0.2 * fb), '#ff9a4a', 11);
-      }
-      Sfx.boom();
-    }
-    const is = this.lv('ice_shard');
-    if (is) {
-      const n = 1 + is, spread = 0.24;
-      for (let i = 0; i < n; i++) {
-        const o = n === 1 ? 0 : -spread / 2 + spread * i / (n - 1);
-        G.projectiles.push(new FxShot(p.x + c * 30, p.y - 4 + s * 30, f + o, {
-          kind: 'ice', speed: 380, life: 0.42, r: 5, pierce: true,
-          onHit: t => { this.chill(t, 1); this.damage(t, atk * (0.25 + 0.05 * is), '#bfefff', 10); },
-        }));
-      }
-      Sfx.freeze();
-    }
-  },
-  // 관통 찌르기를 할 때: 찌른 줄을 따라 불길 · 독안개, 수호의 자세
-  onPierce(p, len) {
-    const gs = this.lv('guard_spin');
-    if (gs) p.spinGuardT = p.act.dur + 0.5 + 0.5 * gs; // 창은 무적 없이 피해 감소만
-    const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
-    if (!fc && !pc) return;
-    const c = Math.cos(p.facing), s = Math.sin(p.facing);
-    for (let d = 26; d <= len; d += 16) {
-      if (fc) this.zone(p.x + c * d, p.y + s * d + 4, 'fire', 1.5 + 0.5 * fc);
-      if (pc) this.zone(p.x + c * d, p.y + s * d + 4, 'poison', 2 + 0.5 * pc);
-    }
-  },
-  onLungeEnd(p) {
-    const ec = this.lv('elec_charge');
-    if (ec) {
-      const tx = p.x + Math.cos(p.facing) * p.pierceLen * 0.7, ty = p.y + Math.sin(p.facing) * p.pierceLen * 0.7;
-      const list = this.near(tx, ty, 110).sort((a, b) => Math.hypot(a.x - tx, a.y - ty) - Math.hypot(b.x - tx, b.y - ty)).slice(0, 2 + ec);
-      for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
-    }
-  },
-  // ── 마법봉 ──
-  // 마력탄 한 발이 맞았을 때 (구슬이 많으니 한 발의 속성 효과는 작게)
-  onOrbHit(t) {
-    const atk = G.player.atk;
-    const fs = this.lv('fire_special');
-    if (fs && !t.dead) { this.burn(t, 1); for (const e of this.near(t.x, t.y, 30, t)) { this.burn(e, 1); this.damage(e, atk * (0.25 + 0.1 * fs), '#ff9a4a', 10); } G.burst(t.x, t.y, 6, ['#ff7a3c', '#ffd24a'], 110); }
-    const is = this.lv('ice_special');
-    if (is && !t.dead) this.chill(t, is >= 3 ? 2 : 1);
-    if (this.lv('elec_special')) this.shock(t); // 뇌격 마력탄: 감전만 (번개가 튀는 건 연쇄 마력탄 몫, 2026-10-17)
-    const ps = this.lv('poison_special');
-    if (ps && !t.dead) this.poison(t, 1 + Math.floor(ps / 2));
-    const hw = this.lv('heal_wave'), p = G.player;
-    if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + 0.1 + 0.1 * hw); // 한 발 0.2 · 0.3 · 0.4 (2026-10-17)
-    // ── 마력탄 강화 축복 (특수 슬롯이 있어야 나온다) ──
-    const ch = this.lv('elec_chain');
-    if (ch) this.chainJump(t, 1 + ch, atk * (0.25 + 0.1 * ch)); // 연쇄 마력탄
-    const isd = this.lv('ice_shard');
-    if (isd) { // 얼음 파편 마력탄: 사방으로
-      const n = 1 + isd, a0 = rand(0, Math.PI * 2);
-      for (let i = 0; i < n; i++) G.projectiles.push(new FxShot(t.x, t.y - 4, a0 + i / n * Math.PI * 2, {
-        kind: 'ice', speed: 300, life: 0.35, r: 5, pierce: true, hit: new Set([t]),
-        onHit: e => { if (e === t) return; this.chill(e, 1); this.damage(e, atk * (0.2 + 0.05 * isd), '#bfefff', 10); },
-      }));
-    }
-    const psp = this.lv('poison_spray');
-    if (psp) this.zone(t.x, t.y + 4, 'poison', 1 + 0.5 * psp); // 독 웅덩이 마력탄
-  },
-  // 마력탄을 쏠 때: 화염구 마력탄 (몇 발마다 큰 화염구)
-  onOrbCast(p) {
-    const fb = this.lv('fire_bolt');
-    if (!fb) return;
-    p.orbShots = (p.orbShots || 0) + 1;
-    if (p.orbShots % STAFF_FIRE_EVERY) return;
-    const atk = p.atk;
-    G.projectiles.push(new FxShot(p.x, p.y - 4, p.facing, {
-      kind: 'fire', speed: 240, life: 0.9, r: 8, pierce: false,
-      onHit: t => this.explode(t.x, t.y, 50, atk * (0.8 + 0.3 * fb), '#ff7a3c', true),
-    }));
-    Sfx.boom();
-  },
-  // 마법진을 그릴 때: 수호의 마법진
-  onCircleCast(p) {
-    const gs = this.lv('guard_spin');
-    if (gs) { p.invuln = Math.max(p.invuln, 0.3); p.spinGuardT = 0.3 + 0.5 + 0.5 * gs; }
-  },
-  // 마법진이 터졌을 때: 불길 · 독안개 · 낙뢰
-  onCircle(p, x, y, r) {
-    const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
-    if (fc || pc) {
-      if (pc) this.zone(x, y + 4, 'poison', 2 + 0.5 * pc);
-      for (let i = 0; i < 8; i++) {
-        const a = i / 8 * Math.PI * 2, d = r * 0.55;
-        if (fc) this.zone(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8 + 4, 'fire', 1.5 + 0.5 * fc);
-        if (pc) this.zone(x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8 + 4, 'poison', 2 + 0.5 * pc);
-      }
-    }
-    const ec = this.lv('elec_charge');
-    if (ec) {
-      const list = this.near(x, y, r + 50).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, 2 + ec);
-      for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
-    }
-  },
 
-  // ── 쌍검 ──
-  // 그림자 연참이 끝났을 때: 지나간 길에 불길 · 독안개, 끝난 자리 낙뢰, 수호의 연참
-  onRush(p, x0, y0, x1, y1) {
-    const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
-    if (fc || pc) {
-      const L = Math.hypot(x1 - x0, y1 - y0) || 1;
-      for (let d = 0; d <= L; d += 16) {
-        const zx = x0 + (x1 - x0) * d / L, zy = y0 + (y1 - y0) * d / L + 4;
-        if (fc) this.zone(zx, zy, 'fire', 1.5 + 0.5 * fc);
-        if (pc) this.zone(zx, zy, 'poison', 2 + 0.5 * pc);
-      }
-    }
-    const ec = this.lv('elec_charge');
-    if (ec) {
-      const list = this.near(x1, y1, 110).sort((a, b) => Math.hypot(a.x - x1, a.y - y1) - Math.hypot(b.x - x1, b.y - y1)).slice(0, 2 + ec);
-      for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
-    }
-    const gs = this.lv('guard_spin');
-    if (gs) p.spinGuardT = 0.5 + 0.5 * gs;
-  },
-  // 받아치기에 성공했을 때: 주변 폭발 · 냉기 · 낙뢰 · 독, 치유
-  onParry(p) {
-    const atk = p.atk, x = p.x, y = p.y;
-    const fs = this.lv('fire_special');
-    if (fs) this.explode(x, y, 70, atk * (0.8 + 0.4 * fs), '#ff7a3c', true);
-    const is = this.lv('ice_special');
-    if (is) { for (const e of this.near(x, y, 70)) this.chill(e, iceBig(is)); for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; this.zone(x + Math.cos(a) * 22, y + 4 + Math.sin(a) * 16, 'ice', 1.5 + 0.5 * is); } }
-    const es = this.lv('elec_special');
-    if (es) { const list = this.near(x, y, 120).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, 2 + es); for (const e of list) this.skyBolt(e, atk * (0.8 + 0.4 * es)); }
-    const ps = this.lv('poison_special');
-    if (ps) for (const e of this.near(x, y, 70)) this.poison(e, 1 + ps);
-    const hw = this.lv('heal_wave');
-    if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + 3 * hw);
-  },
 
-  // 던진 창이 가장 멀리 간 지점
-  onSpearApex(sh) {
-    const atk = G.player.atk, x = sh.x, y = sh.y;
-    const fs = this.lv('fire_special');
-    if (fs) this.explode(x, y, 60, atk * (0.8 + 0.4 * fs), '#ff7a3c', true);
-    const es = this.lv('elec_special');
-    if (es) this.strike(x, y, 60, atk * (0.8 + 0.4 * es));
-    const is = this.lv('ice_special'), ps = this.lv('poison_special');
-    if (is || ps) {
-      const kind = is ? 'ice' : 'poison', life = 2 + 0.5 * (is || ps);
-      this.zone(x, y + 4, kind, life);
-      for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; this.zone(x + Math.cos(a) * 24, y + 4 + Math.sin(a) * 18, kind, life); }
-      if (is && ps) for (let i = 0; i < 6; i++) { const a = (i + 0.5) / 6 * Math.PI * 2; this.zone(x + Math.cos(a) * 30, y + 4 + Math.sin(a) * 22, 'poison', 2 + 0.5 * ps); }
-    }
-  },
-  // 벽꿍: 창에 밀려난 적이 벽(나무 · 바위 · 물가 · 숲 테두리)에 부딪혔다
-  wallSlam(e) {
-    e.slamT = 0; e.kvx = e.kvy = 0;
-    if (e.dead) return;
-    e.stun = Math.max(e.stun || 0, 1.0);
-    G.text(e.x, e.y - e.r - 18, '벽꿍!', '#ffb84a', 13, 0.8);
-    G.burst(e.x, e.y, 10, ['#d8c8a8', '#fff'], 150);
-    G.shake = Math.max(G.shake, 4); Sfx.guardBreak();
-    this.damage(e, G.player.atk * WALL_SLAM_MULT, '#ffb84a', 13);
-  },
 
   // 연쇄 번개: 맞은 적에서 시작해 가장 가까운 다음 적으로 차례차례 튄다
   chainJump(src, jumps, dmg) {
@@ -887,8 +598,9 @@ const FX = {
   // 공격 쪽 배율들 (Player 가 사용)
   damageMult(p, kind, t) {
     let m = 1 + 0.1 * this.lv('sharp');
-    if (kind === 'finisher' || kind === 'pokeFin' || kind === 'saiFin' || kind === 'bonkFin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
-    if (kind === 'thrust' || kind === 'sweep' || kind === 'whirl' || kind === 'pulse') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
+    const role = MOVES[kind] && MOVES[kind].role;
+    if (role === 'fin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
+    if (role === 'dash') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
     const am = this.lv('ambush');
     if (am && t && offGuard(t, p)) { m *= 1 + 0.1 + 0.2 * am; t.ambushHit = true; } // 기습: 옆 · 뒤에서, 또는 무방비

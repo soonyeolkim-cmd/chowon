@@ -17,69 +17,6 @@ const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
 const STAGE_DIFF_STEP = 0.2;      // 스테이지마다 적이 강해지는 정도
 const stageLabel = idx => `${Math.ceil(idx / STAGES_PER_WORLD)}-${(idx - 1) % STAGES_PER_WORLD + 1}`;
 
-// ── 효과음 (Web Audio로 직접 합성, 파일 없음) ──────────────────
-const Sfx = (() => {
-  let ac = null;
-  const unlock = () => {
-    if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {} }
-    if (ac && ac.state === 'suspended') ac.resume();
-  };
-  addEventListener('pointerdown', unlock); addEventListener('keydown', unlock);
-  function tone(freq, dur, type = 'square', vol = 0.08, slide = 0, delay = 0) {
-    if (!ac || ac.state !== 'running' || !Input.settings.sfx) return; // 설정에서 효과음 끄기
-    const t = ac.currentTime + delay;
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type = type; o.frequency.setValueAtTime(freq, t);
-    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur);
-  }
-  return {
-    swing: fin => tone(fin ? 380 : 520, 0.08, 'triangle', 0.05, -260),
-    thrust: () => tone(700, 0.1, 'triangle', 0.06, -400),
-    spin: () => { tone(300, 0.25, 'triangle', 0.07, 400); tone(450, 0.2, 'sawtooth', 0.03, -200, 0.05); },
-    charged: () => tone(1200, 0.12, 'sine', 0.05, 200),
-    wave: triple => { tone(900, 0.15, 'sine', 0.05, -500); if (triple) tone(1200, 0.15, 'sine', 0.04, -600, 0.04); },
-    hit: crit => tone(crit ? 260 : 180, 0.09, 'square', 0.07, -90),
-    block: () => tone(1500, 0.06, 'square', 0.04, -300),
-    guardBreak: () => { tone(200, 0.15, 'sawtooth', 0.07, -120); tone(1000, 0.1, 'square', 0.04, -600, 0.03); },
-    kill: () => { tone(330, 0.07, 'square', 0.06); tone(220, 0.12, 'square', 0.05, -100, 0.05); },
-    hurt: () => tone(140, 0.2, 'sawtooth', 0.09, -80),
-    dash: () => tone(300, 0.1, 'sine', 0.05, 300),
-    dodge: () => { tone(1400, 0.25, 'sine', 0.06, -900); tone(700, 0.3, 'triangle', 0.04, 300, 0.05); },
-    lunge: () => tone(110, 0.15, 'sawtooth', 0.05, 60),
-    slam: () => tone(70, 0.35, 'sawtooth', 0.12, -30),
-    roar: () => tone(90, 0.5, 'sawtooth', 0.08, 40),
-    totem: () => [400, 300, 200, 120].forEach((f, i) => tone(f, 0.18, 'square', 0.06, -50, i * 0.07)),
-    pickup: () => tone(880, 0.06, 'sine', 0.04, 300),
-    heal: () => { tone(660, 0.08, 'sine', 0.05); tone(990, 0.12, 'sine', 0.05, 0, 0.07); },
-    level: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, 'square', 0.05, 0, i * 0.08)),
-    clear: () => [523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, 'square', 0.05, 0, i * 0.12)),
-    zap: () => tone(1800, 0.08, 'sawtooth', 0.035, -1200),
-    orb: () => tone(1100, 0.06, 'sine', 0.035, 500),
-    freeze: () => tone(2000, 0.12, 'sine', 0.04, -800),
-    shatter: () => { tone(2400, 0.08, 'square', 0.04, -1500); tone(1200, 0.1, 'triangle', 0.04, -600, 0.03); },
-    boom: () => tone(90, 0.25, 'sawtooth', 0.07, -40),
-    boon: () => [659, 880, 1175].forEach((f, i) => tone(f, 0.2, 'sine', 0.05, 0, i * 0.06)),
-    // 8비트 칩 효과음 한 번 (retro-sfx.js)
-    chip(def) { if (!ac || ac.state !== 'running' || !Input.settings.sfx) return; RetroSfx.play(ac, def, SFX_CHIP_GAIN); },
-  };
-})();
-// 8비트 칩 효과음: 사용자가 듣기 페이지에서 고른 후보 (A · B · C, js/sfx-cands.js). 여기 없는 소리는 위의 삑 소리 그대로 (2026-10-17)
-const SFX_PICK = {
-  spin: 'A', wave: 'C', orb: 'C', charged: 'C', hit: 'B', kill: 'C', hurt: 'A', block: 'B', guardBreak: 'C',
-  dash: 'C', dodge: 'B', boom: 'B', zap: 'B', freeze: 'C', shatter: 'A', slam: 'A', lunge: 'B', roar: 'B',
-  totem: 'A', pickup: 'A', heal: 'B', level: 'A', boon: 'C',
-};
-const SFX_CHIP_GAIN = 0.5;   // 칩 소리 전체 크기 (삑 소리와 맞춤)
-const SFX_MIN_GAP = 35;      // 같은 소리가 한꺼번에 겹치지 않게 (밀리초)
-(() => {
-  const last = {};
-  for (const [k, c] of Object.entries(SFX_PICK)) {
-    const def = SFX_CANDS[k][c.charCodeAt(0) - 65];
-    Sfx[k] = () => { const now = performance.now(); if (now - (last[k] || 0) < SFX_MIN_GAP) return; last[k] = now; Sfx.chip(def); };
-  }
-})();
 
 // ── 배경음악: 마을 · 세계마다 · 보스 · 엔딩 (Ninja Adventure 음악, CC0). 설정에서 끌 수 있다 ──
 // 오래 들어도 덜 피곤하게: 볼륨은 낮게, 곡이 바뀔 땐 천천히 겹쳐 바뀌고, 일시정지 · 설정 화면에선 작게
@@ -557,13 +494,12 @@ const G = {
       t.stun = Math.max(t.stun, 0.15);
       const f = info.kb * (t.heavy ? 0.4 : 1);
       t.kvx = info.nx * f; t.kvy = info.ny * f;
-      if (p.weaponId === 'spear' && info.kb >= 300 && !t.flying) t.slamT = 0.35;
+      if (p.weapon.wallSlam && info.kb >= 300 && !t.flying) t.slamT = 0.35; // 벽꿍 (창)
     }
     this.chain++; this.chainT = 2.5; this.chainPulse = 0.15;
     this.maxChain = Math.max(this.maxChain, this.chain);
 
-    const big = !['light', 'wave', 'poke', 'spear', 'saiJab', 'bonk', 'orb'].includes(info.kind);
-    const ranged = info.kind === 'wave' || info.kind === 'spear' || info.kind === 'orb';
+    const mv = MOVES[info.kind] || {}, big = !mv.light, ranged = !!mv.ranged;
     this.hitstop = Math.max(this.hitstop, ranged ? 0.02 : info.crit || big || info.tip ? 0.065 : 0.04);
     this.shake = Math.max(this.shake, big ? 5 : 3);
     const label = info.counter ? '반격! ' + dmg : String(dmg);
@@ -695,7 +631,7 @@ const G = {
     // 창: 던진 창이 날아가는 중이면 바로 손으로 돌아온다 (쿨타임만 풀려서는 다시 못 던지니까)
     if (p.weapon.orbs) p.orbs = p.orbMax; // 마법봉: 마력 구슬 가득
     if (p.spearOut) { const sh = p.spearShot; sh.done = true; this.burst(sh.x, sh.y, 6, ['#7fe0ff', '#fff'], 90); this.burst(p.x, p.y - 4, 6, ['#7fe0ff', '#fff'], 90); }
-    const ready = { sword: '대시 · 검기 준비!', spear: '대시 · 투척 준비!', sai: '대시 · 받아치기 준비!', staff: '대시 · 구슬 가득!' }[p.weaponId];
+    const ready = p.weapon.dodgeText;
     if (ready) this.text(p.x, p.y - 42, ready, '#bfefff', 11, 1);
     this.fxRing(p.x, p.y, '#7fe0ff', 60);
     Sfx.dodge(); Input.rumble(0.4, 120);
@@ -1247,18 +1183,7 @@ function drawTouchControls() {
   // 특수공격 (초승달 검기)
   ctx.globalAlpha = 1;
   padButton(B.special, p.specialCd, p.specialCdBase, '#4fc3ff', b => {
-    if (p.weaponId === 'staff') { // 마력탄: 구슬 안에 남은 구슬 개수
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.4, 0, Math.PI * 2); ctx.stroke();
-      label(String(p.orbs), b.x, b.y + 1, Math.round(b.r * 0.5), p.orbs ? '#bff4ff' : '#ff9a7a', 'center', '900');
-    } else if (p.weaponId === 'sai') { // 받아치기: 교차한 두 칼 + 막는 호
-      const q = b.r * 0.4;
-      ctx.beginPath(); ctx.moveTo(b.x - q, b.y + q); ctx.lineTo(b.x + q, b.y - q); ctx.moveTo(b.x + q, b.y + q); ctx.lineTo(b.x - q, b.y - q); ctx.stroke();
-      ctx.beginPath(); ctx.arc(b.x, b.y + q * 0.4, q * 1.5, -2.4, -0.7); ctx.stroke();
-    } else if (p.weaponId === 'spear') { // 창 투척: 화살표
-      const q = b.r * 0.45;
-      ctx.beginPath(); ctx.moveTo(b.x - q, b.y + q); ctx.lineTo(b.x + q, b.y - q);
-      ctx.moveTo(b.x + q * 0.1, b.y - q); ctx.lineTo(b.x + q, b.y - q); ctx.lineTo(b.x + q, b.y - q * 0.1); ctx.stroke();
-    } else { ctx.beginPath(); ctx.arc(b.x - b.r * 0.2, b.y, b.r * 0.45, -1, 1); ctx.stroke(); }
+    (p.weapon.padIcon || WEAPONS.sword.padIcon)(b, p); // 무기마다 특수 버튼 그림
   }, p.finisherT > 0 && G.has('triple'));
   // 전용스킬 (무기에 있을 때만 보인다)
   padButton(B.skill, p.skillCd, p.skillCdBase, '#ffd24a', b => {
@@ -1667,32 +1592,16 @@ function boonSortKey(b) {
 }
 // 동작 · 속성 그림 (cx, cy 중심, s = 반 크기)
 function drawBoonGlyph(b, cx, cy, s, col) {
-  const g = ctx, spear = G.player && G.player.weaponId === 'spear', sai = G.player && G.player.weaponId === 'sai', staff = G.player && G.player.weaponId === 'staff';
+  const g = ctx, Wg = (G.player ? G.player.weapon : WEAPONS[Meta.data.weapon] || WEAPONS.sword).glyph || {};
   g.save(); g.translate(cx, cy); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = Math.max(1.5, s * 0.22); g.lineCap = 'round'; g.lineJoin = 'round';
   const line = (x1, y1, x2, y2) => { g.beginPath(); g.moveTo(x1 * s, y1 * s); g.lineTo(x2 * s, y2 * s); g.stroke(); };
   const kind = b.slot || (b.needs ? 'plus' : b.duo ? 'duo' : b.el);
-  if (kind === 'plus' && staff) { // 마법봉 강화 축복: 마력탄 + 더하기
-    for (const [ox, oy, r] of [[-0.45, 0.35, 0.3], [0.1, -0.1, 0.3], [-0.6, -0.5, 0.22]]) { g.beginPath(); g.arc(ox * s, oy * s, r * s, 0, Math.PI * 2); g.fill(); }
-    g.lineWidth = Math.max(1.5, s * 0.2); line(0.35, 0.45, 0.85, 0.45); line(0.6, 0.2, 0.6, 0.7);
-  } else if (kind === 'basic' || kind === 'plus') {
-    if (staff) { line(-0.7, 0.7, 0.45, -0.45); g.beginPath(); g.arc(0.6 * s, -0.6 * s, 0.25 * s, 0, Math.PI * 2); g.fill(); } // 마법봉
-    else if (sai) { line(-0.7, 0.7, 0.7, -0.7); line(0.7, 0.7, -0.7, -0.7); line(-0.65, 0.25, -0.25, 0.65); line(0.65, 0.25, 0.25, 0.65); } // 교차한 쌍검
-    else if (spear) { line(-0.75, 0.75, 0.55, -0.55); g.beginPath(); g.moveTo(0.8 * s, -0.8 * s); g.lineTo(0.3 * s, -0.55 * s); g.lineTo(0.55 * s, -0.3 * s); g.closePath(); g.fill(); }
-    else { line(-0.6, 0.6, 0.75, -0.75); line(-0.55, 0.15, -0.15, 0.55); line(-0.8, 0.8, -0.55, 0.55); } // 칼날 · 손잡이 가드
+  if (Wg[kind]) Wg[kind](g, s, line); // 무기마다 다른 동작 그림 (기본 · 강화 · 차지 · 특수)
+  else if (kind === 'basic' || kind === 'plus') {
+    (Wg.basic || WEAPONS.sword.glyph.basic)(g, s, line);
     if (kind === 'plus') { g.lineWidth = Math.max(1.5, s * 0.2); line(0.35, 0.45, 0.85, 0.45); line(0.6, 0.2, 0.6, 0.7); }
-  } else if (kind === 'charge' && staff) { // 마법진: 겹친 원
-    g.beginPath(); g.ellipse(0, 0.1 * s, 0.85 * s, 0.6 * s, 0, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.ellipse(0, 0.1 * s, 0.45 * s, 0.3 * s, 0, 0, Math.PI * 2); g.stroke();
-  } else if (kind === 'charge' && sai) { // 그림자 연참: 잔상 셋 + 칼끝
-    line(-0.9, 0, 0.55, 0); g.beginPath(); g.moveTo(0.9 * s, 0); g.lineTo(0.45 * s, -0.3 * s); g.lineTo(0.45 * s, 0.3 * s); g.closePath(); g.fill(); line(-0.8, -0.45, -0.2, -0.45); line(-0.8, 0.45, -0.2, 0.45);
-  } else if (kind === 'charge') { // 회전 화살표
-    g.beginPath(); g.arc(0, 0, 0.62 * s, -Math.PI * 0.15, Math.PI * 1.45); g.stroke();
-    const a = -Math.PI * 0.15, ax = Math.cos(a) * 0.62 * s, ay = Math.sin(a) * 0.62 * s;
-    g.beginPath(); g.moveTo(ax + 0.32 * s, ay - 0.1 * s); g.lineTo(ax - 0.05 * s, ay - 0.35 * s); g.lineTo(ax - 0.05 * s, ay + 0.2 * s); g.closePath(); g.fill();
-  } else if (kind === 'special') {
-    if (staff) { for (const [ox, oy, r] of [[-0.45, 0.35, 0.3], [0.1, -0.1, 0.3], [0.55, -0.5, 0.22]]) { g.beginPath(); g.arc(ox * s, oy * s, r * s, 0, Math.PI * 2); g.fill(); } } // 마력탄 셋
-    else if (sai) { g.beginPath(); g.arc(0, 0.25 * s, 0.75 * s, -2.5, -0.65); g.stroke(); line(-0.45, 0.6, 0.45, -0.2); line(0.45, 0.6, -0.45, -0.2); } // 받아치기
-    else if (spear) { line(-0.8, 0.1, 0.5, 0.1); g.beginPath(); g.moveTo(0.85 * s, 0.1 * s); g.lineTo(0.4 * s, -0.2 * s); g.lineTo(0.4 * s, 0.4 * s); g.closePath(); g.fill(); line(-0.8, -0.35, -0.3, -0.35); line(-0.8, 0.55, -0.4, 0.55); }
-    else { g.beginPath(); g.arc(-0.45 * s, 0, 0.95 * s, -0.95, 0.95); g.stroke(); g.lineWidth *= 0.6; g.beginPath(); g.arc(-0.8 * s, 0, 0.95 * s, -0.8, 0.8); g.stroke(); } // 초승달 검기
+  } else if (kind === 'charge' || kind === 'special') {
+    WEAPONS.sword.glyph[kind](g, s, line);
   } else if (kind === 'dash') { // 속도선 + 꺾쇠
     line(-0.85, -0.4, -0.25, -0.4); line(-0.95, 0.05, -0.3, 0.05); line(-0.85, 0.5, -0.25, 0.5);
     g.beginPath(); g.moveTo(0.05 * s, -0.6 * s); g.lineTo(0.75 * s, 0.05 * s); g.lineTo(0.05 * s, 0.7 * s); g.stroke();
