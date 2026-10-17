@@ -1698,6 +1698,14 @@ function drawBoonIcons(x, y) {
   owned.forEach((b, i) => drawBoonIcon(b, x + r + (i % perRow) * step, y + Math.floor(i / perRow) * step, r, G.boons[b.id]));
 }
 
+// 강화 카드 설명: 지금 단계와 다음 단계 설명을 비교해 바뀌는 숫자만 '전→후' 로 (예: 피해 +30% → 피해 +30→60%) (2026-10-17)
+function boonDescDiff(b, lv) {
+  const s0 = b.desc(lv - 1), s1 = b.desc(lv), re = /(-?\d+(?:\.\d+)?)/;
+  const t0 = s0.split(re), t1 = s1.split(re);
+  if (t0.length !== t1.length) return s1;
+  for (let i = 0; i < t0.length; i += 2) if (t0[i] !== t1[i]) return s1; // 숫자 말고 글이 다르면 그대로
+  return t1.map((t, i) => (i % 2 && t !== t0[i] ? t0[i] + '→' + t : t)).join('');
+}
 function boonLayout() {
   const n = G.offer.cards.length, gap = 14;
   const horiz = W >= 560;
@@ -1759,7 +1767,8 @@ function drawBoonScreen() {
       label(`${tag} · ${status}`, x + 56, y + 36, 11, stCol, 'left', '600');
       tx = x + 56; ty = y + 56; tw = r.w - 66;
     }
-    wrap(b.desc(c.lv), tw, 12, '500').forEach((l, k) => label(l, tx, ty + k * 16, 12, '#e8e8e8', 'left', '500'));
+    const up = c.lv > 1 && !c.replaces; // 강화 카드: 바뀌는 숫자를 '전 → 후' 로
+    wrap(up ? boonDescDiff(b, c.lv) : b.desc(c.lv), tw, 12, '500').forEach((l, k) => label(l, tx, ty + k * 16, 12, up ? '#d8ffe0' : '#e8e8e8', 'left', '500'));
     if (o.auto && sel) { // 시간 초과로 고른 카드: 빛나는 테두리 + 퍼지는 빛 + 테두리를 도는 반짝이
       const t = o.auto.t, on = ((t * 14) | 0) % 2 === 0, pulse = 0.5 + 0.5 * Math.sin(t * 28);
       ctx.save();
