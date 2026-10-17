@@ -382,6 +382,7 @@ class Player {
     const dirs = triple ? [-0.3, 0, 0.3] : [this.specialBuffer > 0 ? 0 : rand(-0.06, 0.06)];
     for (const o of dirs) G.projectiles.push(new MagicOrb(this, this.facing + o));
     this.orbs--; this.specialBuffer = 0;
+    FX.onOrbCast(this);
     if (triple) G.text(this.x, this.y - 24, '삼연 마력탄!', '#7fe0ff', 13, 0.7);
     this.finisherT = 0;
     this.act = { kind: 'cast', t: 0, dur: 0.1, hit: new Set(), orbCast: true };

@@ -170,15 +170,16 @@ const BOON_FORMS = {
   // 마법봉: 기본 = 2연타, 차지 = 마법진, 특수 = 마력탄(구슬마다), 대시 공격 = 마력 파동
   staff: {
     fire_basic:     { name: '불꽃 마법봉' },
-    fire_bolt:      { name: '화염구 휘두르기', desc: lv => `휘두를 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 2타째는 3발.` },
+    fire_bolt:      { name: '화염구 마력탄', needs: 'fire_special', desc: lv => `마력탄 ${STAFF_FIRE_EVERY}발마다 큰 화염구가 함께 날아가 폭발한다 (공격력의 ${pct(0.8 + 0.3 * lv)} + 화상).` },
     fire_charge:    { name: '화염 마법진', desc: lv => `마법진 폭발에 맞은 적에게 화상 2중첩, 그 자리에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
     fire_special:   { name: '화염 마력탄', desc: lv => `마력탄이 맞으면 작게 폭발한다 (주변에 공격력의 ${pct(0.25 + 0.1 * lv)} + 화상).` },
     ice_basic:      { name: '서리 마법봉' },
-    ice_shard:      { name: '얼음 파편 휘두르기', desc: lv => `휘두를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
+    ice_shard:      { name: '얼음 파편 마력탄', needs: 'ice_special', desc: lv => `마력탄이 맞으면 얼음 파편 ${1 + lv}개가 사방으로 튄다 (공격력의 ${pct(0.2 + 0.05 * lv)} + 냉기 1중첩).` },
     ice_charge:     { name: '빙결 마법진', desc: lv => `마법진 폭발에 맞은 적에게 냉기 ${1 + lv}중첩.` },
     ice_special:    { name: '서리 마력탄', desc: lv => `마력탄에 맞은 적에게 냉기 ${lv >= 3 ? 2 : 1}중첩.` },
     elec_basic:     { name: '번개 마법봉' },
-    elec_chain:     { name: '연쇄 번개 마법봉' },
+    elec_chain:     { name: '연쇄 마력탄', needs: 'elec_special', desc: lv => `마력탄이 맞으면 번개가 옆 적에게 ${1 + lv}번 튄다 (한 번에 공격력의 ${pct(0.25 + 0.1 * lv)}) + 감전.` },
+    poison_spray:   { name: '독 웅덩이 마력탄', needs: 'poison_special', desc: lv => `마력탄이 맞은 자리에 ${1 + 0.5 * lv}초간 독 웅덩이가 남는다.` },
     elec_charge:    { name: '뇌전 마법진', desc: lv => `마법진이 터진 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
     elec_special:   { name: '뇌격 마력탄', desc: lv => `마력탄이 맞으면 감전 + 번개가 옆의 적에게 한 번 튄다 (공격력의 ${pct(0.25 + 0.1 * lv)}).` },
     poison_basic:   { name: '독 마법봉' },
@@ -222,16 +223,20 @@ const BOON_FORMS = {
     heal_wave:      { name: '치유의 받아치기', desc: lv => `받아칠 때마다 체력 ${3 * lv} 회복.` },
   },
 };
-const curWeapon = () => (G.player ? G.player.weaponId : Meta.data ? Meta.data.weapon : 'sword');
+const curWeapon = () => (typeof G !== 'undefined' && G.player ? G.player.weaponId : typeof Meta !== 'undefined' && Meta.data ? Meta.data.weapon : 'sword'); // 파일을 불러오는 중엔 G · Meta 가 아직 없다
 const isSpear = () => curWeapon() === 'spear';
+const isStaff = () => curWeapon() === 'staff';
+const STAFF_FIRE_EVERY = 4; // 화염구 마력탄: 이 발수마다 화염구
 for (const b of BOONS) {
   const base = { name: b.name, desc: b.desc };
   const form = () => (BOON_FORMS[curWeapon()] || {})[b.id] || {};
   Object.defineProperty(b, 'name', { get: () => form().name || base.name });
   Object.defineProperty(b, 'desc', { get: () => form().desc || base.desc });
+  const baseNeeds = b.needs; delete b.needs;
+  Object.defineProperty(b, 'needs', { get: () => form().needs || baseNeeds, configurable: true });
 }
 
-// 기본공격 강화 축복(needs)은 그 기본공격 축복을 가지고 있을 때만 나온다
+// 강화 축복(needs)은 그 슬롯 축복을 가지고 있을 때만 나온다 (보통 기본공격, 마법봉은 특수공격)
 for (const b of BOONS) if (b.needs) b.req = () => !!G.boons[b.needs];
 const BOON_BY_ID = Object.fromEntries(BOONS.map(b => [b.id, b]));
 const boonColor = b => (b.duo ? '#ffb8f0' : ELEMENTS[b.el].color);
@@ -513,7 +518,7 @@ const FX = {
       if (this.lv('fire_basic')) this.burn(t, 1);
       if (this.lv('ice_basic')) this.chill(t, 1);
       if (this.lv('poison_basic')) this.poison(t, 1);
-      const ch = this.lv('elec_chain'), act = G.player.act;
+      const ch = isStaff() ? 0 : this.lv('elec_chain'), act = G.player.act;
       if (ch && act && !act.chained) { act.chained = true; this.chainJump(t, 2 + ch, this.atk() * (0.45 + 0.15 * ch)); }
       if (isSpear() && act) {
         // 피뢰 관통: 관통한 적끼리 번개로 잇는다
@@ -562,6 +567,7 @@ const FX = {
 
   // 기본공격을 휘두를 때
   onSwing(p, fin) {
+    if (isStaff()) return; // 마법봉의 강화 축복은 마력탄 쪽 (onOrbHit · onOrbCast)
     const atk = p.atk, f = p.facing;
     const fb = this.lv('fire_bolt');
     if (fb) {
@@ -669,6 +675,32 @@ const FX = {
     if (ps && !t.dead) this.poison(t, 1 + Math.floor(ps / 2));
     const hw = this.lv('heal_wave'), p = G.player;
     if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + 0.5 * hw);
+    // ── 마력탄 강화 축복 (특수 슬롯이 있어야 나온다) ──
+    const ch = this.lv('elec_chain');
+    if (ch) this.chainJump(t, 1 + ch, atk * (0.25 + 0.1 * ch)); // 연쇄 마력탄
+    const isd = this.lv('ice_shard');
+    if (isd) { // 얼음 파편 마력탄: 사방으로
+      const n = 1 + isd, a0 = rand(0, Math.PI * 2);
+      for (let i = 0; i < n; i++) G.projectiles.push(new FxShot(t.x, t.y - 4, a0 + i / n * Math.PI * 2, {
+        kind: 'ice', speed: 300, life: 0.35, r: 5, pierce: true, hit: new Set([t]),
+        onHit: e => { if (e === t) return; this.chill(e, 1); this.damage(e, atk * (0.2 + 0.05 * isd), '#bfefff', 10); },
+      }));
+    }
+    const psp = this.lv('poison_spray');
+    if (psp) this.zone(t.x, t.y + 4, 'poison', 1 + 0.5 * psp); // 독 웅덩이 마력탄
+  },
+  // 마력탄을 쏠 때: 화염구 마력탄 (몇 발마다 큰 화염구)
+  onOrbCast(p) {
+    const fb = this.lv('fire_bolt');
+    if (!fb) return;
+    p.orbShots = (p.orbShots || 0) + 1;
+    if (p.orbShots % STAFF_FIRE_EVERY) return;
+    const atk = p.atk;
+    G.projectiles.push(new FxShot(p.x, p.y - 4, p.facing, {
+      kind: 'fire', speed: 240, life: 0.9, r: 8, pierce: false,
+      onHit: t => this.explode(t.x, t.y, 50, atk * (0.8 + 0.3 * fb), '#ff7a3c', true),
+    }));
+    Sfx.boom();
   },
   // 마법진을 그릴 때: 수호의 마법진
   onCircleCast(p) {

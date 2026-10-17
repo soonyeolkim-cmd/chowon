@@ -66,6 +66,8 @@ const TEST_BUILDS = {
   javelin: { weapon: 'spear', mastery: { wave: 3 }, boons: { elec_special: 5, atk_wave: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3, ambush: 3 } },
   // 마법봉 첫 손맛 / 난사 빌드: 마력 증폭 · 뇌격 마력탄(Lv5) · 마력탄 숙련 3 · 과충전
   staff: { weapon: 'staff', mastery: {}, boons: {} },
+  // 체인라이트닝 도사: 뇌격 마력탄 · 연쇄 마력탄 Lv5 · 과충전 · 정전기 · 마력 증폭 (+ 마력탄 숙련 3)
+  chain: { weapon: 'staff', mastery: { wave: 3 }, boons: { elec_special: 5, elec_chain: 5, overcharge: 3, static: 3, atk_wave: 3, sharp: 3, vital: 3 } },
   barrage: { weapon: 'staff', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 5, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
   // 쌍검 첫 손맛: 축복 없이 무기만 (숙련도 0)
   sai: { weapon: 'sai', mastery: {}, boons: {} },

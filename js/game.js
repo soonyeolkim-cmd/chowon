@@ -1650,7 +1650,10 @@ function drawBoonGlyph(b, cx, cy, s, col) {
   g.save(); g.translate(cx, cy); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = Math.max(1.5, s * 0.22); g.lineCap = 'round'; g.lineJoin = 'round';
   const line = (x1, y1, x2, y2) => { g.beginPath(); g.moveTo(x1 * s, y1 * s); g.lineTo(x2 * s, y2 * s); g.stroke(); };
   const kind = b.slot || (b.needs ? 'plus' : b.duo ? 'duo' : b.el);
-  if (kind === 'basic' || kind === 'plus') {
+  if (kind === 'plus' && staff) { // 마법봉 강화 축복: 마력탄 + 더하기
+    for (const [ox, oy, r] of [[-0.45, 0.35, 0.3], [0.1, -0.1, 0.3], [-0.6, -0.5, 0.22]]) { g.beginPath(); g.arc(ox * s, oy * s, r * s, 0, Math.PI * 2); g.fill(); }
+    g.lineWidth = Math.max(1.5, s * 0.2); line(0.35, 0.45, 0.85, 0.45); line(0.6, 0.2, 0.6, 0.7);
+  } else if (kind === 'basic' || kind === 'plus') {
     if (staff) { line(-0.7, 0.7, 0.45, -0.45); g.beginPath(); g.arc(0.6 * s, -0.6 * s, 0.25 * s, 0, Math.PI * 2); g.fill(); } // 마법봉
     else if (sai) { line(-0.7, 0.7, 0.7, -0.7); line(0.7, 0.7, -0.7, -0.7); line(-0.65, 0.25, -0.25, 0.65); line(0.65, 0.25, 0.25, 0.65); } // 교차한 쌍검
     else if (spear) { line(-0.75, 0.75, 0.55, -0.55); g.beginPath(); g.moveTo(0.8 * s, -0.8 * s); g.lineTo(0.3 * s, -0.55 * s); g.lineTo(0.55 * s, -0.3 * s); g.closePath(); g.fill(); }
