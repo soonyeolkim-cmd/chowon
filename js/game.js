@@ -1946,7 +1946,7 @@ function villageItems(tab) {
   }
   // 지금 장착한 무기의 숙련 (무기의 정수로 강화)
   const wid = md.weapon, W0 = WEAPONS[wid];
-  list.push({ header: true, name: `⚔ 무기 숙련 · ${W0.name}  (${W0.essence} ${Meta.ess(wid)})` });
+  list.push({ header: true, name: `⚔ 무기 숙련 · ${W0.name}` }); // 가진 정수는 맨 위에 이미 보여서 뺐다 (2026-10-17)
   for (const m of W0.mastery) list.push({
     key: wid + '.' + m.id, name: m.name, desc: m.desc, max: m.max, essence: wid,
     lv: () => Meta.wlv(wid, m.id), cost: () => Meta.wNextCost(wid, m), buy: () => Meta.buyMastery(wid, m),
