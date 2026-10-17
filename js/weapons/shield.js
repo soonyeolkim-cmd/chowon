@@ -11,7 +11,7 @@ const SHIELD_GUARD_AFTER = 0.15; // 돌진이 끝난 뒤에도 이만큼 정면�
 const SHIELD_FRONT = 1.6;       // 막을 수 있는 각도 (정면에서 좌우 약 90°)
 const SHIELD_BLOCK_INV = 0.3;   // 막은 뒤 잠깐 무적 (같은 공격에 두 번 맞지 않게)
 const SHIELD_COUNTER_MULT = 1.6; // 막은 뒤 다음 밀치기 피해 배율
-const SHIELD_SPIN_R = 46;       // 돌려치기 반경
+const SHIELD_SPIN_R = 62;       // 돌려치기 반경 (46 → 62, 2026-10-17)
 const SHIELD_QUAKE_R = 72;      // 방패 강타 충격파 거리
 const SHIELD_QUAKE_HALF = 0.8;  // 충격파 부채꼴 반각 (약 ±46°)
 const SHIELD_QUAKE_STUN = 0.6;  // 강타에 맞은 적 기절 (보스 제외)
@@ -25,7 +25,7 @@ Object.assign(MOVES, {
 bash:       { mult: 1.0, kb: 150, guardBreak: false, role: 'basic', light: true }, // 1 · 2타: 가볍게 툭
 bashFin:    { mult: 1.95, kb: 440, guardBreak: true, role: 'fin' },  // 3타: 힘껏 밀기
 quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방패 강타 (차지): 앞쪽 부채꼴 충격파 + 기절
-shieldSpin: { mult: 1.1, kb: 380, guardBreak: true, role: 'special' },  // 돌려치기 (특수): 둘레를 사방으로 날린다 + 탄 튕겨내기
+shieldSpin: { mult: 1.1, kb: 380, guardBreak: true, role: 'special' },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
 shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 후려치기 (대시 공격)
 shieldBump: { mult: 0.4, kb: 260, guardBreak: false, role: 'dash', light: true }, // 돌진하다 부딪힘
 });
@@ -52,16 +52,16 @@ addWeapon('shield', {
   special: (p, mag) => p.startShieldSpin(mag),
   skill: null,
   rows: (A, P, D) => [
-    ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '1 · 2타는 가볍게 툭, 3타째는 힘껏 밀어 크게 날리고 가드 브레이크 · 벽에 밀면 벽꿍'],
+    ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 힘껏 밀어 크게 날리고 가드 브레이크 · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절'],
-    ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 한 바퀴 휘둘러 둘레의 적을 사방으로 날린다 · 도는 동안 날아오는 탄을 튕겨낸다'],
+    ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 날린다'],
     ['대시 · 방패 돌진', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '돌진 뒤 방패로 내려찍기 · 기절', 'thrust'],
   ],
   notesTitle: '방패 특성 · 막기',
   notes: [
     '방패는 저스트 회피가 없어요. 대시가 방패 돌진이에요.',
-    '방패 돌진 중과 끝난 직후 잠깐, 정면에서 오는 공격과 탄을 막아요. 막으면 피해가 없고, 특수 · 대시 쿨타임이 바로 풀리고, 다음 밀치기가 반격 밀치기(피해 ×1.6, 가드 브레이크)가 돼요.',
+    '방패 돌진 중 · 끝난 직후 잠깐 · 밀치는 동안, 정면에서 오는 공격과 탄을 막아요. 막으면 피해가 없고, 특수 · 대시 쿨타임이 바로 풀리고, 다음 밀치기가 반격 밀치기(피해 ×1.6, 가드 브레이크)가 돼요.',
     '못 막는 것: 바닥에서 터지는 범위 공격(빨간 원 · 뿌리 · 폭발)과 옆 · 뒤에서 오는 공격. 이건 위치로 피해야 해요.',
     '돌진은 적을 통과하지 못하고 부딪혀 멈춰요. 포위당하면 돌려치기로 밀어내세요.',
   ],
@@ -174,6 +174,7 @@ extendPlayer({
     this.atkCd = (fin ? 0.6 : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.35;
     this.finisherT = 0; this.atkBuffer = 0;
+    this.guardT = Math.max(this.guardT, this.act.dur + 0.05); // 밀치는 동안에도 정면을 막는다 (2026-10-17)
     if (counter) G.text(this.x, this.y - 26, '반격 밀치기!', '#ffd28a', 12, 0.6);
     Sfx.swing(fin || counter);
     FX.onSwing(this, fin);
@@ -189,7 +190,7 @@ extendPlayer({
     G.text(this.x, this.y - 24, '방패 강타', '#ffd24a', 12, 0.6);
     Sfx.swing(true);
   },
-  // 돌려치기 (특수): 한 바퀴 휘둘러 둘레의 적을 바깥으로 날리고, 도는 동안 탄을 튕겨낸다
+  // 돌려치기 (특수): 크게 한 바퀴 휘둘러 넓은 둘레의 적을 바깥으로 날린다
   get spinR() { return SHIELD_SPIN_R * (1 + 0.1 * FX.lv('atk_wave')); },
   startShieldSpin(mag) {
     this.aim(mag);
@@ -221,7 +222,7 @@ extendPlayer({
   drawShieldWeapon(g, x, y) {
     const cy = y - 6, a = this.act, f = this.dashT > 0 ? this.dashDir : this.facing, c = Math.cos(f), s = Math.sin(f);
     const glow = this.bashReady; // 반격 밀치기 준비: 방패가 금빛으로 반짝
-    if (this.dashT > 0 || this.guardT > 0) { // 방패 돌진: 앞에 크게 들고 정면 막기
+    if (this.dashT > 0 || (this.guardT > 0 && !a)) { // 방패 돌진: 앞에 크게 들고 정면 막기
       shieldSprite(g, x + c * 13, cy + s * 9, 1.15, glow);
       const k = 0.4 + 0.2 * Math.sin(G.time * 40);
       g.strokeStyle = `rgba(159,220,255,${k})`; g.lineWidth = 2;
@@ -289,7 +290,6 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       return true;
     }
     if (a.kind === 'shieldSpin') {
-      clearShotsNear(this.x, this.y, a.r); // 도는 동안 날아오는 탄을 튕겨낸다
       if (a.t > a.dur * 0.1) this.hitFan(a, this.x, this.y, a.r, Math.PI, 'shieldSpin', 0);
       if (!a.ended && a.t >= a.dur * 0.9) { a.ended = true; FX.onShieldSpinEnd(this); }
       return true;
