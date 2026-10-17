@@ -6,7 +6,7 @@
 
 // 방패 수치
 const SHIELD_REACH = 34;        // 밀치기 거리
-const SHIELD_FIN_REACH = 40;    // 2타째 밀치기
+const SHIELD_FIN_REACH = 40;    // 3타째 밀치기
 const SHIELD_GUARD_AFTER = 0.15; // 돌진이 끝난 뒤에도 이만큼 정면을 막는다
 const SHIELD_FRONT = 1.6;       // 막을 수 있는 각도 (정면에서 좌우 약 90°)
 const SHIELD_BLOCK_INV = 0.3;   // 막은 뒤 잠깐 무적 (같은 공격에 두 번 맞지 않게)
@@ -22,8 +22,8 @@ const SHIELD_SIZE = 0.75;       // 방패 그림 크기 (16픽셀 × PIX × 이 
 
 Object.assign(MOVES, {
 // 방패: 한 방이 무겁고 크게 밀어낸다
-bash:       { mult: 1.15, kb: 300, guardBreak: false, role: 'basic' },
-bashFin:    { mult: 1.75, kb: 420, guardBreak: true, role: 'fin' },
+bash:       { mult: 1.0, kb: 150, guardBreak: false, role: 'basic', light: true }, // 1 · 2타: 가볍게 툭
+bashFin:    { mult: 1.95, kb: 440, guardBreak: true, role: 'fin' },  // 3타: 힘껏 밀기
 quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방패 강타 (차지): 앞쪽 부채꼴 충격파 + 기절
 shieldSpin: { mult: 1.1, kb: 380, guardBreak: true, role: 'special' },  // 돌려치기 (특수): 둘레를 사방으로 날린다 + 탄 튕겨내기
 shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 후려치기 (대시 공격)
@@ -35,16 +35,16 @@ addWeapon('shield', {
   style: '수호형 · 방패 돌진으로 막고 밀어내기, 묵직하고 느림 · 범위 공격과 포위에 약함',
   essence: '무기의 정수',
   unlockCost: 1,             // 영웅의 증표 1개
-  moves: { basic: '2연 밀치기', charged: '방패 강타', special: '돌려치기', dashAttack: '후려치기' },
+  moves: { basic: '3연 밀치기', charged: '방패 강타', special: '돌려치기', dashAttack: '후려치기' },
   chargeTime: 0.6,
-  specialCd: 3.5,
+  specialCd: 2.8, // 3.5 → 2.8 (2026-10-17)
   cdPerLv: 0.4, cdPerMastery: 0.3, cdFloor: 1.5,
   speedMult: 0.88,           // 묵직하다: 가장 느린 무기
   dashCharges: 1,
   dashSpeed: 280,
   dashCdMult: 0.9 / DASH_CD, // 대시 1회 · 0.9초 충전
   dashGuard: SHIELD_GUARD_AFTER, // 대시 = 방패 돌진 (무적 · 저스트 회피 대신 정면 막기, entities.js · game.js hurtPlayer)
-  wallSlam: true,            // 2타째 밀치기 · 돌려치기로 벽에 밀면 벽꿍
+  wallSlam: true,            // 3타째 밀치기 · 돌려치기로 벽에 밀면 벽꿍
   skillCd: 0,
   basic: (p, mag) => p.startBash(mag),
   basicAfterDash: p => p.startShieldSlam(),
@@ -52,9 +52,9 @@ addWeapon('shield', {
   special: (p, mag) => p.startShieldSpin(mag),
   skill: null,
   rows: (A, P, D) => [
-    ['기본 · 2연 밀치기', `${A} ${A}`, '짧고 묵직하게 밀어낸다 · 2타째는 크게 밀고 가드 브레이크 · 벽에 밀면 벽꿍'],
+    ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '1 · 2타는 가볍게 툭, 3타째는 힘껏 밀어 크게 날리고 가드 브레이크 · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '앞쪽 부채꼴 충격파 · 가드 브레이크 + 기절'],
-    ['특수 · 돌려치기', `${P} (쿨타임 3.5초)`, '방패를 한 바퀴 휘둘러 둘레의 적을 사방으로 날린다 · 도는 동안 날아오는 탄을 튕겨낸다'],
+    ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 한 바퀴 휘둘러 둘레의 적을 사방으로 날린다 · 도는 동안 날아오는 탄을 튕겨낸다'],
     ['대시 · 방패 돌진', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 · 막으면 쿨타임이 모두 풀리고 다음 밀치기 강화 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '돌진 뒤 방패로 내려찍기 · 기절', 'thrust'],
   ],
@@ -65,10 +65,10 @@ addWeapon('shield', {
     '못 막는 것: 바닥에서 터지는 범위 공격(빨간 원 · 뿌리 · 폭발)과 옆 · 뒤에서 오는 공격. 이건 위치로 피해야 해요.',
     '돌진은 적을 통과하지 못하고 부딪혀 멈춰요. 포위당하면 돌려치기로 밀어내세요.',
   ],
-  comboLen: 2,
-  shieldHint: '저 방패병은 정면 공격을 막아요! 2타째 밀치기나 방패 강타는 방패를 깨요.',
+  comboLen: 3,
+  shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 밀치기나 방패 강타는 방패를 깨요.',
   mastery: [
-    { id: 'combo',  name: '2연 밀치기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `2타째 밀치기 피해 +${15 * lv}%` },
+    { id: 'combo',  name: '3연 밀치기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `3타째 밀치기 피해 +${15 * lv}%` },
     { id: 'spin',   name: '방패 강타 숙련',  max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 강타 거리 +${5 * lv}%` },
     { id: 'wave',   name: '돌려치기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `돌려치기 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 1.5초)` },
     { id: 'thrust', name: '후려치기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `후려치기 피해 +${20 * lv}%` },
@@ -113,10 +113,10 @@ Object.assign(WEAPONS.shield, {
     if (hw && p.alive && a && a.kind === 'shieldSpin' && !a.healed) { a.healed = true; p.hp = Math.min(p.maxHp, p.hp + 0.5 + 0.5 * hw); }
   },
 });
-// 방패: 기본 = 2연 밀치기, 차지 = 방패 강타, 특수 = 돌려치기, 대시 공격 = 후려치기
+// 방패: 기본 = 3연 밀치기, 차지 = 방패 강타, 특수 = 돌려치기, 대시 공격 = 후려치기
 BOON_FORMS.shield = {
   fire_basic:     { name: '불꽃 방패' },
-  fire_bolt:      { name: '화염 밀치기', desc: lv => `밀칠 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 2타째는 3발.` },
+  fire_bolt:      { name: '화염 밀치기', desc: lv => `밀칠 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
   fire_charge:    { name: '화염 강타', desc: lv => `방패 강타에 맞은 적에게 화상 2중첩, 충격파가 지나간 땅에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
   fire_special:   { name: '화염 돌려치기', desc: lv => `돌려치기에 맞은 적에게 화상 2중첩, 돌고 나면 주변이 폭발한다 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
   ice_basic:      { name: '서리 방패' },
@@ -162,16 +162,16 @@ extendPlayer({
     G.hitstop = Math.max(G.hitstop, 0.05); G.shake = Math.max(G.shake, 4);
     Sfx.block(); Input.rumble(0.6, 120);
   },
-  // 2연 밀치기: 짧은 앞쪽 부채꼴. 막은 뒤 첫 밀치기는 반격 밀치기
+  // 3연 밀치기: 짧은 앞쪽 부채꼴. 막은 뒤 첫 밀치기는 반격 밀치기
   startBash(mag) {
-    this.combo = this.comboT > 0 ? (this.combo + 1) % 2 : 0;
+    this.combo = this.comboT > 0 ? (this.combo + 1) % 3 : 0;
     this.aim(mag);
-    const fin = this.combo === 1, counter = !!this.bashReady;
+    const fin = this.combo === 2, counter = !!this.bashReady;
     this.bashReady = false;
-    this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.22 : 0.18, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? 1.0 : 0.85,
+    this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.24 : 0.15, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? 1.0 : 0.85,
       opts: counter ? { mult: SHIELD_COUNTER_MULT } : undefined, counter };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
-    this.atkCd = (fin ? 0.55 : 0.38) * (1 - 0.15 * FX.lv('atk_combo'));
+    this.atkCd = (fin ? 0.6 : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.35;
     this.finisherT = 0; this.atkBuffer = 0;
     if (counter) G.text(this.x, this.y - 26, '반격 밀치기!', '#ffd28a', 12, 0.6);
