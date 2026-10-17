@@ -1045,7 +1045,13 @@ function bar(x, y, w, h, frac, color, bg = 'rgba(0,0,0,0.55)') {
 function drawHud() {
   const p = G.player;
   const x = inset.l + 16, y = inset.t + 14;
-  label('♥', x, y + 7, 16, '#ff6b6b', 'left');
+  // 하트 = 남은 부활 (불굴의 의지 · 두 번째 기회). 있으면 빨갛게 두근두근, 없으면 회색. 2개 이상이면 숫자
+  const rv = G.reviveLeft || 0;
+  if (rv > 0) {
+    const beat = 1 + Math.max(0, Math.sin(G.time * 5)) * 0.12;
+    label('♥', x + 6, y + 7, 16 * beat, '#ff5a6e', 'center');
+    if (rv > 1) label('×' + rv, x + 13, y + 14, 9, '#ffd0d6', 'left', '800');
+  } else label('♥', x + 6, y + 7, 16, 'rgba(150,150,160,0.55)', 'center');
   const bx = x + 22, bw = clamp(W * 0.26, 120, 220);
   bar(bx, y, bw, 13, p.hp / p.maxHp, p.hp / p.maxHp < 0.3 ? '#ff5a5a' : '#e04848');
   label(`${Math.ceil(p.hp)} / ${p.maxHp}`, bx + bw / 2, y + 7, 10, '#fff', 'center');
