@@ -29,7 +29,7 @@ addWeapon('staff', {
   name: '정령의 마법봉',
   style: '마법형 · 기본공격은 약하지만 마력 구슬을 모아 난사, 키울수록 탄막',
   essence: '무기의 정수',
-  unlockCost: 3,
+  unlockCost: 1,             // 영웅의 증표 1개 (2026-10-17)
   moves: { basic: '2연타', charged: '마법진', special: '마력탄', dashAttack: '마력 파동' },
   chargeTime: 0.55,
   specialCd: 0.12,     // = ORB_INTERVAL (아래 상수는 이 표보다 뒤에 있어서 숫자로)
