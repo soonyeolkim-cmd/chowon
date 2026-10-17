@@ -138,7 +138,7 @@ const WEAPONS = {
     shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 X자 베기나 그림자 연참은 방패를 깨요. 받아치기로 공격을 막아도 기절해요.',
     mastery: [
       { id: 'combo',  name: '교차 베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `3타째 X자 베기 피해 +${15 * lv}%` },
-      { id: 'spin',   name: '그림자 연참 숙련', max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 연참 거리 +${8 * lv}%` },
+      { id: 'spin',   name: '그림자 연참 숙련', max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 연참 거리 +${3 * lv}%` },
       { id: 'wave',   name: '받아치기 숙련',    max: 3, cost: [3, 5, 8], desc: lv => `받아치기 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 1.5초)` },
       { id: 'thrust', name: '선풍 베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `선풍 베기 피해 +${20 * lv}%` },
     ],

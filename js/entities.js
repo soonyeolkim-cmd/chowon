@@ -432,7 +432,7 @@ class Player {
   }
 
   // 그림자 연참 (차지): 앞으로 순식간에 지나가며 길 위의 적을 모두 벤다. 지나가는 동안 무적. 기세를 다 써서 한 칸마다 +20%
-  get rushLen() { return RUSH_LEN * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')); }
+  get rushLen() { return RUSH_LEN * (1 + 0.15 * FX.lv('atk_spin') + 0.03 * this.mastery('spin')); } // 숙련 거리 +8% → +3% (2026-10-17)
   startRush(mag) {
     this.finisherT = 0;
     this.aim(mag, RUSH_AIM);
