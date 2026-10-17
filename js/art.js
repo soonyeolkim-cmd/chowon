@@ -84,6 +84,9 @@ const ART_FILES = {
   floor:     'Backgrounds/Tilesets/TilesetFloor.png',
   water:     'Backgrounds/Tilesets/TilesetWater.png',
   nature:    'Backgrounds/Tilesets/TilesetNature.png',
+  titleRay:  'FX/Environment/Raylight.png',   // 시작 화면: 빛줄기 · 안개 · 나뭇잎
+  titleFog:  'FX/Environment/Fog.png',
+  titleLeaf: 'FX/Particle/Leaf.png',
 };
 // 피격 시 하얗게, 공격 예고 시 빨갛게 번쩍일 그림들
 const ART_FLASH = ['hero', 'spirit', 'slime', 'bat', 'cyclope', 'skeleton',

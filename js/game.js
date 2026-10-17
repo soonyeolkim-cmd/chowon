@@ -2432,17 +2432,17 @@ function render() {
   const big = clamp(Math.min(W, H) * 0.1, 28, 54);
   const tap = Input.state.device === 'touch' ? '화면을 탭해서' : '아무 버튼이나 눌러서';
   if (G.state === 'title') {
-    overlay(0.5);
-    label('봉인의 숲', W / 2, H * 0.2, big, '#ffe08a');
+    TitleArt.scene(G.time);
+    const logoBottom = TitleArt.drawLogo(W / 2, Math.max(inset.t + 8, H * 0.08), G.time);
     const story = '마물에게 습격당한 숲 마을. 견습 검사 리안은 숲의 정령 루미와 함께 봉인석의 비밀을 쫓는다.';
-    wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, H * 0.2 + big * 0.9 + i * 20, 14, '#d8e8d0', 'center', '500'));
-    label('로그라이트 · 쓰러지면 처음부터 · 정령의 조각으로 영구 강화', W / 2, H * 0.45, 12, '#c8b8ff', 'center', '600');
+    wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, logoBottom + 14 + i * 20, 14, '#e8eef8', 'center', '600'));
     const { move, A, P, D } = keyNames();
     label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
     if (Input.state.device === 'keyboard') label(`조작 방식: ${Input.settings.kbMode === 'mouse' ? '키보드+마우스' : '키보드만'}  ·  마을의 ⚙ 설정 > 키보드에서 바꿀 수 있어요`, W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
     label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, H * 0.56 + 20, 12, '#b8c8b8', 'center', '500');
-    if (blink) label(`${tap} 시작`, W / 2, H * 0.78, 20, '#ffd24a');
+    if (blink) label(`${tap} 시작`, W / 2, H * 0.91, 20, '#ffd24a');
   } else if (G.state === 'profiles') {
+    TitleArt.scene(G.time);
     drawProfiles(blink);
   } else if (G.state === 'village' || (G.state === 'settings' && G.settingsFrom === 'village')) {
     drawVillage(blink);
