@@ -504,6 +504,31 @@ class Player {
     drawCell(g, 'hero', col, row, x, y + 13);
     if (!swordBehind) weapon(g, x, y);
     g.globalAlpha = 1;
+    if (Input.state.device !== 'touch' && this.alive) this.drawCooldownMarks(g); // 가상 패드가 없을 땐 캐릭터 곁에 쿨타임
+  }
+
+  // 쿨타임 표시 (키보드 · 패드용): 평소엔 안 보이고, 쓰고 나서 차오르는 동안만 보인다
+  //  대시: 발밑 점 (충전 수만큼, 차는 중인 점은 부채꼴로 채워짐) · 특수: 몸 둘레의 얇은 원호
+  drawCooldownMarks(g) {
+    const x = this.x, y = this.y;
+    if (this.dashStock < this.dashMax) {
+      const n = this.dashMax, gap = 8, x0 = x - (n - 1) * gap / 2, py = y + 18;
+      const fill = 1 - clamp(this.dashRecharge / this.dashCdBase, 0, 1);
+      for (let i = 0; i < n; i++) {
+        const px = x0 + i * gap;
+        g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.arc(px, py, 2.6, 0, Math.PI * 2); g.fill();
+        if (i < this.dashStock) { g.fillStyle = '#8ff0b0'; g.beginPath(); g.arc(px, py, 2.2, 0, Math.PI * 2); g.fill(); }
+        else if (i === this.dashStock) { // 차오르는 중
+          g.fillStyle = 'rgba(143,240,176,0.75)'; g.beginPath(); g.moveTo(px, py); g.arc(px, py, 2.2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fill); g.closePath(); g.fill();
+        }
+      }
+    }
+    if (this.specialCd > 0) {
+      const k = 1 - clamp(this.specialCd / this.specialCdBase, 0, 1), r = 21, cy = y - 2;
+      g.lineWidth = 2; g.lineCap = 'round';
+      g.strokeStyle = 'rgba(79,195,255,0.15)'; g.beginPath(); g.arc(x, cy, r, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = 'rgba(79,195,255,0.85)'; g.beginPath(); g.arc(x, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); g.stroke();
+    }
   }
 
   drawSword(g, x, y) {
