@@ -589,7 +589,8 @@ const G = {
     if (!p.alive) return;
     if (p.parryT > 0 && src) { p.parry(src); return; } // 쌍검 받아치기
     // 방패 돌진: 정면에서 온 공격은 막는다 (바닥 · 범위 공격과 옆 · 뒤는 못 막는다)
-    if (p.guardT > 0 && p.weapon.dashGuard && src && !src.area && p.invuln <= 0 && p.shieldFront(src)) { p.shieldBlock(src); return; }
+    let chip = 0;
+    if (p.guardT > 0 && p.weapon.dashGuard && src && !src.area && p.invuln <= 0 && p.shieldFront(src)) { chip = p.shieldBlock(src); if (!chip) return; dmg = Math.max(1, Math.round(dmg * chip)); } // 저스트면 0, 일반 막기면 일부
     if ((p.dashT > 0 && !p.weapon.dashGuard) || p.invuln > 0) {
       if (src.attacking && p.dodgeT > 0 && this.has('dodge')) this.perfectDodge();
       return;
@@ -597,14 +598,13 @@ const G = {
     dmg = FX.playerHurt(dmg, src);
     if (dmg && Meta.data.mode === 'easy') dmg = Math.max(1, Math.round(dmg * EASY_DMG_TAKEN));
     if (!dmg) return;
-    p.hp -= dmg; p.invuln = p.hurtT = 0.8;
+    p.hp -= dmg; p.invuln = p.hurtT = chip ? 0.35 : 0.8;
     this.hintHurt(src);
     if (p.momentum > 0) { p.momentum = 0; this.text(p.x, p.y - 30, '기세 끊김', '#c8b8a8', 10, 0.5); } // 쌍검: 맞으면 기세가 사라진다
     const dx = p.x - src.x, dy = p.y - src.y, d = Math.hypot(dx, dy) || 1;
-    p.kvx = dx / d * 220; p.kvy = dy / d * 220;
-    p.act = null; p.charge = 0;
-    this.chain = 0;
-    this.shake = 7; this.hurtFlash = 0.35; this.hitstop = 0.06;
+    p.kvx = dx / d * (chip ? 90 : 220); p.kvy = dy / d * (chip ? 90 : 220);
+    if (!chip) { p.act = null; p.charge = 0; this.chain = 0; } // 방패로 막고 받은 피해는 하던 동작을 끊지 않는다
+    this.shake = chip ? 3 : 7; this.hurtFlash = chip ? 0.12 : 0.35; this.hitstop = chip ? 0.03 : 0.06;
     this.text(p.x, p.y - 20, '-' + dmg, '#ff6b6b', 14);
     Sfx.hurt(); Input.rumble(0.9, 200);
     if (p.hp > 0 && p.hp < p.maxHp * 0.25 && this.lumiHeals > 0) {
