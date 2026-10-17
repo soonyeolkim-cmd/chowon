@@ -156,9 +156,11 @@ function musicTarget() {
   return 'w' + clamp(G.stage || 1, 1, 6);
 }
 
+// 배포 사이트의 시험 빌드는 'swordsman.test.' 에 따로 저장한다 (진짜 진행 · 증표 · 해금은 그대로). 조작 설정은 같이 쓴다 (input.js)
+const SAVE_PREFIX = TEST_SAVE ? 'swordsman.test.' : 'swordsman.';
 const store = {
-  get(k) { try { return JSON.parse(localStorage.getItem('swordsman.' + k)); } catch (_) { return null; } },
-  set(k, v) { try { localStorage.setItem('swordsman.' + k, JSON.stringify(v)); } catch (_) {} },
+  get(k) { try { return JSON.parse(localStorage.getItem(SAVE_PREFIX + k)); } catch (_) { return null; } },
+  set(k, v) { try { localStorage.setItem(SAVE_PREFIX + k, JSON.stringify(v)); } catch (_) {} },
 };
 
 // 세계마다 다른 세력. 원거리(투사체) 몬스터 비중이 높다.
@@ -2320,6 +2322,12 @@ function drawBanner() {
   ctx.globalAlpha = 1;
 }
 
+// 배포 사이트 시험 빌드 표시: 진짜 저장과 따로라는 걸 알 수 있게
+function drawTestMark() {
+  if (!TEST_SAVE) return;
+  label('🧪 시험 빌드 · 진짜 저장과 따로 저장돼요', W / 2, H - inset.b - 8, 11, '#ffb84a', 'center', '700');
+}
+
 function drawHint() {
   const h = G.hintBox;
   if (!h) return;
@@ -2384,12 +2392,14 @@ function render() {
     if (blink) label(`${tap} 시작`, W / 2, H * 0.78, 20, '#ffd24a');
   } else if (G.state === 'village' || (G.state === 'settings' && G.settingsFrom === 'village')) {
     drawVillage(blink);
+    drawTestMark();
   } else if (G.state === 'settings' && G.settingsFrom === 'title') {
     overlay(0.5);
   } else {
     drawHud();
     drawBanner();
     drawHint();
+    drawTestMark();
     if (Input.state.device === 'touch' && G.state === 'play') drawTouchControls();
     if (G.state === 'story') drawDialog();
     if (G.state === 'boon') drawBoonScreen();

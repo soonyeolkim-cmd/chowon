@@ -75,7 +75,9 @@ const TEST_BUILDS = {
   parry: { weapon: 'sai', mastery: { wave: 3 }, boons: { elec_special: 3, atk_wave: 3, heal_wave: 3, vital: 3, overcharge: 3, sharp: 3 } },
   bolt: { weapon: 'sword', mastery: { combo: 3 }, boons: { elec_basic: 3, elec_chain: 3, static: 3, overcharge: 3, atk_combo: 3, sharp: 3, vital: 3, ambush: 3 } },
 };
-const DEV_BUILD = DEV_LOCAL ? TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null : null;
+// 시험 빌드 (?build=sai 등): 로컬과 배포 사이트 모두. 배포 사이트에서는 진짜 저장을 건드리지 않게 따로 저장한다 (2026-10-17, 휴대폰 시험용)
+const DEV_BUILD = TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null;
+const TEST_SAVE = !!DEV_BUILD && !DEV_LOCAL;
 
 const Meta = {
   data: null,
