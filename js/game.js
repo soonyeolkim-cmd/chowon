@@ -2475,11 +2475,10 @@ function render() {
   if (G.state === 'title') {
     TitleArt.scene(G.time);
     const logoBottom = TitleArt.drawLogo(W / 2, Math.max(inset.t + 8, H * 0.08), G.time);
-    const story = '마물에게 습격당한 숲 마을. 견습 검사 리안은 숲의 정령 루미와 함께 봉인석의 비밀을 쫓는다.';
-    const lines = wrap(story, Math.min(W * 0.8, 560), 14, '500');
-    lines.forEach((l, i) => label(l, W / 2, logoBottom + 14 + i * 20, 14, '#e8eef8', 'center', '600'));
-    // 조작법은 시작 화면에 넣지 않는다 (2026-10-17). 한 줄 소개는 이야기 바로 아래
-    label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, logoBottom + 14 + lines.length * 20 + 4, 12, '#b8c8b8', 'center', '500');
+    // 시작 화면 이야기 (2026-10-17, A안): 두 문장, 문장마다 줄을 나눈다
+    const story = ['어느 밤, 숲의 봉인석이 깨어나 마물을 불러냈다.', '불타는 마을을 뒤로하고, 견습 검사 리안은 작은 정령 루미와 함께 숲으로 향한다.'];
+    const lines = story.flatMap(t => wrap(t, Math.min(W * 0.86, 620), 14, '600'));
+    lines.forEach((l, i) => label(l, W / 2, logoBottom + 16 + i * 21, 14, '#e8eef8', 'center', '600'));
     if (blink) label(`${tap} 시작`, W / 2, Math.max(H * 0.88, H - inset.b - 36), 20, '#ffd24a');
     label('© 2026 SY Studio. All rights reserved.', W / 2, H - inset.b - 10, 10, 'rgba(220,226,240,0.7)', 'center', '600'); // 저작권 표시
   } else if (G.state === 'profiles') {
