@@ -2454,11 +2454,10 @@ function render() {
     TitleArt.scene(G.time);
     const logoBottom = TitleArt.drawLogo(W / 2, Math.max(inset.t + 8, H * 0.08), G.time);
     const story = '마물에게 습격당한 숲 마을. 견습 검사 리안은 숲의 정령 루미와 함께 봉인석의 비밀을 쫓는다.';
-    wrap(story, Math.min(W * 0.8, 560), 14, '500').forEach((l, i) => label(l, W / 2, logoBottom + 14 + i * 20, 14, '#e8eef8', 'center', '600'));
-    const { move, A, P, D } = keyNames();
-    label(`이동: ${move}   공격: ${A} (길게: ${WEAPONS[Meta.data.weapon].moves.charged})   대시: ${D}   특수: ${P}`, W / 2, H * 0.56, 13, '#fff', 'center', '600');
-    if (Input.state.device === 'keyboard') label(`조작 방식: ${Input.settings.kbMode === 'mouse' ? '키보드+마우스' : '키보드만'}  ·  마을의 ⚙ 설정 > 키보드에서 바꿀 수 있어요`, W / 2, H * 0.56 + 38, 11, '#9aa', 'center', '500');
-    label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, H * 0.56 + 20, 12, '#b8c8b8', 'center', '500');
+    const lines = wrap(story, Math.min(W * 0.8, 560), 14, '500');
+    lines.forEach((l, i) => label(l, W / 2, logoBottom + 14 + i * 20, 14, '#e8eef8', 'center', '600'));
+    // 조작법은 시작 화면에 넣지 않는다 (2026-10-17). 한 줄 소개는 이야기 바로 아래
+    label('봉인석의 정령에게 축복을 받고, 스테이지를 넘을 때마다 정령의 힘으로 강해지세요', W / 2, logoBottom + 14 + lines.length * 20 + 4, 12, '#b8c8b8', 'center', '500');
     if (blink) label(`${tap} 시작`, W / 2, H * 0.91, 20, '#ffd24a');
   } else if (G.state === 'profiles') {
     TitleArt.scene(G.time);
