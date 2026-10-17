@@ -1774,7 +1774,8 @@ function drawBoonScreen() {
     ctx.fillStyle = ok ? '#ffd24a' : 'rgba(255,255,255,0.15)'; ctx.fillRect(rb.x, rb.y, 3, rb.h); // 왼쪽 금빛 띠
     label('↻', rb.x + 20, cy + 1, 17, ok ? '#ffd24a' : '#666', 'center', '900');
     label('다시 뽑기', rb.x + 34, cy + 1, 13, ok ? '#fff' : '#777', 'left', '800');
-    const keyTxt = d === 'touch' ? '' : d === 'gamepad' ? padName(3) : keyNames().P;
+    // 키캡: 패드 버튼 · 키보드만 쓸 때의 키만. 터치 · 마우스는 버튼을 바로 누르면 되니 안 보인다
+    const keyTxt = d === 'gamepad' ? padName(3) : d === 'keyboard' && Input.settings.kbMode !== 'mouse' ? keyNames().P : '';
     let rx = rb.x + rb.w - 10;
     if (keyTxt) { // 키캡
       ctx.font = `700 10px ${FONT}`; const kw = Math.ceil(ctx.measureText(keyTxt).width) + 10;
