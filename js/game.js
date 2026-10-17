@@ -586,6 +586,7 @@ const G = {
       if (src.attacking && p.dodgeT > 0 && this.has('dodge')) this.perfectDodge();
       return;
     }
+    if (p.shadowGuardT > 0 && src) { p.shadowGuardT = 0; p.parry(src, true); return; } // 쌍검 그림자 막기 (무적 중엔 아끼고, 진짜 맞을 때 쓴다)
     dmg = FX.playerHurt(dmg, src);
     if (dmg && Meta.data.mode === 'easy') dmg = Math.max(1, Math.round(dmg * EASY_DMG_TAKEN));
     if (!dmg) return;

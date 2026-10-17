@@ -94,6 +94,7 @@ class Player {
     this.trail = [];
     this.momentum = 0; this.momT = 0; // 쌍검 기세
     this.parryT = 0;                  // 쌍검 받아치기: 막는 자세가 남은 시간
+    this.shadowGuardT = 0;            // 쌍검 그림자 막기: 연참이 맞으면 잠깐, 처음 맞는 공격을 자동으로 받아친다
     this.orbs = this.orbMax; this.orbT = 0; // 마법봉 마력 구슬 (처음엔 가득)
   }
 
@@ -114,7 +115,7 @@ class Player {
     const inp = Input.state;
     for (const k of ['atkCd', 'dashCd', 'invuln', 'hurtT', 'comboT', 'finisherT', 'atkBuffer',
       'specialBuffer', 'skillBuffer', 'dashBuffer', 'postDashT', 'dodgeT', 'counterT', 'leafT', 'specialCd', 'skillCd',
-      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT']) this[k] -= dt;
+      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'shadowGuardT']) this[k] -= dt;
     if (this.dashStock < this.dashMax) {
       this.dashRecharge -= dt;
       if (this.dashRecharge <= 0) { this.dashStock++; this.dashRecharge = this.dashCdBase; }
