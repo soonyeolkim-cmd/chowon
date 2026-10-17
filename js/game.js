@@ -1064,9 +1064,9 @@ function drawHud() {
   bar(bx, y, bw, 13, p.hp / p.maxHp, p.hp / p.maxHp < 0.3 ? '#ff5a5a' : '#e04848');
   label(`${Math.ceil(p.hp)} / ${p.maxHp}`, bx + bw / 2, y + 7, 10, '#fff', 'center');
   drawCooldowns(p, bx, y + 19, bw);
-  drawLumiHeal(x + 6, y + 29);
+  drawLumiHeal(x + 6, y + 28);
   if (Meta.data.mode === 'easy') { drawModeIcon('easy', bx + bw + 4, y - 4, 20); label('쉬움', bx + bw + 26, y + 7, 10, '#8ff0b0', 'left', '800'); }
-  drawBoonIcons(x, y + 42);
+  drawBoonIcons(x, y + 52); // 루미 아이콘 아래로 한 줄 띄운다
 
   // 목표
   const cxm = W / 2;
@@ -1139,7 +1139,7 @@ function drawCdNumber(b, t) {
 // 키보드·게임패드용 쿨타임 표시 (체력바 아래)
 // 루미 회복: 하트 아래 작은 원. 이번 세계에 남아 있으면 빛나고, 쓰면 비어 있다
 function drawLumiHeal(cx, cy) {
-  const ready = G.lumiHeals > 0, r = 8;
+  const ready = G.lumiHeals > 0, r = 7;
   ctx.fillStyle = 'rgba(20,26,22,0.75)'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
   if (ready) {
     const glow = 0.25 + Math.sin(G.time * 3) * 0.12;
@@ -1570,17 +1570,72 @@ function drawDialog() {
   }
 }
 
+// 축복 아이콘: 동작 그림(칼 · 회전 · 검기 · 대시 …)을 속성 색으로 그리고, 오른쪽 아래에 레벨 숫자
+// 순서: 슬롯 축복(기본 → 차지 → 특수 → 대시) → 그 강화 → 속성 패시브 → 공격 · 방어 → 듀오
+const SLOT_ORDER = { basic: 0, charge: 1, special: 2, dash: 3 };
+function boonSortKey(b) {
+  if (b.slot) return SLOT_ORDER[b.slot];
+  if (b.needs) return 10;
+  if (b.duo) return 40;
+  if (b.el === 'might') return 30;
+  if (b.el === 'guard') return 31;
+  return 20;
+}
+// 동작 · 속성 그림 (cx, cy 중심, s = 반 크기)
+function drawBoonGlyph(b, cx, cy, s, col) {
+  const g = ctx, spear = G.player && G.player.weaponId === 'spear';
+  g.save(); g.translate(cx, cy); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = Math.max(1.5, s * 0.22); g.lineCap = 'round'; g.lineJoin = 'round';
+  const line = (x1, y1, x2, y2) => { g.beginPath(); g.moveTo(x1 * s, y1 * s); g.lineTo(x2 * s, y2 * s); g.stroke(); };
+  const kind = b.slot || (b.needs ? 'plus' : b.duo ? 'duo' : b.el);
+  if (kind === 'basic' || kind === 'plus') {
+    if (spear) { line(-0.75, 0.75, 0.55, -0.55); g.beginPath(); g.moveTo(0.8 * s, -0.8 * s); g.lineTo(0.3 * s, -0.55 * s); g.lineTo(0.55 * s, -0.3 * s); g.closePath(); g.fill(); }
+    else { line(-0.6, 0.6, 0.75, -0.75); line(-0.55, 0.15, -0.15, 0.55); line(-0.8, 0.8, -0.55, 0.55); } // 칼날 · 손잡이 가드
+    if (kind === 'plus') { g.lineWidth = Math.max(1.5, s * 0.2); line(0.35, 0.45, 0.85, 0.45); line(0.6, 0.2, 0.6, 0.7); }
+  } else if (kind === 'charge') { // 회전 화살표
+    g.beginPath(); g.arc(0, 0, 0.62 * s, -Math.PI * 0.15, Math.PI * 1.45); g.stroke();
+    const a = -Math.PI * 0.15, ax = Math.cos(a) * 0.62 * s, ay = Math.sin(a) * 0.62 * s;
+    g.beginPath(); g.moveTo(ax + 0.32 * s, ay - 0.1 * s); g.lineTo(ax - 0.05 * s, ay - 0.35 * s); g.lineTo(ax - 0.05 * s, ay + 0.2 * s); g.closePath(); g.fill();
+  } else if (kind === 'special') {
+    if (spear) { line(-0.8, 0.1, 0.5, 0.1); g.beginPath(); g.moveTo(0.85 * s, 0.1 * s); g.lineTo(0.4 * s, -0.2 * s); g.lineTo(0.4 * s, 0.4 * s); g.closePath(); g.fill(); line(-0.8, -0.35, -0.3, -0.35); line(-0.8, 0.55, -0.4, 0.55); }
+    else { g.beginPath(); g.arc(-0.45 * s, 0, 0.95 * s, -0.95, 0.95); g.stroke(); g.lineWidth *= 0.6; g.beginPath(); g.arc(-0.8 * s, 0, 0.95 * s, -0.8, 0.8); g.stroke(); } // 초승달 검기
+  } else if (kind === 'dash') { // 속도선 + 꺾쇠
+    line(-0.85, -0.4, -0.25, -0.4); line(-0.95, 0.05, -0.3, 0.05); line(-0.85, 0.5, -0.25, 0.5);
+    g.beginPath(); g.moveTo(0.05 * s, -0.6 * s); g.lineTo(0.75 * s, 0.05 * s); g.lineTo(0.05 * s, 0.7 * s); g.stroke();
+  } else if (kind === 'fire') { // 불꽃
+    g.beginPath(); g.moveTo(0, -0.85 * s); g.quadraticCurveTo(0.75 * s, 0, 0.45 * s, 0.55 * s); g.quadraticCurveTo(0, 0.95 * s, -0.45 * s, 0.55 * s); g.quadraticCurveTo(-0.7 * s, 0.05 * s, 0, -0.85 * s); g.fill();
+  } else if (kind === 'frost') { // 눈송이
+    for (let i = 0; i < 3; i++) { const a = i * Math.PI / 3; line(Math.cos(a) * -0.8, Math.sin(a) * -0.8, Math.cos(a) * 0.8, Math.sin(a) * 0.8); }
+  } else if (kind === 'thunder') { // 번개
+    g.beginPath(); g.moveTo(0.2 * s, -0.9 * s); g.lineTo(-0.45 * s, 0.1 * s); g.lineTo(0.05 * s, 0.1 * s); g.lineTo(-0.2 * s, 0.9 * s); g.lineTo(0.5 * s, -0.15 * s); g.lineTo(0, -0.15 * s); g.closePath(); g.fill();
+  } else if (kind === 'poison') { // 물방울
+    g.beginPath(); g.moveTo(0, -0.9 * s); g.quadraticCurveTo(0.7 * s, 0.1 * s, 0.5 * s, 0.45 * s); g.arc(0, 0.35 * s, 0.5 * s, 0.2, Math.PI - 0.2); g.quadraticCurveTo(-0.7 * s, 0.1 * s, 0, -0.9 * s); g.fill();
+  } else if (kind === 'might') { // 엇갈린 두 칼
+    line(-0.7, 0.7, 0.7, -0.7); line(0.7, 0.7, -0.7, -0.7); line(-0.75, 0.3, -0.3, 0.75); line(0.75, 0.3, 0.3, 0.75);
+  } else if (kind === 'guard') { // 방패
+    g.beginPath(); g.moveTo(0, -0.85 * s); g.lineTo(0.7 * s, -0.55 * s); g.lineTo(0.6 * s, 0.25 * s); g.quadraticCurveTo(0.3 * s, 0.7 * s, 0, 0.9 * s); g.quadraticCurveTo(-0.3 * s, 0.7 * s, -0.6 * s, 0.25 * s); g.lineTo(-0.7 * s, -0.55 * s); g.closePath(); g.stroke();
+  } else if (kind === 'duo') { // 두 속성 반반 원
+    const [a, c] = b.duo.map(e => ELEMENTS[e].color);
+    g.fillStyle = a; g.beginPath(); g.arc(0, 0, 0.7 * s, Math.PI / 2, Math.PI * 1.5); g.fill();
+    g.fillStyle = c; g.beginPath(); g.arc(0, 0, 0.7 * s, -Math.PI / 2, Math.PI / 2); g.fill();
+  }
+  g.restore();
+}
+function drawBoonIcon(b, cx, cy, r, lv) {
+  const col = boonColor(b), max = lv >= boonMaxLv(b);
+  ctx.fillStyle = 'rgba(10,14,18,0.78)';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  drawBoonGlyph(b, cx, cy, r * 0.62, col);
+  // 레벨 숫자 (최대면 금색)
+  const bx = cx + r * 0.72, by = cy + r * 0.72, br = r * 0.48;
+  ctx.fillStyle = max ? '#ffd24a' : '#1a1f28'; ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = max ? '#fff3c0' : col; ctx.lineWidth = 1; ctx.stroke();
+  label(String(lv), bx, by + 0.5, Math.round(br * 1.5), max ? '#3a2a00' : '#fff', 'center', '900');
+}
 function drawBoonIcons(x, y) {
-  const owned = BOONS.filter(b => G.boons[b.id]);
-  owned.forEach((b, i) => {
-    const cx = x + 10 + (i % 8) * 22, cy = y + Math.floor(i / 8) * 22;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = boonColor(b); ctx.lineWidth = 2; ctx.stroke();
-    ctx.font = `10px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff'; ctx.fillText(boonIcon(b).slice(0, 2), cx, cy + 1);
-    if (G.boons[b.id] > 1) label(String(G.boons[b.id]), cx + 8, cy + 7, 9, '#ffd24a');
-  });
+  const owned = BOONS.filter(b => G.boons[b.id]).sort((a, b) => boonSortKey(a) - boonSortKey(b));
+  const r = 11, step = 27, perRow = 8;
+  owned.forEach((b, i) => drawBoonIcon(b, x + r + (i % perRow) * step, y + Math.floor(i / perRow) * step, r, G.boons[b.id]));
 }
 
 function boonLayout() {
