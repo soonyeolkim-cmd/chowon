@@ -18,7 +18,8 @@ const PARRY_WIDE_R = 70;        // 교차 받아치기: 주변 적도 함께 벤
 const RIPOSTE_TIME = 0.14;      // 반격으로 베고 지나가는 시간 (무적)
 const RIPOSTE_SAFE = 0.35;      // 도착한 뒤에도 이만큼 무적
 const RIPOSTE_PAST = 30;        // 적을 지나 이만큼 더 간다
-const RIPOSTE_MAX = 150;        // 반격 돌진 최대 거리
+const RIPOSTE_MAX = 150;
+const PARRY_CHAIN_T = 2.0;      // 연속 반격: 이 안에 또 받아치면 연속으로 친다 (성공할 때마다 충전 한 칸을 돌려받는다, 2026-10-17)        // 반격 돌진 최대 거리
 const WHIRL_R = 40;             // 선풍 베기 반경
 const RUSH_AIM = { range: 140, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 
@@ -56,7 +57,7 @@ addWeapon('sai', {
     ['기본 · 3연타', `${A} ${A} ${A}`, '아주 빠르지만 짧다 · 3타째 X자 베기 · 가드 브레이크'],
     ['기세', '기본공격을 맞힐 때마다 +1 (최대 5)', `한 칸마다 공격 · 이동 속도 +5% · ${MOMENTUM_TIME}초 못 때리거나 맞으면 0`],
     ['차지 · 그림자 연참', `${A} 길게 눌렀다 떼기`, '앞으로 순식간에 지나가며 베기 · 무적 · 기세를 다 써서 한 칸마다 +20%'],
-    ['특수 · 받아치기', `${P} (쿨타임 3초)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2'],
+    ['특수 · 받아치기', `${P} (쿨타임 3초 · 2회 충전)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2 · 성공하면 충전 1칸 돌려받아 연속 반격'],
     ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.sai.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
     ['선풍 베기', `${D} → ${A}`, '한 바퀴 돌며 주변을 벤다', 'thrust'],
     ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 반격 치명타', 'dodge'],
@@ -192,7 +193,10 @@ extendPlayer({
     this.act = { kind: 'riposte', t: 0, dur: RIPOSTE_TIME + 0.3, dash: RIPOSTE_TIME, hit: new Set(), x0: this.x, y0: this.y, px: this.x, py: this.y, len, marks: [], wide: this.parryWide };
     if (this.parryWide) for (const t of G.targets()) { if (Math.hypot(t.x - this.x, t.y - this.y) < PARRY_WIDE_R + t.r) this.riposteHit(t); }
     this.momentum = Math.min(MOMENTUM_MAX, this.momentum + 2); this.momT = MOMENTUM_TIME;
-    G.text(this.x, this.y - 30, '받아치기!', '#7fe0ff', 16, 0.9);
+    // 연속 반격: 성공하면 쓴 충전을 돌려받아 바로 다음 받아치기로 이어 간다
+    if (this.specMax > 1) this.specStock = Math.min(this.specMax, this.specStock + 1);
+    this.parryChain = G.time - (this.parryLastT ?? -99) < PARRY_CHAIN_T ? (this.parryChain || 1) + 1 : 1; this.parryLastT = G.time;
+    G.text(this.x, this.y - 30, this.parryChain > 1 ? '연속 반격 ×' + this.parryChain + '!' : '받아치기!', this.parryChain > 1 ? '#ffe18a' : '#7fe0ff', 16 + Math.min(6, this.parryChain - 1), 0.9);
     G.fxRing(this.x, this.y, '#ffffff', 26); G.fxRing(this.x, this.y, '#7fe0ff', this.parryWide ? PARRY_WIDE_R : 44);
     G.burst(this.x, this.y - 4, 18, ['#ffffff', '#bff4ff', '#7fe0ff'], 220);
     G.hitstop = Math.max(G.hitstop, 0.08); G.shake = Math.max(G.shake, 6);
