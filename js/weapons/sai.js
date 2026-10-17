@@ -38,7 +38,7 @@ addWeapon('sai', {
   essence: '무기의 정수',
   unlockCost: 2,             // 영웅의 증표: 창 1 · 쌍검 2 · 마법봉 3 (뒤 무기일수록 하나씩 더, 2026-10-17)
   moves: { basic: '3연타', charged: '그림자 연참', special: '받아치기', dashAttack: '선풍 베기' },
-  chargeTime: 0.55,
+  chargeTime: 0.25, // 쌍검은 빠르게 모은다 (0.55 → 0.25, 누르고 0.22초 뒤부터 모으니 전체 0.77초 → 0.47초, 2026-10-17)
   specialCd: 3.0,
   cdPerLv: 0.4, cdPerMastery: 0.3, cdFloor: 1.5,
   speedMult: 1,
