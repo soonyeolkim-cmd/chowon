@@ -2086,8 +2086,128 @@ function drawVillage(blink) {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정 · 왼쪽 위 처음 화면'
-    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
+    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · ${padName(3)} 봉인 등급 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · ${keyNames().P} 봉인 등급 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
+  if (v.tierView) drawTierView();
+}
+
+// ── 봉인 등급 창: 왼쪽 등급 목록, 오른쪽 고른 등급의 내역 (반발 · 보상 · 증표 · 정수) (2026-10-17) ──
+// 등급이 늘어나도 위아래로 고르고 스크롤한다. 패드: ↑↓ 고르기 · A 정하기 · B / Y 닫기
+const TIER_ROW = 34;
+// 숫자 뒤 조사: 끝자리 읽는 소리로 (1 일 · 2 이 · 3 삼 …, 0 은 십 · 백)
+const josaEul = n => ['을', '을', '를', '을', '를', '를', '을', '을', '을', '를'][n % 10];
+const josaRo = n => ['으로', '로', '로', '으로', '로', '로', '으로', '로', '로', '로'][n % 10];
+function openTierView() {
+  const v = G.village;
+  v.tierView = { sel: Meta.data.tier - 1, t: 0, axis: 0, scroll: 0, drag: null };
+  tierScrollTo(v.tierView.sel);
+  v.msg = null; Sfx.pickup();
+}
+function tierViewLayout() {
+  const w = Math.min(W - 32, 720), h = Math.min(H - inset.t - inset.b - 24, 420);
+  const x = (W - w) / 2, y = Math.max(inset.t + 12, (H - h) / 2);
+  const listW = Math.min(250, w * 0.42);
+  const list = { x: x + 12, y: y + 44, w: listW, h: h - 100 };
+  const info = { x: list.x + listW + 14, y: y + 44, w: w - listW - 38, h: h - 56 };
+  const pick = { x: list.x, y: y + h - 48, w: listW, h: 36 }; // 정하기 버튼: 목록 바로 아래
+  const close = { x: x + w - 74, y: y + 8, w: 64, h: 28 };
+  return { x, y, w, h, list, info, pick, close, maxScroll: Math.max(0, TIER_MAX * TIER_ROW - list.h) };
+}
+function tierScrollTo(i) {
+  const tv = G.village.tierView, L = tierViewLayout(), top = i * TIER_ROW;
+  if (top < tv.scroll) tv.scroll = top;
+  if (top + TIER_ROW > tv.scroll + L.list.h) tv.scroll = top + TIER_ROW - L.list.h;
+  tv.scroll = clamp(tv.scroll, 0, L.maxScroll);
+}
+function tierPick(n) {
+  const v = G.village;
+  if (!tierOpen(n)) { v.tierView.msg = `봉인 등급 ${n - 1}${josaEul(n - 1)} 완주하면 열려요`; Sfx.block(); return; }
+  Meta.data.tier = n; Meta.save(); v.tierView = null;
+  const ti = tierInfo(n);
+  v.msg = `봉인 등급 ${n}${josaRo(n)} 정했어요 · 보상 ×${(ti.rewardMult * familiarMult(n)).toFixed(2)} · 반발 ${ti.curses.length}개`;
+  Sfx.boon();
+}
+function handleTierView(dt, inp) {
+  const tv = G.village.tierView, L = tierViewLayout();
+  tv.t += dt;
+  if (tv.t < 0.15) return;
+  if (inp.back || inp.reroll || inp.pause) { G.village.tierView = null; Sfx.pickup(); return; }
+  const vdir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0, dir = axisRepeat(tv, vdir, dt);
+  tv.axis = vdir;
+  if (dir) { const k = clamp(tv.sel + dir, 0, TIER_MAX - 1); if (k !== tv.sel) { tv.sel = k; tv.msg = null; tierScrollTo(k); Sfx.pickup(); } }
+  if (Input.wheel) { tv.scroll = clamp(tv.scroll + Input.wheel * 0.6, 0, L.maxScroll); Input.wheel = 0; }
+  if (tv.drag) { // 목록 끌어서 스크롤
+    const pt = Input.pointers.get(tv.drag.id);
+    if (pt) { if (Math.abs(pt.y - tv.drag.y) > 6) tv.drag.moved = true; tv.scroll = clamp(tv.drag.scroll0 - (pt.y - tv.drag.y), 0, L.maxScroll); }
+    else {
+      if (!tv.drag.moved) { const i = Math.floor((tv.drag.y - L.list.y + tv.scroll) / TIER_ROW); if (i >= 0 && i < TIER_MAX) { if (i === tv.sel) tierPick(i + 1); else { tv.sel = i; tv.msg = null; Sfx.pickup(); } } }
+      tv.drag = null;
+    }
+  }
+  if (inp.tap) {
+    if (inRectPt(inp.tap, L.close)) { G.village.tierView = null; Sfx.pickup(); return; }
+    if (inRectPt(inp.tap, L.pick)) { tierPick(tv.sel + 1); return; }
+    if (inRectPt(inp.tap, L.list)) {
+      let id = null;
+      for (const [pid, pt] of Input.pointers) if (Math.abs(pt.x - inp.tap.x) < 1 && Math.abs(pt.y - inp.tap.y) < 1) id = pid;
+      if (id !== null) tv.drag = { id, y: inp.tap.y, scroll0: tv.scroll, moved: false };
+      else { const i = Math.floor((inp.tap.y - L.list.y + tv.scroll) / TIER_ROW); if (i >= 0 && i < TIER_MAX) { if (i === tv.sel) tierPick(i + 1); else { tv.sel = i; Sfx.pickup(); } } }
+    }
+    return;
+  }
+  if (inp.confirm) tierPick(tv.sel + 1);
+}
+function drawTierView() {
+  const tv = G.village.tierView, L = tierViewLayout();
+  overlay(0.55);
+  ctx.fillStyle = 'rgba(16,20,28,0.97)'; ctx.fillRect(L.x, L.y, L.w, L.h);
+  ctx.strokeStyle = 'rgba(255,208,224,0.45)'; ctx.lineWidth = 1; ctx.strokeRect(L.x + 0.5, L.y + 0.5, L.w - 1, L.h - 1);
+  label('봉인 등급', L.x + 16, L.y + 22, 18, '#ffd0e0', 'left', '900');
+  label('등급이 오를수록 반발이 하나씩 붙고, 보상이 커져요', L.x + 110, L.y + 23, 11, '#aab', 'left', '600');
+  const c = L.close;
+  ctx.fillStyle = 'rgba(40,46,60,0.95)'; ctx.fillRect(c.x, c.y, c.w, c.h);
+  label('닫기', c.x + c.w / 2, c.y + c.h / 2 + 1, 12, '#ccd', 'center', '700');
+  // 목록
+  const Ls = L.list;
+  ctx.save(); ctx.beginPath(); ctx.rect(Ls.x, Ls.y, Ls.w, Ls.h); ctx.clip();
+  for (let i = 0; i < TIER_MAX; i++) {
+    const n = i + 1, y = Ls.y + i * TIER_ROW - tv.scroll;
+    if (y + TIER_ROW < Ls.y || y > Ls.y + Ls.h) continue;
+    const open = tierOpen(n), cleared = !!Meta.data.tierCleared[n], cur = Meta.data.tier === n, sel = tv.sel === i, ti = tierInfo(n);
+    ctx.fillStyle = sel ? 'rgba(110,40,70,0.95)' : 'rgba(30,34,46,0.9)'; ctx.fillRect(Ls.x, y + 1, Ls.w, TIER_ROW - 3);
+    if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(Ls.x + 1, y + 2, Ls.w - 2, TIER_ROW - 5); }
+    label((open ? '' : '🔒 ') + '봉인 등급 ' + n, Ls.x + 10, y + TIER_ROW / 2, 13, open ? (cur ? '#ffd24a' : '#fff') : '#778', 'left', '800');
+    const tag = cur ? '선택됨' : cleared ? '✓ 완주' : open ? `반발 ${ti.curses.length}` : '';
+    label(tag, Ls.x + Ls.w - 10, y + TIER_ROW / 2, 10, cur ? '#ffd24a' : cleared ? '#8ff0b0' : '#aab', 'right', '700');
+  }
+  ctx.restore();
+  if (L.maxScroll > 0) { // 스크롤 막대
+    const k = Ls.h / (TIER_MAX * TIER_ROW), bh = Ls.h * k, by = Ls.y + (tv.scroll / L.maxScroll) * (Ls.h - bh);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(Ls.x + Ls.w + 3, by, 3, bh);
+  }
+  // 고른 등급의 내역
+  const n = tv.sel + 1, ti = tierInfo(n), I = L.info, open = tierOpen(n), fm = familiarMult(n);
+  let y = I.y + 10;
+  label(`봉인 등급 ${n}`, I.x, y, 16, open ? '#ffd0e0' : '#778', 'left', '900'); y += 24;
+  label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? '  (익숙한 숲 ×0.5)' : ''}`, I.x, y, 12, fm < 1 ? '#ff8a7a' : '#c8b8ff', 'left', '700'); y += 18;
+  const cleared = !!Meta.data.tierCleared[n], eb = Meta.data.essBest[n] || 0;
+  label(`✦ 영웅의 증표: ${cleared ? '받음' : '처음 완주하면 1개'}`, I.x, y, 11, cleared ? '#8ff0b0' : '#ffd24a', 'left', '600'); y += 16;
+  label(`⚔ 무기의 정수: ${eb > STAGES_PER_WORLD * FINAL_STAGE ? '모두 받음' : eb ? `${stageLabel(eb)}까지 받음` : '아직 안 받음'}`, I.x, y, 11, '#ccd', 'left', '600'); y += 22;
+  label(ti.curses.length ? `봉인의 반발 ${ti.curses.length}개` : '봉인의 반발 없음', I.x, y, 12, ti.curses.length ? '#ff9a7a' : '#8a96a0', 'left', '800'); y += 18;
+  ti.curses.forEach((id, k) => {
+    const isNew = k === ti.curses.length - 1 && n > 1;
+    label((isNew ? '＋ ' : '· ') + CURSES[id].name, I.x + 4, y, 12, isNew ? '#ffb0a0' : '#e8d8d8', 'left', '700');
+    label(CURSES[id].desc, I.x + 120, y, 11, '#aab', 'left', '600');
+    y += 17;
+  });
+  if (n > 1 && ti.curses.length) label('＋ 표시는 이 등급에서 새로 붙는 반발', I.x, y + 4, 10, '#889', 'left', '600');
+  // 정하기 버튼
+  const P = L.pick, can = open && Meta.data.tier !== n;
+  ctx.fillStyle = can ? '#3f8a3b' : 'rgba(50,56,70,0.95)'; ctx.fillRect(P.x, P.y, P.w, P.h);
+  label(Meta.data.tier === n ? '지금 선택된 등급' : open ? '이 등급으로 도전' : '🔒 아직 잠김', P.x + P.w / 2, P.y + P.h / 2 + 1, 13, can ? '#fff' : '#99a', 'center', '800');
+  const d = Input.state.device;
+  const how = tv.msg || (d === 'touch' ? '등급을 탭해서 보고, 한 번 더 탭하거나 버튼으로 정해요' : d === 'gamepad' ? '↑↓ 고르기 · A 정하기 · B / Y 닫기' : '↑↓ 고르기 · Enter 정하기 · Esc 닫기');
+  label(how, L.x + L.w / 2, L.y + L.h + 12 > H - inset.b - 6 ? L.y + L.h - 8 : L.y + L.h + 12, 11, tv.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
 function villageAct(i) {
@@ -2095,14 +2215,7 @@ function villageAct(i) {
   if (i === -1) { openSettings('village'); return; } // ⚙ 설정
   if (i === -2) { villageGoTitle(); return; }        // 처음 화면
   if (i === items.length) { G.startRun(); return; }
-  if (i === items.length + 2) { // 봉인 등급 바꾸기 (열린 등급을 차례로)
-    const list = playableTiers(), k = list.indexOf(Meta.data.tier);
-    Meta.data.tier = list[(k + 1) % list.length]; Meta.save();
-    const ti = tierInfo(Meta.data.tier);
-    v.msg = list.length < 2 ? '세계 6까지 완주하면 다음 등급이 열려요'
-      : `봉인 등급 ${ti.n} · 보상 ×${(ti.rewardMult * familiarMult(ti.n)).toFixed(2)}${familiarMult(ti.n) < 1 ? ' (익숙한 숲 ×0.5)' : ''} · ${curseText(ti)}`;
-    Sfx.pickup(); return;
-  }
+  if (i === items.length + 2) { openTierView(); return; } // 봉인 등급 창 (목록 + 내역, 2026-10-17)
   if (i === items.length + 1) { // 난이도 바꾸기
     Meta.data.mode = Meta.data.mode === 'easy' ? 'normal' : 'easy'; Meta.save();
     v.msg = Meta.data.mode === 'easy' ? '쉬움 모드: 받는 피해가 1/3이에요 (보상은 같아요)' : '일반 모드로 바꿨어요';
@@ -2146,6 +2259,8 @@ function handleVillageInput(dt, inp) {
   for (const k in v.flash) v.flash[k] = Math.max(0, v.flash[k] - dt);
   if (v.t < 0.5) { Input.wheel = 0; return; }
   if (!v.armed) { if (inp.attackHeld || Input.pointers.size) return; v.armed = true; }
+  if (v.tierView) { handleTierView(dt, inp); return; }
+  if (inp.reroll) { openTierView(); return; } // 패드 Y · 키보드 특수 키: 봉인 등급 창
   let L = villageLayout();
   const n = L.items.length;
   const inRect = (pt, r) => pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
