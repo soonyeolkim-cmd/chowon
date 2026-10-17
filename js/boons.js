@@ -254,7 +254,7 @@ class FxShot {
     this.x += Math.cos(this.dir) * this.speed * dt;
     this.y += Math.sin(this.dir) * this.speed * dt;
     this.life -= dt;
-    if (this.life <= 0 || World.solidAt(this.x, this.y + 6)) { this.done = true; if (this.onEnd) this.onEnd(this); return; }
+    if (this.life <= 0 || World.shotBlockedAt(this.x, this.y + 6)) { this.done = true; if (this.onEnd) this.onEnd(this); return; }
     for (const t of G.targets()) {
       if (this.hit.has(t) || Math.hypot(t.x - this.x, t.y - this.y) > t.r + this.r) continue;
       this.hit.add(t);

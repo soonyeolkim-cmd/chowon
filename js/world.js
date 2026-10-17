@@ -135,6 +135,8 @@ const World = {
   },
 
   solidAt(px, py) { return SOLID[this.tile(Math.floor(px / TILE), Math.floor(py / TILE))]; },
+  // 날아가는 것(투사체)을 막는 칸: 나무 · 바위만. 물 위로는 날아간다
+  shotBlockedAt(px, py) { const v = this.tile(Math.floor(px / TILE), Math.floor(py / TILE)); return SOLID[v] && v !== T.WATER; },
 
   // 물을 헤엄쳐 건널 수 있는 몬스터 (갓파): 나무 · 바위만 막힌다
   swimBlocked(x, y, r) {

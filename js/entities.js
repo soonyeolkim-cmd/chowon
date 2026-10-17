@@ -1769,7 +1769,7 @@ class EnemyShot {
     }
     this.x += Math.cos(this.dir) * this.speed * dt;
     this.y += Math.sin(this.dir) * this.speed * dt;
-    if (this.life <= 0 || World.solidAt(this.x, this.y + 6)) { this.pop(); return; }
+    if (this.life <= 0 || World.shotBlockedAt(this.x, this.y + 6)) { this.pop(); return; } // 물 위로는 날아간다
     if (p.alive && Math.hypot(p.x - this.x, p.y - 4 - this.y) < this.r + p.r) {
       const before = p.hp;
       G.hurtPlayer(this.dmg, { x: this.x, y: this.y, attacking: true });
