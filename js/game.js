@@ -1517,6 +1517,22 @@ function drawSettings(blink) {
   }
 }
 
+// 마을의 '처음 화면' 버튼 (왼쪽 위, 루미 그림 자리). 패드 · 키보드에선 ⚙ 에서 ← 로 간다 (2026-10-17)
+function villageHome() { return { x: inset.l + 12, y: inset.t + 12, w: 96, h: 32 }; }
+function drawHome(r, sel) {
+  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(30,36,48,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
+  else { ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
+  // 도트 집 모양: 지붕 · 몸통 · 문
+  const hx = r.x + 18, hy = r.y + r.h / 2 + 1, c = sel ? '#ffd24a' : '#fff';
+  ctx.fillStyle = c;
+  ctx.beginPath(); ctx.moveTo(hx - 9, hy - 2); ctx.lineTo(hx, hy - 10); ctx.lineTo(hx + 9, hy - 2); ctx.closePath(); ctx.fill();
+  ctx.fillRect(hx - 6, hy - 3, 12, 10);
+  ctx.fillStyle = 'rgba(30,36,48,1)'; ctx.fillRect(hx - 2, hy + 1, 4, 6);
+  label('처음 화면', r.x + 34, r.y + r.h / 2 + 1, 12, c, 'left', '800');
+}
+function villageGoTitle() { Meta.save(); G.state = 'title'; G.titleT = 0; G.titleHeard = true; Sfx.pickup(); }
+
 // 마을의 설정 버튼 (톱니)
 function villageGear() { return { x: W - inset.r - 46, y: inset.t + 30, w: 34, h: 30 }; }
 function drawGear(r, sel) {
@@ -1969,7 +1985,7 @@ function drawVillage(blink) {
   label('숲 마을 · 정령의 제단', W / 2, inset.t + 20, 22, '#ffe08a', 'center', '900');
   label(`◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}`, W / 2, inset.t + 43, 13, '#c8a0ff', 'center', '800');
   label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
-  drawPortrait(ctx, 'lumi', inset.l + 34, inset.t + 32, 40);
+  drawHome(villageHome(), v.sel === -2);
   ['공통 강화', '무기 해금 · 선택'].forEach((name, i) => {
     const t = L.tabs[i], on = v.tab === i;
     ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(30,34,44,0.85)';
@@ -2046,7 +2062,7 @@ function drawVillage(blink) {
   const fm = familiarMult(ti.n);
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
-  const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정'
+  const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정 · 왼쪽 위 처음 화면'
     : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
@@ -2054,6 +2070,7 @@ function drawVillage(blink) {
 function villageAct(i) {
   const v = G.village, items = villageItems(v.tab);
   if (i === -1) { openSettings('village'); return; } // ⚙ 설정
+  if (i === -2) { villageGoTitle(); return; }        // 처음 화면
   if (i === items.length) { G.startRun(); return; }
   if (i === items.length + 2) { // 봉인 등급 바꾸기 (열린 등급을 차례로)
     const list = playableTiers(), k = list.indexOf(Meta.data.tier);
@@ -2135,6 +2152,7 @@ function handleVillageInput(dt, inp) {
   if (inp.pause) { openSettings('village'); return; }
   if (inp.tap) {
     if (inRect(inp.tap, villageGear())) { openSettings('village'); return; }
+    if (inRect(inp.tap, villageHome())) { villageGoTitle(); return; }
     const ti = L.tabs.findIndex(r => inRect(inp.tap, r));
     if (ti >= 0) { setTab(ti); return; }
     if (inRect(inp.tap, L.start)) { villageAct(n); return; }
@@ -2168,7 +2186,11 @@ function handleVillageInput(dt, inp) {
   if (inp.lb || inp.rb) { const d = inp.rb ? 1 : -1; if (inBar) barMove(d); else tabTo(nextTab(d)); return; }
   // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
-  if (hx && hx !== v.axisX) { if (inBar) barMove(hx); else tabTo(nextTab(hx)); }
+  if (hx && hx !== v.axisX) {
+    if (v.sel === -1 && hx < 0) { v.sel = -2; Sfx.pickup(); }      // ⚙ → 처음 화면
+    else if (v.sel === -2) { if (hx > 0) { v.sel = -1; Sfx.pickup(); } }
+    else if (inBar) barMove(hx); else tabTo(nextTab(hx));
+  }
   v.axisX = hx;
   // ↑↓: 목록 줄 이동. 아래 버튼 줄은 한 줄로 본다 (맨 아래 → 모험 떠나기, 버튼 줄에서 ↑ → 목록 마지막)
   // 순서: ⚙ → 목록 → 아래 버튼 줄 → 다시 ⚙ (길게 누르면 가속, 영역도 계속 넘어간다)
@@ -2176,7 +2198,7 @@ function handleVillageInput(dt, inp) {
   if (dir) {
     const rows = []; for (let k = 0; k < n; k++) if (selectable(k)) rows.push(k);
     let i;
-    if (v.sel === -1) i = dir > 0 ? (rows.length ? rows[0] : n) : n;
+    if (v.sel < 0) i = dir > 0 ? (rows.length ? rows[0] : n) : n;
     else if (inBar) i = dir < 0 ? (rows.length ? rows[rows.length - 1] : -1) : -1;
     else {
       const k = rows.indexOf(v.sel) + dir;
