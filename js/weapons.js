@@ -100,7 +100,7 @@ const WEAPONS = {
     name: '정령의 쌍검',
     style: '연타형 · 가장 빠른 쌍검 연타와 기세, 받아치기 · 사거리가 가장 짧음',
     essence: '무기의 정수',
-    unlockCost: 1,
+    unlockCost: 2,             // 영웅의 증표: 창 1 · 쌍검 2 · 마법봉 3 (뒤 무기일수록 하나씩 더, 2026-10-17)
     moves: { basic: '3연타', charged: '그림자 연참', special: '받아치기', dashAttack: '선풍 베기' },
     chargeTime: 0.55,
     specialCd: 3.0,
@@ -150,7 +150,7 @@ const WEAPONS = {
     name: '정령의 마법봉',
     style: '마법형 · 기본공격은 약하지만 마력 구슬을 모아 난사, 키울수록 탄막',
     essence: '무기의 정수',
-    unlockCost: 1,
+    unlockCost: 3,
     moves: { basic: '2연타', charged: '마법진', special: '마력탄', dashAttack: '마력 파동' },
     chargeTime: 0.55,
     specialCd: 0.12,     // = ORB_INTERVAL (아래 상수는 이 표보다 뒤에 있어서 숫자로)
