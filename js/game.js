@@ -130,13 +130,18 @@ const Music = (() => {
     pauseAll() { for (const k in els) els[k].pause(); },
   };
 })();
-// 적이 바라보는 방향: 방패병은 방패 방향, 나머지는 실제로 움직이는 방향 (가만히 있으면 마지막 방향 유지)
+// 적이 바라보는 방향 (그림과 기습 판정이 같이 쓴다): 플레이어 쪽으로 정해진 속도로 돌아본다.
+// 공격을 걸고 있으면 그 방향에 고정, 경직 · 넉백 중엔 못 돌아본다 → 대시로 돌아 들어가면 옆 · 뒤를 잡을 수 있다
+const ENEMY_TURN = 3.5, BOSS_TURN = 2.5; // 초당 회전(라디안): 180°를 약 0.9초 · 1.3초
 function trackHeading(e, x0, y0, dt) {
   if (e.type === 'shield') { e.heading = e.facing; return; }
-  if (e.kvx || e.kvy || e.stun > 0) return; // 넉백 · 경직으로 밀리는 건 바라보는 방향이 아니다
-  const dx = e.x - x0, dy = e.y - y0;
-  if (dx * dx + dy * dy > Math.pow(12 * dt, 2)) e.heading = Math.atan2(dy, dx);
-  else if (e.heading === undefined) e.heading = Math.atan2(G.player.y - e.y, G.player.x - e.x);
+  const p = G.player, want = Math.atan2(p.y - e.y, p.x - e.x);
+  if (e.heading === undefined) { e.heading = want; return; }
+  if (e.state === 'lunge' || (e.state === 'windup' && e.st <= 0.2)) { e.heading = e.lungeDir; return; }
+  if ((e.state === 'charge' || e.state === 'chargeWind') && e.dir !== undefined) { e.heading = e.dir; return; }
+  if (e.kvx || e.kvy || e.stun > 0 || e.frozenT > 0) return;
+  const diff = angDiff(want, e.heading), turn = (e.type === 'boss' ? BOSS_TURN : ENEMY_TURN) * dt;
+  e.heading += Math.abs(diff) <= turn ? diff : Math.sign(diff) * turn;
 }
 
 // 지금 들려줄 곡

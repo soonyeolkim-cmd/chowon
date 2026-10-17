@@ -1166,7 +1166,7 @@ class Enemy {
     g.globalAlpha = clamp(1 - this.spawnT / 0.5, 0, 1);
     const white = this.flash > 0;
     const p = G.player;
-    const look = Math.atan2(p.y - this.y, p.x - this.x);
+    const look = this.heading !== undefined ? this.heading : Math.atan2(p.y - this.y, p.x - this.x); // 돌아보는 중이면 그 방향
     const lx = Math.cos(look), ly = Math.sin(look);
 
     if (this.type === 'stump') {
