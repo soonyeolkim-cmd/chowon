@@ -18,6 +18,7 @@ const FACE_MIN = 0.35;
 // 자동 조준 고정: 방금 노린 적이 아직 범위 안이면, 다른 적이 이만큼 더 가깝지 않은 한 계속 그 적을 노린다
 const AIM_STICKY = 30;
 const SPEAR_AIM = { range: 110, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
+const SHOCK_AIM = { range: 140, half: AIM_HALF_ANGLE, moveHalf: 25 * Math.PI / 180 };
 const THROW_AIM = { range: 200, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 
 function applyKnockback(e, dt) {
@@ -53,13 +54,20 @@ const MOVES = {
   lunge:    { mult: 2.6, kb: 320, guardBreak: true },   // 관통 찌르기 (차지): 한 줄만 맞히는 대신 회전베기(2.2)보다 세다
   spear:    { mult: 1.25, kb: 120, guardBreak: false },   // 창 투척 (갈 때·올 때 한 번씩)
   sweep:    { mult: 1.0, kb: 240, guardBreak: true },   // 후려치기 (창 대시 공격)
+  // 건틀릿: 한 방은 약하지만 가장 빠르다
+  jab:       { mult: 0.75, kb: 120, guardBreak: false },
+  jabFin:    { mult: 1.3, kb: 300, guardBreak: true },   // 3타째 밀어치기
+  slam:      { mult: 2.4, kb: 260, guardBreak: true },   // 바위 내려찍기 (차지), 기세 한 칸마다 +20%
+  shockwave: { mult: 1.5, kb: 420, guardBreak: false },  // 충격파 (특수): 피해보다 밀어내기
+  upper:     { mult: 1.6, kb: 60, guardBreak: true },    // 올려치기 (대시 공격): 한 명을 띄워 기절
 };
 // 회전 연참(공격 축복): 회전베기 추가 타격의 피해 배율
 const MULTISPIN_MULT = 0.5;
 // 이보다 약한 방향 입력이면 기본공격 때 앞으로 나가지 않는다. 전진하는 매 프레임 다시 본다
 // (패드 스틱은 손을 떼도 몇 프레임 동안 기울어진 값이 남아서, 시작할 때만 보면 서서 쳐도 나가 버린다)
 const STEP_MIN = 0.5;
-const BASIC_KINDS = ['light', 'finisher', 'thrust', 'poke', 'pokeFin', 'sweep'];
+const BASIC_KINDS = ['light', 'finisher', 'thrust', 'poke', 'pokeFin', 'sweep', 'jab', 'jabFin', 'upper'];
+const MOMENTUM_KINDS = ['jab', 'jabFin', 'upper']; // 건틀릿 기세가 쌓이는 공격
 const DASH_CD = 0.7;        // 대시 1회 충전 시간 (초, 모든 무기 공통)
 const DASH_CHARGES = 2;     // 기본 대시 충전 횟수 (연속 대시)
 const DASH_TIME = 0.16;     // 대시 지속 시간
@@ -95,6 +103,7 @@ class Player {
     this.kvx = 0; this.kvy = 0;
     this.walk = 0; this.moving = false;
     this.trail = [];
+    this.momentum = 0; this.momT = 0; // 건틀릿 기세
   }
 
   stats() { return { lv: this.lv, xp: this.xp, hp: this.hp, maxHp: this.maxHp, atk: this.atk, boons: { ...G.boons } }; }
@@ -118,6 +127,7 @@ class Player {
     }
     this.bufferInput(inp);
     applyKnockback(this, dt);
+    if (this.momentum > 0 && (this.momT -= dt) <= 0) this.momentum = 0; // 한동안 못 때리면 기세가 식는다
     const mag = Math.min(1, Math.hypot(inp.mx, inp.my));
     this.inMag = mag;
 
@@ -148,7 +158,7 @@ class Player {
       if (this.moving) {
         if (!this.act && mag >= FACE_MIN) this.facing = Math.atan2(inp.my, inp.mx);
         if (mag >= FACE_MIN) this.aimBase = Math.atan2(inp.my, inp.mx);
-        const mul = (this.act ? 0.25 : this.charge > 0 ? 0.45 : 1) * (this.slowT > 0 ? 0.6 : 1) * G.slowAt(this.x, this.y);
+        const mul = (this.act ? 0.25 : this.charge > 0 ? 0.45 : 1) * (this.slowT > 0 ? 0.6 : 1) * G.slowAt(this.x, this.y) * this.momSpeed;
         const l = Math.hypot(inp.mx, inp.my), spd = this.speed * mag * mul;
         World.move(this, inp.mx / l * spd * dt, inp.my / l * spd * dt);
         this.walk += dt * mag;
@@ -234,6 +244,8 @@ class Player {
     this.dodgeT = 0.22;
     Sfx.dash();
   }
+
+  get momSpeed() { return 1 + MOMENTUM_SPEED * this.momentum; } // 기세: 공격 · 이동 속도
 
   // 다음 기본공격이 콤보 마무리 타인가 (검 3타째 · 창 2타째)
   get nextIsFinisher() { const n = this.weaponId === 'spear' ? 2 : 3; return this.comboT > 0 && (this.combo + 1) % n === n - 1; }
@@ -331,6 +343,85 @@ class Player {
     FX.onPierce(this, this.act.len);
   }
 
+  // ── 건틀릿 ──
+  // 3연타: 왼손 · 오른손 · 밀어치기. 가장 빠르고 가장 짧다
+  startJab(mag) {
+    this.combo = this.comboT > 0 ? (this.combo + 1) % 3 : 0;
+    this.aim(mag);
+    const fin = this.combo === 2, spd = this.momSpeed;
+    this.act = {
+      kind: fin ? 'jabFin' : 'jab', t: 0, dur: (fin ? 0.16 : 0.12) / spd, hit: new Set(),
+      range: fin ? FIST_FIN_REACH : FIST_REACH, half: fin ? 1.0 : 0.85, hand: this.combo === 1 ? -1 : 1,
+    };
+    this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
+    this.atkCd = (fin ? 0.34 : 0.17) * (1 - 0.15 * FX.lv('atk_combo')) / spd;
+    this.comboT = this.atkCd + 0.3;
+    this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 삼중 충격파
+    this.atkBuffer = 0;
+    Sfx.swing(fin);
+    FX.onSwing(this, fin);
+  }
+
+  // 바위 내려찍기 (차지): 앞쪽 땅을 내려쳐 범위 피해 + 기절. 기세를 다 써서 한 칸마다 +20%
+  get slamR() { return SLAM_R * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')); }
+  startSlam(mag) {
+    this.finisherT = 0;
+    this.aim(mag);
+    const ms = FX.lv('atk_multispin'), mom = this.momentum; // 연속 내려찍기: 레벨마다 여진 한 번 더
+    this.act = { kind: 'slam', t: 0, dur: 0.3 + 0.12 * ms, dur0: 0.3, hit: new Set(), r: this.slamR, mom, extra: ms, quakes: 0 };
+    this.atkCd = 0.45 + 0.1 * ms; this.charge = 0; this.comboT = 0;
+    this.momentum = 0;
+    G.text(this.x, this.y - 24, mom ? `바위 내려찍기 · 기세 ${mom}` : '바위 내려찍기', '#ffd24a', 12, 0.6);
+    Sfx.swing(true);
+    FX.onSlamStart(this);
+  }
+  slamHit(a, r, mult, kb) {
+    const cx = a.cx, cy = a.cy;
+    for (const t of G.targets()) {
+      if (a.hit.has(t)) continue;
+      const dx = t.x - cx, dy = t.y - cy, d = Math.hypot(dx, dy) || 1;
+      if (d > r + t.r) continue;
+      a.hit.add(t);
+      this.deal(t, 'slam', dx / d, dy / d, { mult, kb });
+      if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, SLAM_STUN);
+    }
+  }
+
+  // 충격파 (특수): 앞쪽 부채꼴을 한 번에 크게 밀어낸다. 날아오는 공격도 지운다. 3타째 직후엔 더 넓고 멀리
+  castShock(mag) {
+    this.aim(mag, SHOCK_AIM);
+    const triple = this.finisherT > 0 && G.has('triple');
+    const range = SHOCK_RANGE * (1 + 0.25 * FX.lv('atk_wave')) * (triple ? 1.3 : 1);
+    const half = triple ? 75 * Math.PI / 180 : SHOCK_HALF, f = this.facing;
+    for (const t of G.targets()) {
+      const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
+      if (d > range + t.r) continue;
+      if (d > t.r + 6 && Math.abs(angDiff(Math.atan2(dy, dx), f)) > half) continue;
+      this.deal(t, 'shockwave', dx / d, dy / d, { mult: triple ? 1.2 : 1 });
+    }
+    for (const s of G.eshots) {
+      if (s.done) continue;
+      const dx = s.x - this.x, dy = s.y - this.y, d = Math.hypot(dx, dy);
+      if (d < range + s.r && (d < 14 || Math.abs(angDiff(Math.atan2(dy, dx), f)) <= half)) s.pop();
+    }
+    if (triple) G.text(this.x, this.y - 24, '삼중 충격파!', '#7fe0ff', 13, 0.7);
+    this.finisherT = 0;
+    this.act = { kind: 'cast', t: 0, dur: 0.24, hit: new Set(), shock: { range, half, dir: f } };
+    G.shake = Math.max(G.shake, triple ? 5 : 3);
+    Sfx.wave(triple);
+    FX.onShock(this, range, half);
+  }
+
+  // 올려치기 (대시 직후 공격): 앞의 한 명을 띄워 기절시킨다
+  startUpper() {
+    this.finisherT = 0;
+    this.aim(Math.hypot(Input.state.mx, Input.state.my));
+    this.act = { kind: 'upper', t: 0, dur: 0.22, hit: new Set() };
+    this.atkCd = 0.4; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
+    G.text(this.x, this.y - 24, '올려치기', '#9cdcff', 11, 0.5);
+    Sfx.swing(true);
+  }
+
   // 창 투척: 갔다가 자동으로 돌아온다. 돌아올 때까지 공격할 수 없다
   // 2타째 직후에 던지면 정령의 힘으로 만든 창 두 자루가 함께 날아간다 (삼연 투척)
   throwSpear(mag) {
@@ -401,6 +492,49 @@ class Player {
 
   updateAct(dt) {
     const a = this.act, fx = Math.cos(this.facing), fy = Math.sin(this.facing);
+    if (a.kind === 'jab' || a.kind === 'jabFin') {
+      if (a.t < a.dur * 0.5 && !a.noStep && this.inMag >= STEP_MIN) World.move(this, fx * 100 * dt, fy * 100 * dt);
+      if (a.t > a.dur * 0.25) this.hitArc(a, a.range, a.half);
+      return;
+    }
+    if (a.kind === 'slam') {
+      const d0 = a.dur0, impact = d0 * 0.45;
+      if (a.t >= impact && !a.landed) { // 주먹이 땅에 닿는 순간
+        a.landed = true;
+        a.cx = this.x + fx * SLAM_OFF; a.cy = this.y + fy * SLAM_OFF * 0.8;
+        this.slamHit(a, a.r, 1 + MOMENTUM_SLAM * a.mom);
+        G.fxRing(a.cx, a.cy, a.mom >= MOMENTUM_MAX ? '#ffb84a' : '#d8c8a8', a.r);
+        G.burst(a.cx, a.cy, 14 + 2 * a.mom, ['#d8c8a8', '#8a7a64', '#fff'], 180);
+        G.shake = Math.max(G.shake, 5 + a.mom); Sfx.slam();
+        FX.onSlam(this, a.cx, a.cy, a.r);
+      }
+      // 연속 내려찍기: 여진이 점점 넓게 퍼진다 (피해 절반, 마지막에만 넉백)
+      if (a.landed && a.quakes < (a.extra || 0) && a.t >= impact + 0.12 * (a.quakes + 1)) {
+        a.quakes++; a.hit = new Set();
+        const r = a.r * (1 + 0.25 * a.quakes);
+        this.slamHit(a, r, MULTISPIN_MULT, a.quakes < a.extra ? 40 : undefined);
+        G.fxRing(a.cx, a.cy, '#7fe0ff', r); Sfx.slam();
+      }
+      return;
+    }
+    if (a.kind === 'upper') {
+      if (a.t < a.dur * 0.4) World.move(this, fx * 90 * dt, fy * 90 * dt);
+      if (!a.done && a.t > a.dur * 0.2) {
+        let best = null, bd = Infinity;
+        for (const t of G.targets()) {
+          const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy);
+          if (d > 40 + t.r || (d > t.r + 6 && Math.abs(angDiff(Math.atan2(dy, dx), this.facing)) > 1.05)) continue;
+          if (d < bd) { bd = d; best = t; }
+        }
+        if (best) {
+          a.done = true; a.hit.add(best);
+          this.deal(best, 'upper', fx, fy);
+          if (!best.dead && best.type !== 'boss' && !best.superArmor) best.stun = Math.max(best.stun || 0, UPPER_STUN);
+          G.burst(best.x, best.y - 8, 10, ['#fff', '#ffe18a'], 170);
+        }
+      }
+      return;
+    }
     if (a.kind === 'poke' || a.kind === 'pokeFin') {
       if (a.t < a.dur * 0.4 && !a.noStep && this.inMag >= STEP_MIN) World.move(this, fx * 60 * dt, fy * 60 * dt);
       if (a.t > a.dur * 0.2) this.hitSpear(a, a.len, SPEAR_WIDTH, SPEAR_PIERCE);
@@ -467,6 +601,11 @@ class Player {
 
   deal(t, kind, nx, ny, o = {}) {
     const m = MOVES[kind];
+    // 건틀릿 기세: 기본공격(연타 · 올려치기)이 맞으면 한 동작에 한 칸씩
+    if (MOMENTUM_KINDS.includes(kind) && this.act && !this.act.gained) {
+      this.act.gained = true; this.momT = MOMENTUM_TIME;
+      if (this.momentum < MOMENTUM_MAX && ++this.momentum === MOMENTUM_MAX) { G.text(this.x, this.y - 30, '기세 최대!', '#ffb84a', 12, 0.7); G.ring(this.x, this.y, '#ffb84a', 26); }
+    }
     let dmg = this.atk * m.mult * (o.mult || 1) * rand(0.9, 1.1) * (1 + G.chainBonus()) * FX.damageMult(this, kind, t);
     const kb = o.kb !== undefined ? o.kb : m.kb;
     let crit = Math.random() < FX.critChance(), counter = false;
@@ -518,7 +657,7 @@ class Player {
     const busy = this.act && this.act.kind !== 'cast';
     const row = this.dashT > 0 ? 5 : busy || this.charge > 0 ? 4 : this.moving ? Math.floor(this.walk * 9) % 4 : 0;
     const swordBehind = col === 1;
-    const weapon = (gg, wx, wy) => (this.weaponId === 'spear' ? this.drawSpear(gg, wx, wy) : this.drawSword(gg, wx, wy));
+    const weapon = (gg, wx, wy) => (this.weaponId === 'spear' ? this.drawSpear(gg, wx, wy) : this.weaponId === 'gauntlet' ? this.drawGauntlet(gg, wx, wy) : this.drawSword(gg, wx, wy));
     if (swordBehind) weapon(g, x, y);
     drawCell(g, 'hero', col, row, x, y + 13);
     if (!swordBehind) weapon(g, x, y);
@@ -649,6 +788,58 @@ class Player {
     }
   }
 
+  // 건틀릿: 바위 주먹 두 개 + 기세 칸
+  drawGauntlet(g, x, y) {
+    const cy = y - 1, a = this.act, f = this.facing, c = Math.cos(f), s = Math.sin(f), px = -s, py = c;
+    const at = (fwd, side, up = 0) => [x + c * fwd + px * side, cy + s * fwd + py * side - up];
+    let L = at(5, -7), R = at(5, 7), big = 1;
+    if (a && (a.kind === 'jab' || a.kind === 'jabFin')) {
+      const pr = a.t / a.dur, ext = pr < 0.4 ? pr / 0.4 : 1 - (pr - 0.4) / 0.6, reach = a.range - 6;
+      if (a.kind === 'jabFin') { big = 1.25; L = at(5 + ext * reach, -5); R = at(5 + ext * reach, 5); }
+      else if (a.hand > 0) R = at(5 + ext * reach, 7 * (1 - ext * 0.7));
+      else L = at(5 + ext * reach, -7 * (1 - ext * 0.7));
+      if (ext > 0.5) { // 주먹 궤적
+        const tip = a.kind === 'jabFin' ? at(5 + ext * reach, 0) : a.hand > 0 ? R : L, bs = ElFx.slot('basic');
+        if (bs) { ElFx.line(g, bs, x + c * 8, cy + s * 8, tip[0], tip[1], a.kind === 'jabFin' ? 5 : 3, 0.8 * ext); if (Math.random() < 0.5) ElFx.spark(bs, tip[0], tip[1]); }
+        else { g.strokeStyle = `rgba(255,255,255,${0.6 * ext})`; g.lineWidth = a.kind === 'jabFin' ? 4 : 2; g.beginPath(); g.moveTo(x + c * 8, cy + s * 8); g.lineTo(tip[0], tip[1]); g.stroke(); }
+      }
+    } else if (a && a.kind === 'slam') {
+      const pr = a.t / a.dur0;
+      big = 1.3;
+      if (!a.landed) { const up = 10 + 10 * Math.min(1, pr / 0.45); L = at(2, -4, up); R = at(2, 4, up); }
+      else {
+        L = [a.cx - 4, a.cy - 2]; R = [a.cx + 4, a.cy - 2];
+        const k = clamp((a.t - a.dur0 * 0.45) / 0.35, 0, 1), cs = ElFx.slot('charge');
+        g.strokeStyle = `rgba(60,48,36,${0.7 * (1 - k)})`; g.lineWidth = 2; // 갈라진 땅
+        for (let i = 0; i < 6; i++) { const q = i / 6 * Math.PI * 2 + 0.3, r = a.r * (0.4 + 0.5 * k); g.beginPath(); g.moveTo(a.cx, a.cy); g.lineTo(a.cx + Math.cos(q) * r * 0.55, a.cy + Math.sin(q) * r * 0.4 + 3); g.lineTo(a.cx + Math.cos(q + 0.2) * r, a.cy + Math.sin(q + 0.2) * r * 0.75); g.stroke(); }
+        if (cs) ElFx.arc(g, cs, a.cx, a.cy, a.r * (0.5 + 0.5 * k), 0, Math.PI * 2, 4, 0.7 * (1 - k));
+      }
+    } else if (a && a.kind === 'upper') {
+      const pr = a.t / a.dur, ext = Math.min(1, pr / 0.5);
+      big = 1.15; R = at(8 + ext * 18, 4, ext * 18);
+    } else if (a && a.kind === 'cast' && a.shock) {
+      const sh = a.shock, k = clamp(a.t / 0.15, 0, 1), fade = 1 - a.t / a.dur, ss = ElFx.slot('special');
+      L = at(16, -5); R = at(16, 5); big = 1.2;
+      for (const m of [1, 0.72]) {
+        const r = sh.range * k * m;
+        if (r < 8) continue;
+        if (ss) ElFx.arc(g, ss, x, cy, r, sh.dir - sh.half, sh.dir + sh.half, m === 1 ? 6 : 3, 0.8 * fade);
+        else { g.strokeStyle = `rgba(220,236,255,${(m === 1 ? 0.85 : 0.45) * fade})`; g.lineWidth = m === 1 ? 6 : 3; g.beginPath(); g.arc(x, cy, r, sh.dir - sh.half, sh.dir + sh.half); g.stroke(); }
+      }
+    }
+    for (const [hx, hy] of [L, R]) fistSprite(g, hx, hy, f, big);
+    // 기세 칸: 머리 위 작은 점 다섯 개
+    if (this.momentum > 0) {
+      const n = MOMENTUM_MAX, full = this.momentum >= n, by = y - 30, fade = clamp(this.momT / 0.5, 0.35, 1);
+      for (let i = 0; i < n; i++) {
+        const bx = x + (i - (n - 1) / 2) * 6, on = i < this.momentum;
+        if (on && full) { g.fillStyle = `rgba(255,184,74,${0.35 + Math.sin(G.time * 12) * 0.15})`; g.beginPath(); g.arc(bx, by, 3.6, 0, Math.PI * 2); g.fill(); }
+        g.fillStyle = on ? `rgba(255,184,74,${fade})` : 'rgba(255,255,255,0.25)';
+        g.beginPath(); g.arc(bx, by, 2, 0, Math.PI * 2); g.fill();
+      }
+    }
+  }
+
   // 도트 검 (칼끝이 위를 향한 그림을 각도에 맞춰 돌린다)
   blade(g, x, y, a) {
     const im = ART.img.sword, w = im.width * PIX, h = im.height * PIX;
@@ -661,6 +852,17 @@ class Player {
 }
 
 // 창 그림: 손잡이 위치(x, y)에서 각도 a 로, ext 만큼 앞으로 내민다
+// 바위 주먹 하나 (도트 느낌의 둥근 돌 + 손가락 마디)
+function fistSprite(g, x, y, a, k = 1) {
+  const r = 4.5 * k;
+  g.fillStyle = '#3a332b'; g.beginPath(); g.arc(x, y, r + 1.2, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#9a8f80'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#c8bca8'; g.beginPath(); g.arc(x - r * 0.3, y - r * 0.35, r * 0.45, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#5a5044'; g.lineWidth = 1;
+  const c = Math.cos(a), s = Math.sin(a);
+  g.beginPath(); g.moveTo(x + c * r * 0.5 - s * r * 0.6, y + s * r * 0.5 + c * r * 0.6); g.lineTo(x + c * r * 0.5 + s * r * 0.6, y + s * r * 0.5 - c * r * 0.6); g.stroke();
+}
+
 function spearSprite(g, x, y, a, ext) {
   const im = ART.img.spear, w = im.width * PIX, h = im.height * PIX;
   g.save();

@@ -35,7 +35,7 @@ const KILL_DROP_MULT = 0.5;   // 마물 처치로 나오는 조각은 적게 (�
 const SHARD_BOSS = 4;         // × 세계 번호
 const SHARD_ALL_CLEAR = 15;   // 세계 3까지 완주
 
-// 영웅의 증표: 최종 보스(세계 3)를 쓰러뜨릴 때마다 1개. 새 무기를 해금하는 데 쓴다.
+// 영웅의 증표: 봉인 등급마다 처음 완주(세계 6 보스)할 때 1개. 새 무기를 해금하는 데 쓴다.
 const EMBLEM_PER_CLEAR = 1;
 // 무기의 정수: 모든 무기의 숙련 강화에 쓰는 공통 재화 (어떤 무기로 플레이해도 모인다)
 // 무기의 정수: 봉인 등급마다 '처음 넘은 지점'에서만 준다 (이미 받은 스테이지 · 보스는 다시 안 준다). 2026-10-17
@@ -64,6 +64,10 @@ const TEST_BUILDS = {
   throw: { weapon: 'spear', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
   // 투창 마스터: 피뢰 창(Lv5) · 투척 강화 · 과충전 · 치유의 회수 · 날카로운 창 · 급소 · 기습 (+ 투척 숙련 3)
   javelin: { weapon: 'spear', mastery: { wave: 3 }, boons: { elec_special: 5, atk_wave: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3, ambush: 3 } },
+  // 건틀릿 첫 손맛: 축복 없이 무기만 (숙련도 0)
+  gauntlet: { weapon: 'gauntlet', mastery: {}, boons: {} },
+  // 건틀릿 내려찍기 빌드: 화염 내려찍기 · 연속 내려찍기 · 내려찍기 강화 · 불꽃 주먹 · 연속 주먹 · 수호의 내려찍기
+  quake: { weapon: 'gauntlet', mastery: { spin: 3 }, boons: { fire_charge: 3, atk_multispin: 3, atk_spin: 3, fire_basic: 3, atk_combo: 3, guard_spin: 3, sharp: 3 } },
   bolt: { weapon: 'sword', mastery: { combo: 3 }, boons: { elec_basic: 3, elec_chain: 3, static: 3, overcharge: 3, atk_combo: 3, sharp: 3, vital: 3, ambush: 3 } },
 };
 const DEV_BUILD = DEV_LOCAL ? TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null : null;
