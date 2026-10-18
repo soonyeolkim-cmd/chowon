@@ -1,8 +1,8 @@
 'use strict';
 // 봉인 등급: 한 번의 모험으로 세계 1~6을 모두 지나야 완주. 처음 완주하면 다음 등급이 열린다.
 // 등급이 오를수록 '봉인의 반발'(불리한 규칙)이 하나씩 더 붙는다. 대신 보상 배율이 오른다.
-//   등급 1 = 반발 없음, 등급 7 = 반발 6개 전부
-//   영웅의 증표: 봉인 등급을 처음 완주할 때마다 1개 (등급 1~7, 모두 7개). 2026-10-17
+//   등급 1 = 반발 없음, 등급 8 = 반발 7개 전부
+//   영웅의 증표: 봉인 등급을 처음 완주할 때마다 1개 (등급 1~8, 모두 8개). 2026-10-17
 // 쉬움 모드로 깨도 모두 인정된다.
 
 const ROUTES = {
@@ -13,12 +13,13 @@ const CURSES = {
   hp:    { name: '단단한 마물',   desc: '마물 체력 +20%' },
   wave:  { name: '끝없는 부름',   desc: '봉인석 웨이브 +1' },
   dmg:   { name: '날카로운 이빨', desc: '마물 공격력 +15%' },
+  volley: { name: '빗발치는 화살', desc: '원거리 마물이 줄지 않고 모두 나온다' },
   swift: { name: '성난 사수',     desc: '원거리 마물 공격 간격 -20%' },
   rage:  { name: '분노한 주인',   desc: '보스가 처음부터 격노' },
   heal:  { name: '메마른 숲',     desc: '회복량 절반' },
 };
-const CURSE_ORDER = ['hp', 'wave', 'dmg', 'swift', 'rage', 'heal'];
-const TIER_MAX = 1 + CURSE_ORDER.length; // 7
+const CURSE_ORDER = ['hp', 'wave', 'dmg', 'volley', 'swift', 'rage', 'heal']; // volley 추가 2026-10-18
+const TIER_MAX = 1 + CURSE_ORDER.length; // 8
 
 function tierInfo(n) {
   const curses = CURSE_ORDER.slice(0, n - 1);

@@ -144,6 +144,8 @@ const ENEMY_POOLS = [
 ];
 const NEEDS_WATER = ['fish']; // 물이 있는 지도에만 나오는 몬스터
 const SPAWN_MIN_FROM_PLAYER = 100; // 웨이브 마물이 생기는 자리: 플레이어와 최소 이만큼 (2026-10-17)
+// 웨이브마다 원거리 마물을 이만큼 근접 마물로 바꾼다 (세계 1~6). 봉인 등급 '빗발치는 화살' 반발이면 안 바꾼다 (2026-10-18)
+const RANGED_CUT = [2, 3, 4, 5, 5, 6];
 const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard', 'babydragon']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
 // 루미의 조언: 같은 조언은 한 판에 한 번, 모두 합쳐 이 횟수까지만 (익숙해지면 그만 말한다)
 const HINT_MAX = 1; // 같은 조언은 한 번만 (3 → 1, 너무 자주 나온다는 의견 2026-10-17)
@@ -705,9 +707,21 @@ const G = {
         if (ENEMY_COST[t] > budget) t = BOSS_MINION[Math.min(this.stage, BOSS_MINION.length) - 1]; // 남은 점수가 적으면 그 세계의 1점짜리
         list.push(t); budget -= ENEMY_COST[t];
       }
+      if (!curse('volley')) this.cutRanged(list);
       this.waves.push(list);
     }
     this.waveIdx = -1; this.waveT = 1.2; this.spawnQueue = [];
+  },
+  // 원거리 마물 몇 마리를 같은 세계의 근접 마물로 바꾼다 (근접이 없으면 그대로)
+  cutRanged(list) {
+    let pool = ENEMY_POOLS[Math.min(this.stage, ENEMY_POOLS.length) - 1].filter(([t]) => !ENEMY[t].ranged);
+    if (!World.tiles.includes(T.WATER)) pool = pool.filter(([t]) => !NEEDS_WATER.includes(t));
+    if (!pool.length) return;
+    const total = pool.reduce((s, [, w]) => s + w, 0);
+    const melee = () => { let r = Math.random() * total; for (const [t, w] of pool) { if ((r -= w) <= 0) return t; } return pool[0][0]; };
+    let n = RANGED_CUT[Math.min(this.stage, RANGED_CUT.length) - 1];
+    const idx = list.map((t, i) => (ENEMY[t].ranged ? i : -1)).filter(i => i >= 0);
+    while (n-- > 0 && idx.length) { const k = (Math.random() * idx.length) | 0; list[idx[k]] = melee(); idx.splice(k, 1); }
   },
   // 웨이브의 마물은 플레이어에게서 SPAWN_MIN_FROM_PLAYER 이상 떨어진 곳에 나온다
   // 웨이브의 마물은 한꺼번에가 아니라 0.3초 간격으로 차례차례 나온다
