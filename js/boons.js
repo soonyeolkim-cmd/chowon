@@ -48,7 +48,18 @@ const COMBO_SPEED = 0;
 const COMBO_FIN = 0;
 const ECHO_MULT = 0.5;      // 잔상 한 번의 피해 (마지막 타의 50%)
 const ECHO_DELAY = 0.16;    // 처음 잔상이 치기까지 · 잔상 사이 간격 (초)
-const ECHO_FLASH = 0.05;    // 잔상이 친 자국이 보이는 시간 (0.1 → 0.05, 번쩍 하고 바로 사라진다)
+const ECHO_FLASH = 0.12;    // 잔상 그림(도트 4장)이 넘어가는 시간: 빠르게 휙 (2026-10-18)
+const ECHO_COLOR = '#8fd8ff'; // 잔상 색: 방패 막기 이펙트 같은 푸른빛
+// 그림을 한 색으로 물들여 둔다 (그림 · 색마다 한 번만 만든다)
+const _tintCache = new Map();
+function tintedBy(img, color) {
+  const key = img.src + color; let cv = _tintCache.get(key);
+  if (cv || !img.width) return cv || img;
+  cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+  const x = cv.getContext('2d'); x.drawImage(img, 0, 0);
+  x.globalCompositeOperation = 'source-atop'; x.globalAlpha = 0.7; x.fillStyle = color; x.fillRect(0, 0, cv.width, cv.height);
+  _tintCache.set(key, cv); return cv;
+}
 const WAVE_DMG = 0.1;       // 거대 검기(무기마다 특수 강화): 레벨마다 특수공격 피해 +10% (2026-10-18 추가)
 // 돌진 강화(무기마다 대시 공격 강화) = 다단히트 (2026-10-18): 1레벨부터 2번 더 몰아친다(고정), 2 · 3레벨은 대시 공격 피해만 조금씩
 const DASH_ECHO_HITS = 2;
@@ -221,16 +232,19 @@ class EchoStrike {
     }
     if (this.t >= this.delay + ECHO_FLASH) this.done = true;
   }
+  // 그림: 에셋 팩 도트 베기 그림(SlashCurved · CircularSlash)을 방패 막기 이펙트 같은 푸른빛으로, 4장을 빠르게 넘기고 끝 (2026-10-18)
   draw(g) {
     if (!this.fired || !this.shape) return;
-    const k = clamp((this.t - this.delay) / ECHO_FLASH, 0, 1), al = 1 - k, S = this.shape, cy = this.y - 4;
-    g.save(); g.lineCap = 'round';
-    if (S.line) {
-      const c = Math.cos(this.dir), s = Math.sin(this.dir);
-      for (const [w, a] of [[3.5, 0.25], [1.5, 0.85]]) { g.strokeStyle = `rgba(255,240,210,${a * al})`; g.lineWidth = w; g.beginPath(); g.moveTo(this.x + c * 14, cy + s * 14); g.lineTo(this.x + c * S.line, cy + s * S.line); g.stroke(); }
+    const k = clamp((this.t - this.delay) / ECHO_FLASH, 0, 0.999), fr = Math.floor(k * 4) * 32, S = this.shape, cy = this.y - 4;
+    g.save(); g.globalAlpha = 0.95;
+    if (!S.line && S.half >= Math.PI) { // 둘레 (선풍 베기 · 마력 파동 · 후려치기)
+      const img = tintedBy(ART.img.circSlash, ECHO_COLOR), sz = S.range * 2;
+      g.drawImage(img, fr, 0, 32, 32, Math.round(this.x - sz / 2), Math.round(cy - sz / 2), sz, sz);
     } else {
-      const r = S.range - 6, a0 = this.dir - S.half * 0.55, a1 = this.dir + S.half * 0.55; // 칼자국은 짧게
-      for (const [w, a] of [[3.5, 0.25], [1.5, 0.85]]) { g.strokeStyle = `rgba(255,240,210,${a * al})`; g.lineWidth = w; g.beginPath(); g.arc(this.x, cy, r, a0, a1); g.stroke(); }
+      const img = tintedBy(ART.img.slash, ECHO_COLOR);
+      g.translate(this.x, cy); g.rotate(this.dir);
+      if (S.line) g.drawImage(img, fr, 0, 32, 32, 8, -12, S.line, 24); // 찌르기 · 돌진 길: 길게 늘인 베기
+      else { const s = S.range * 1.1; g.drawImage(img, fr, 0, 32, 32, S.range * 0.45 - s / 2, -s / 2, s, s); }
     }
     g.restore();
   }

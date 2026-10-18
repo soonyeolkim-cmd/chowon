@@ -271,8 +271,7 @@ extendPlayer({
       a.shock.add(t);
       this.deal(t, 'chargeShock', dx / d, dy / d);
     }
-    G.fxRing(cx, cy, '#ffd28a', SHIELD_CHARGE_SHOCK_R); G.fxRing(cx, cy, '#ffffff', SHIELD_CHARGE_SHOCK_R * 0.6);
-    for (let i = 0; i < 8; i++) { const k = i / 8 * Math.PI * 2; G.dust(cx + Math.cos(k) * 18, cy + Math.sin(k) * 12 + 6); }
+    if (!a.ringed) { a.ringed = true; G.projectiles.push(new DustRing(cx, cy, SHIELD_CHARGE_SHOCK_R * 0.75, 6)); } // 도트 흙먼지 고리: 돌진 한 번에 한 번만 (2026-10-18)
     G.shake = Math.max(G.shake, 5); Sfx.slam();
   },
   // 후려치기 (대시 공격): 방패를 들어 앞을 내려찍는다
@@ -337,9 +336,13 @@ extendPlayer({
       if (e > 0.5) { const bs = ElFx.slot('basic'); if (bs) ElFx.arc(g, bs, x, cy, a.range - 4, f - a.half * 0.6, f + a.half * 0.6, 4, 0.7 * e); else { g.strokeStyle = `rgba(255,240,210,${0.7 * e})`; g.lineWidth = 3; g.beginPath(); g.arc(x, cy, a.range - 4, f - a.half * 0.6, f + a.half * 0.6); g.stroke(); } }
     } else if (a && a.kind === 'shieldSpin') {
       const p = clamp(a.t / a.dur, 0, 1), ang = a.a0 + Math.PI * 2 * p;
-      const ss = ElFx.slot('special');
-      if (ss) ElFx.arc(g, ss, x, cy, a.r * 0.6, ang - 2.2, ang, 6, 0.8);
-      else { g.strokeStyle = 'rgba(255,240,210,0.75)'; g.lineWidth = 6; g.beginPath(); g.arc(x, cy, a.r * 0.6, ang - 2.2, ang); g.stroke(); }
+      // 막기 이펙트와 같은 도트 방패 호가 몸 둘레를 돈다 (2026-10-18, 선 → 도트 그림)
+      const ss = ElFx.slot('special'), im = ss ? tintedBy(ART.img.guardFx, EL_STYLE[ss.el].main) : ART.img.guardFx, fr = Math.min(5, Math.floor(p * 6)) * 24;
+      for (const [back, al] of [[0.9, 0.45], [0, 1]]) {
+        const q = ang - back, R = a.r * 0.6;
+        g.save(); g.globalAlpha = al * (1 - p * 0.3); g.translate(x + Math.cos(q) * R, cy + Math.sin(q) * R * 0.8); g.rotate(q + Math.PI / 2);
+        g.drawImage(im, fr, 0, 24, 26, -20, -22, 40, 44); g.restore();
+      }
       shieldSprite(g, x + Math.cos(ang) * 16, cy + Math.sin(ang) * 11, 1, glow);
     } else if (a && a.kind === 'quake') {
       const p = clamp(a.t / a.dur0, 0, 1), lift = p < 0.3 ? p / 0.3 : 0, down = p >= 0.3;
@@ -412,7 +415,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       } else if (!a.ended) { // 끝: 붙잡은 적을 크게 밀쳐낸다
         a.ended = true;
         for (const t of a.carry) if (!t.dead) { t.kvx = c * 520; t.kvy = s * 520; }
-        G.fxRing(this.x + c * 16, this.y + s * 10, '#ffd28a', 34); G.shake = Math.max(G.shake, 5); Sfx.slam();
+        G.projectiles.push(new DustRing(this.x + c * 16, this.y + s * 10, 20, 4)); G.shake = Math.max(G.shake, 5); Sfx.slam();
       }
       return true;
     }
@@ -461,6 +464,22 @@ Object.assign(FX, {
   },
 });
 
+// 도트 흙먼지 고리: 한 점에서 흙먼지(FX/Smoke) n개가 둘레로 퍼지며 사라진다 (방패 돌진 충격파 등, 2026-10-18)
+class DustRing {
+  constructor(x, y, r, n) { Object.assign(this, { x, y, r, n, t: 0, done: false }); }
+  update(dt) { this.t += dt; if (this.t >= DUST_RING_T) this.done = true; }
+  draw(g) {
+    const q = clamp(this.t / DUST_RING_T, 0, 0.999), fr = Math.floor(q * 6) * 32, R = this.r * (0.45 + 0.55 * q), sz = 15;
+    g.save(); g.globalAlpha = 0.9 - q * 0.3;
+    for (let i = 0; i < this.n; i++) {
+      const a = i / this.n * Math.PI * 2 + 0.3, px = this.x + Math.cos(a) * R, py = this.y + 4 + Math.sin(a) * R * 0.7;
+      g.drawImage(ART.img.smoke, fr, 0, 32, 32, Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz);
+    }
+    g.restore();
+  }
+}
+const DUST_RING_T = 0.28;
+
 // 방패 강타 충격파: 플레이어 앞에서 부채꼴로 퍼져 나가며, 앞머리가 지나가는 적을 한 번씩 맞힌다 (2026-10-17)
 class QuakeWave {
   constructor(p, maxR, hit, stun, opts, after) {
@@ -487,17 +506,17 @@ class QuakeWave {
     }
     if (this.r >= this.maxR) this.done = true;
   }
+  // 그림: 선 대신 에셋 팩 도트 흙먼지(FX/Smoke)가 충격파 앞머리를 따라 퍼진다 (2026-10-18, 막기 이펙트처럼 도트 그림으로)
   draw(g) {
-    const k = 1 - clamp((this.r - QUAKE_NEAR) / (this.maxR - QUAKE_NEAR), 0, 1), f = this.dir, cs = ElFx.slot('charge');
-    const col = this.after ? '170,210,230' : '200,170,120';
-    const vis = 0.7 * k * k; // 멀어질수록 빨리 흐려진다
-    for (const [rr, w, al, white] of [[this.r, 4, vis * 0.55], [this.r, 1.5, vis * 0.7, true]]) { // 흙빛 굵은 선 + 가는 밝은 선 (예전: 3겹 굵은 금빛)
-      if (rr <= 0) continue;
-      g.save(); g.translate(this.x, this.y); g.scale(1, 0.75); // 땅 위를 퍼지는 느낌으로 살짝 납작하게
-      if (cs && !this.after && !white) ElFx.arc(g, cs, 0, 0, rr, f - SHIELD_QUAKE_HALF * 0.7, f + SHIELD_QUAKE_HALF * 0.7, w, al);
-      else { g.strokeStyle = white ? `rgba(255,240,210,${al})` : `rgba(${col},${al})`; g.lineWidth = w; g.beginPath(); g.arc(0, 0, rr, f - SHIELD_QUAKE_HALF * 0.7, f + SHIELD_QUAKE_HALF * 0.7); g.stroke(); } // 선은 부채꼴보다 짧게
-      g.restore();
+    const q = clamp((this.r - QUAKE_NEAR) / (this.maxR - QUAKE_NEAR), 0, 1), f = this.dir, cs = ElFx.slot('charge');
+    const img = this.after ? tintedBy(ART.img.smoke, '#9fdcff') : cs ? tintedBy(ART.img.smoke, EL_STYLE[cs.el].main) : ART.img.smoke;
+    const fr = Math.min(5, Math.floor(q * 6)) * 32, sz = 20 - q * 4;
+    g.save(); g.globalAlpha = 0.9 - q * 0.4;
+    for (const o of [-0.6, 0, 0.6]) {
+      const a = f + o * SHIELD_QUAKE_HALF, px = this.x + Math.cos(a) * this.r, py = this.y + Math.sin(a) * this.r * 0.75 + 4;
+      g.drawImage(img, fr, 0, 32, 32, Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz);
     }
+    g.restore();
   }
 }
 
