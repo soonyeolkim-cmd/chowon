@@ -32,8 +32,13 @@ const POISON_SRC = ['poison_basic', 'poison_spray', 'poison_charge', 'poison_spe
 // 상태이상 기본 수치
 const SHOCK_VULN = 0.2;     // 감전된 적이 받는 피해 +20%
 // 얼음 (2026-10-17: 너무 강해서 낮춤) — 빙결 4 → 6중첩, 빙결 시간 1+0.5×Lv → 1+0.25×Lv초, 녹은 뒤 3초는 다시 안 얼고, 큰 냉기(차지 · 특수) 1+Lv → 1+⌈Lv/2⌉
-const FREEZE_AT = 6;
-const FREEZE_IMMUNE = 3;
+// 2026-10-18 얼음 버프: 빙결 6 → 4중첩, 다시 안 어는 시간 3 → 2초, 동상(냉기 중첩마다 받는 피해 +5%), 보스는 빙결 대신 얼음 균열
+const FREEZE_AT = 4;
+const FREEZE_IMMUNE = 2;
+const FROSTBITE_VULN = 0.05;   // 동상: 냉기 1중첩마다 받는 피해 +5% (빙결 중이면 최대치)
+const ICE_CRACK_VULN = 0.25;   // 보스 얼음 균열: 받는 피해 +25%
+const ICE_CRACK_T = 3;         // 얼음 균열 지속
+const ICE_CRACK_STAGGER = 0.5; // 얼음 균열: 보스가 잠깐 멈춘다
 const freezeTime = lv => 1 + 0.25 * Math.max(1, lv);
 const iceBig = lv => 1 + Math.ceil(lv / 2);
 const POISON_MAX = 8;       // 독 최대 중첩
@@ -57,9 +62,9 @@ const BOONS = [
   { id: 'chain_burst', el: 'fire', name: '연쇄 폭발', req: () => ownsAny(BURN_SRC),
     desc: lv => `화상 상태로 쓰러진 적이 폭발해 주변에 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
 
-  // ── ❄ 얼음: 냉기 (중첩당 이동 속도 -15%, 4중첩이면 빙결) ──
+  // ── ❄ 얼음: 냉기 (중첩당 이동 속도 -10% · 받는 피해 +5%, 4중첩이면 빙결 · 보스는 얼음 균열) ──
   { id: 'ice_basic', el: 'frost', slot: 'basic', name: '서리 칼날',
-    desc: lv => `기본공격이 냉기를 1중첩 건다 (${FREEZE_AT}중첩이면 빙결). 빙결 시간 ${freezeTime(lv)}초.` },
+    desc: lv => `기본공격이 냉기를 1중첩 건다. 냉기 1중첩마다 받는 피해 +${FROSTBITE_VULN * 100}%, ${FREEZE_AT}중첩이면 빙결 (보스는 얼음 균열: 잠깐 멈추고 받는 피해 +${ICE_CRACK_VULN * 100}%). 빙결 시간 ${freezeTime(lv)}초.` },
   { id: 'ice_shard', el: 'frost', needs: 'ice_basic', name: '얼음 파편',
     desc: lv => `휘두를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
   { id: 'ice_charge', el: 'frost', slot: 'charge', name: '빙결 회오리',
@@ -369,6 +374,13 @@ const FX = {
     if (t.type === 'totem' || t.frozenT > 0) return;
     // 막 녹은 적은 잠깐 다시 얼지 않는다 (냉기는 쌓이지만 빙결 직전에서 멈춘다)
     t.chill = Math.min(t.thawT > 0 ? FREEZE_AT - 1 : FREEZE_AT, (t.chill || 0) + n); t.chillT = 3;
+    if (t.chill >= FREEZE_AT && (t.type === 'boss' || t.type === 'dragon')) { // 얼음 균열: 보스는 얼지 않는 대신 잠깐 멈추고 약해진다
+      t.chill = 0; t.thawT = FREEZE_IMMUNE; t.crackT = ICE_CRACK_T; t.iceStagger = ICE_CRACK_STAGGER;
+      G.text(t.x, t.y - (t.r || 20) - 18, '얼음 균열!', '#bfefff', 14, 0.9);
+      G.burst(t.x, t.y - 6, 18, ['#bfefff', '#ffffff', '#7fd8ff'], 200); G.fxRing(t.x, t.y, '#bfefff', 50);
+      Sfx.shatter ? Sfx.shatter() : Sfx.freeze();
+      return;
+    }
     if (t.chill >= FREEZE_AT && t.type !== 'boss') {
       t.frozenT = freezeTime(this.lv('ice_basic'));
       t.thawT = t.frozenT + FREEZE_IMMUNE;
@@ -392,6 +404,7 @@ const FX = {
     if (t.chill > 0) { t.chillT -= dt; if (t.chillT <= 0) t.chill = 0; }
     if (t.frozenT > 0) t.frozenT -= dt;
     if (t.thawT > 0) t.thawT -= dt;
+    if (t.crackT > 0) t.crackT -= dt;
     const ps = t.poison;
     if (ps && ps.stacks > 0) {
       ps.t -= dt; ps.tick -= dt;
@@ -604,7 +617,13 @@ const FX = {
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
     const am = p.weapon.slamBoon === 'ambush' ? 0 : this.lv('ambush'); // 방패: 기습 대신 벽꿍 강화 (FX.wallSlam)
     if (am && t && offGuard(t, p)) { m *= 1 + 0.1 + 0.2 * am; t.ambushHit = true; } // 기습: 옆 · 뒤에서, 또는 무방비
-    return m * this.shockMult(t);
+    return m * this.shockMult(t) * this.iceMult(t);
+  },
+  // 동상: 냉기 중첩만큼 (빙결 중이면 최대치), 얼음 균열 중이면 더
+  iceMult(t) {
+    if (!t) return 1;
+    const st = t.frozenT > 0 ? FREEZE_AT : (t.chill || 0);
+    return (1 + FROSTBITE_VULN * st) * (t.crackT > 0 ? 1 + ICE_CRACK_VULN : 1);
   },
   critChance() { return 0.1 + 0.08 * this.lv('vital'); },
   critMult() { return 1.8 + 0.2 * this.lv('vital'); },

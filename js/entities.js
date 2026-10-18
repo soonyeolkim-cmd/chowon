@@ -526,7 +526,7 @@ class Enemy {
       if (this.brokenT <= 0) this.guard = true;
     }
     if (this.stun > 0 || this.frozenT > 0) { this.attacking = false; if (this.state !== 'chase') { this.state = 'recover'; this.st = 0.3; } return; }
-    const slow = 1 - 0.1 * (this.chill || 0); // 냉기 중첩당 -10% (빙결이 6중첩이 되며 0.15 → 0.1)
+    const slow = 1 - 0.1 * (this.chill || 0); // 냉기 중첩당 -10% (빙결 4중첩이면 최대 -30%)
     const mv = (vx, vy) => this.flying ? World.fly(this, vx * slow * dt, vy * slow * dt) : this.steer(vx * slow, vy * slow, dt);
     const chase = p.alive && d < 420;
     if (!chase && Math.random() < dt * 0.5) this.wander = Math.random() * Math.PI * 2;
@@ -1318,6 +1318,7 @@ class Boss {
   }
 
   update(dt, p) {
+    if (this.iceStagger > 0) { this.iceStagger -= dt; return; } // 얼음 균열: 잠깐 멈춘다
     if (this.state !== 'stun') dt *= this.tempo || 1; // 세계별 패턴 속도
     if (this.kind === 5) { this.updateTrio(dt, p); return; }
     this.t += dt; this.flash -= dt; this.st -= dt; this.disguiseCd -= dt;
@@ -1331,7 +1332,7 @@ class Boss {
         if (this.st <= 0) { this.state = 'chase'; this.st = 1.2; }
         break;
       case 'chase':
-        if (p.alive) { const sl = 1 - 0.075 * (this.chill || 0); this.steer(dx / d * this.speed * sl, dy / d * this.speed * sl, dt); }
+        if (p.alive) { const sl = 1 - 0.1 * (this.chill || 0); this.steer(dx / d * this.speed * sl, dy / d * this.speed * sl, dt); }
         if (this.st <= 0 && p.alive) this.begin(this.choose(d), p, dx, dy, d);
         break;
 
@@ -1752,6 +1753,7 @@ class Dragon {
   }
 
   update(dt, p) {
+    if (this.iceStagger > 0) { this.iceStagger -= dt; return; } // 얼음 균열
     this.t += dt; this.flash -= dt; this.st -= dt;
     const cx = World.pw / 2, cy = World.ph / 2;
     if (!this.active) { // 아레나 가장자리를 맴돈다 (아직 싸우지 않음)
