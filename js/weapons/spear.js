@@ -291,7 +291,7 @@ extendPlayer({
       g.save(); g.globalAlpha *= Math.min(1, e * 1.5);
       beamFx(g, x, cy, f, L, Math.min(0.99, 0.5 + p), cs ? EL_STYLE[cs.el].main : '#7fe0ff');
       g.restore();
-      if (Math.random() < 0.8 * e) G.particles.push({ x: x + c * rand(30, L), y: cy + s * rand(30, L), vx: rand(-20, 20), vy: rand(-30, -5), life: 0.3, max: 0.3, color: Math.random() < 0.5 ? '#bff4ff' : '#fff', size: 2, grav: 0 });
+      if (Math.random() < 0.8 * e) G.particles.push({ x: x + c * rand(30, L), y: cy + s * rand(30, L), vx: rand(-20, 20), vy: rand(-30, -5), life: 0.3, max: 0.3, color: Math.random() < 0.5 ? (cs ? EL_STYLE[cs.el].light : '#bff4ff') : '#fff', size: 2, grav: 0 });
       if (a.phantomAt !== undefined && a.t - a.phantomAt < 0.1) { // 연환: 같은 줄을 한 번 더 (도트)
         g.save(); g.globalAlpha *= 1 - (a.t - a.phantomAt) / 0.1;
         beamFx(g, x, cy, f, a.len, 0.6, '#bff4ff');

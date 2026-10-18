@@ -119,7 +119,10 @@ const GIFTS = {
   sealpass: { shards: 2000, essence: 300, emblems: 5 },
 };
 // 시험 빌드 (?build=sai 등): 로컬과 배포 사이트 모두. 배포 사이트에서는 진짜 저장을 건드리지 않게 따로 저장한다 (2026-10-17, 휴대폰 시험용)
-const DEV_BUILD = TEST_BUILDS[new URLSearchParams(location.search).get('build')] || null;
+const DEV_BUILD = (() => { // &w=spear 처럼 붙이면 그 무기로 (속성 시험 빌드를 무기마다 보려고, 2026-10-18)
+  const q = new URLSearchParams(location.search), b = TEST_BUILDS[q.get('build')], w = q.get('w');
+  return b ? (w ? Object.assign({}, b, { weapon: w }) : b) : null;
+})();
 const TEST_SAVE = !!DEV_BUILD && !DEV_LOCAL;
 
 // 프로필(저장 칸) 3개. 1번은 예전 저장 이름 그대로 'meta' (2026-10-17)

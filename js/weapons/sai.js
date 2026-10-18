@@ -213,7 +213,7 @@ extendPlayer({
     this.invuln = Math.max(this.invuln, RUSH_TIME + RIPOSTE_SAFE);
     this.atkBuffer = 0; this.atkCd = 0.3 + 0.1 * ms; this.comboT = 0; this.finisherT = 0;
     G.text(this.x, this.y - 30, '잔영 베기!', '#c8b4ff', 16, 0.9);
-    pixRing(this.x, this.y, '#c8b4ff', 24); G.burst(this.x, this.y - 4, 12, ['#ffffff', '#c8b4ff', '#7fe0ff'], 200);
+    pixRing(this.x, this.y, slotCol('special', '#c8b4ff'), 24); G.burst(this.x, this.y - 4, 12, slotBurst('special', ['#ffffff', '#c8b4ff', '#7fe0ff']), 200);
     G.shake = Math.max(G.shake, 4); Sfx.dash(); Input.rumble(0.5, 120);
   },
   parry(src) {
@@ -232,8 +232,8 @@ extendPlayer({
     else this.specialCd = 0; // 한 칸짜리: 쿨타임을 바로 풀어 준다 (쌍검 충전 2 → 1, 2026-10-17)
     this.parryChain = G.time - (this.parryLastT ?? -99) < PARRY_CHAIN_T ? (this.parryChain || 1) + 1 : 1; this.parryLastT = G.time;
     G.text(this.x, this.y - 30, this.parryChain > 1 ? '연속 반격 ×' + this.parryChain + '!' : '받아치기!', this.parryChain > 1 ? '#ffe18a' : '#7fe0ff', 16 + Math.min(6, this.parryChain - 1), 0.9);
-    pixRing(this.x, this.y, '#7fe0ff', this.parryWide ? PARRY_WIDE_R : 44);
-    G.burst(this.x, this.y - 4, 18, ['#ffffff', '#bff4ff', '#7fe0ff'], 220);
+    pixRing(this.x, this.y, slotCol('special', '#7fe0ff'), this.parryWide ? PARRY_WIDE_R : 44); // 특수 칸 속성 색 (2026-10-18)
+    G.burst(this.x, this.y - 4, 18, slotBurst('special', ['#ffffff', '#bff4ff', '#7fe0ff']), 220);
     G.hitstop = Math.max(G.hitstop, 0.08); G.shake = Math.max(G.shake, 6);
     Sfx.guardBreak(); Sfx.dodge(); Input.rumble(0.7, 160);
     FX.onParry(this);
@@ -290,7 +290,7 @@ extendPlayer({
       for (const side of [-1, 1]) { const ang = f + side * a.half * (1 - 2 * e); const [hx, hy] = at(6, side * 4); saiSprite(g, hx, hy, ang, 4); }
       slashFx('cutX', 20, 1.6, pr, false);
     } else if (a && a.kind === 'rush') {
-      const cs = ElFx.slot('charge');
+      const cs = ElFx.slot(a.echo ? 'special' : 'charge'); // 잔영 베기(받아치기 뒤 무료 특수)는 특수 칸 색 (2026-10-18)
       if (!a.ended) { for (const side of [-1, 1]) { const [hx, hy] = at(8, side * 5); saiSprite(g, hx, hy, f + side * 0.15, 4); } }
       else { idle(1); idle(-1); }
       // 지나간 길: 베인 자국
@@ -376,7 +376,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.px = this.x; a.py = this.y;
       } else if (!a.ended) { // 도착: 한 번 더 번쩍
         a.ended = true; a.x1 = this.x; a.y1 = this.y;
-        pixRing(this.x, this.y, '#bff4ff', 30); G.burst(this.x, this.y - 4, 10, ['#ffffff', '#7fe0ff'], 160);
+        pixRing(this.x, this.y, slotCol('special', '#bff4ff'), 30); G.burst(this.x, this.y - 4, 10, slotBurst('special', ['#ffffff', '#7fe0ff']), 160);
         G.slowT = Math.max(G.slowT, 0.2); // 도착한 순간 잠깐 느리게
         Sfx.swing(true);
       }

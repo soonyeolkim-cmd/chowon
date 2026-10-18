@@ -228,6 +228,25 @@ function thunderPix(x, y, r) {
   G.projectiles.push(new SpriteFx('fxThunder', 20, 28, 8, x, y - 10, 34, 0.35));
   for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + 0.4; G.projectiles.push(new SpriteFx('fxThunder', 20, 28, 8, x + Math.cos(a) * r * 0.6, y - 8 + Math.sin(a) * r * 0.45, 22, 0.3)); }
 }
+// 뭉개진 도트 번개 (2026-10-18): 에셋 번개가 다른 그림(폭발 · 얼음)보다 선이 너무 깔끔해서 튄다
+//   → 장마다 2/3 해상도(20x28 → 14x20)로 줄였다가 알파를 끊어 거친 도트로 만들고, 따뜻한 노랑으로 살짝 물들인다
+function softThunder() {
+  if (ART.img.fxThunderSoft) return true;
+  const src = ART.img.fxThunder; if (!src || !src.width) return false;
+  const W = 14 * 8, H = 20, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d'); x.imageSmoothingEnabled = true;
+  for (let i = 0; i < 8; i++) x.drawImage(src, i * 20, 0, 20, 28, i * 14, 0, 14, 20);
+  const d = x.getImageData(0, 0, W, H), p = d.data;
+  for (let i = 0; i < p.length; i += 4) p[i + 3] = p[i + 3] > 55 ? 255 : 0;
+  x.putImageData(d, 0, 0);
+  x.globalCompositeOperation = 'source-atop'; x.globalAlpha = 0.45; x.fillStyle = '#ffc83a'; x.fillRect(0, 0, W, H);
+  ART.img.fxThunderSoft = cv; return true;
+}
+function softThunderPix(x, y, r) {
+  if (!softThunder()) return;
+  G.projectiles.push(new SpriteFx('fxThunderSoft', 14, 20, 8, x, y - 10, 30, 0.35));
+  for (let i = 0; i < 2; i++) { const a = rand(0, Math.PI * 2); G.projectiles.push(new SpriteFx('fxThunderSoft', 14, 20, 8, x + Math.cos(a) * r * 0.5, y - 6 + Math.sin(a) * r * 0.35, 18, 0.3)); }
+}
 // 도트 고리: 동그란 선 고리(G.fxRing) 대신 쓰는 도트 고리 그림 (무기 기술 공통, 2026-10-18)
 function pixRing(x, y, color, r) { G.projectiles.push(new SpriteFx('fxRingPx', 32, 32, 6, x, y - 4, r * 2, 0.3, color)); }
 // (예전 이름: 창 반환점에서 쓰던 것)
@@ -263,15 +282,16 @@ class EchoStrike {
     if (this.t >= this.delay + ECHO_FLASH) this.done = true;
   }
   // 그림: 에셋 팩 도트 베기 그림(SlashCurved · CircularSlash)을 방패 막기 이펙트 같은 푸른빛으로, 4장을 빠르게 넘기고 끝 (2026-10-18)
+  //   잔상 일격은 기본공격 칸, 대시 다단히트는 대시 칸에 속성이 붙어 있으면 그 색으로 (o.slot)
   draw(g) {
     if (!this.fired || !this.shape) return;
-    const k = clamp((this.t - this.delay) / ECHO_FLASH, 0, 0.999), fr = Math.floor(k * 4) * 32, S = this.shape, cy = this.y - 4;
+    const k = clamp((this.t - this.delay) / ECHO_FLASH, 0, 0.999), fr = Math.floor(k * 4) * 32, S = this.shape, cy = this.y - 4, col = slotCol(this.o.slot, ECHO_COLOR);
     g.save(); g.globalAlpha = 0.95;
     if (!S.line && S.half >= Math.PI) { // 둘레 (선풍 베기 · 마력 파동 · 후려치기)
-      const img = tintedBy(ART.img.circSlash, ECHO_COLOR), sz = S.range * 2;
+      const img = tintedBy(ART.img.circSlash, col), sz = S.range * 2;
       g.drawImage(img, fr, 0, 32, 32, Math.round(this.x - sz / 2), Math.round(cy - sz / 2), sz, sz);
     } else {
-      const img = tintedBy(ART.img.slash, ECHO_COLOR);
+      const img = tintedBy(ART.img.slash, col);
       g.translate(this.x, cy); g.rotate(this.dir);
       if (S.line) g.drawImage(img, fr, 0, 32, 32, 8, -12, S.line, 24); // 찌르기 · 돌진 길: 길게 늘인 베기
       else { const s = S.range * 1.1; g.drawImage(img, fr, 0, 32, 32, S.range * 0.45 - s / 2, -s / 2, s, s); }
@@ -328,6 +348,9 @@ const EL_STYLE = {
   poison:  { rgb: [155, 225, 93],  main: '#9be15d', light: '#d8ff9c', dark: '#4f9a2a' },
 };
 const EL_MAX_LV = 3;
+// 그 칸(basic · charge · special · dash)에 속성 축복이 붙어 있으면 그 속성 색, 없으면 fallback (2026-10-18: 무기 이펙트 색을 칸 속성에 맞춘다)
+function slotCol(slot, fallback) { const s = ElFx.slot(slot); return s ? EL_STYLE[s.el].main : fallback; }
+function slotBurst(slot, fallback) { const s = ElFx.slot(slot); return s ? ['#ffffff', EL_STYLE[s.el].light, EL_STYLE[s.el].main] : fallback; }
 const ElFx = {
   // 그 칸에 붙은 속성 축복: { el, lv, max } 또는 null
   slot(slot) {
@@ -456,7 +479,7 @@ const FX = {
   // quiet: 번개 그림 없이 노란 도트 장판 색만 잠깐 (전기 대시, 2026-10-18)
   strike(x, y, r, dmg, quiet) {
     if (quiet) this.elecMark(x, y, 0.6); // 다른 장판과 같은 크기 (예전엔 피해 범위 45만큼 커서 혼자 커 보였다)
-    else { this.bolt(x + rand(-10, 10), y - 150, x, y); thunderPix(x, y, r); }
+    else { this.bolt(x + rand(-10, 10), y - 150, x, y); softThunderPix(x, y, r); } // 벼락(창 반환점): 내리꽂는 번개 + 뭉갠 도트 번개 살짝
     for (const t of this.near(x, y, r)) { this.shock(t); this.damage(t, dmg * this.lightningMult(t), '#ffe14a', 12); }
     Sfx.zap();
   },
@@ -592,13 +615,13 @@ const FX = {
     const n = this.lv('atk_combo'), a = p.act;
     if (!n || !a) return;
     const shape = a.len ? { line: a.len } : { range: a.range, half: a.half };
-    for (let k = 1; k <= COMBO_ECHO_HITS; k++) G.projectiles.push(new EchoStrike(p, a.kind, shape, ECHO_DELAY * k, { follow: true, src: a.hit }));
+    for (let k = 1; k <= COMBO_ECHO_HITS; k++) G.projectiles.push(new EchoStrike(p, a.kind, shape, ECHO_DELAY * k, { follow: true, src: a.hit, slot: 'basic' }));
   },
   // 대시 공격 다단히트 (돌진 강화): 대시 공격이 끝난 뒤 같은 곳을 1번 더 친다 (DASH_ECHO_HITS). 모양은 무기마다 weapon.dashEcho
   queueDashEcho(p) {
     const lv = this.lv('atk_thrust'), a = p.act, sh = p.weapon.dashEcho;
     if (!lv || !a || !sh) return;
-    for (let k = 1; k <= DASH_ECHO_HITS; k++) G.projectiles.push(new EchoStrike(p, a.kind, null, (a.dur || 0.2) + ECHO_DELAY * (k - 1) + 0.04, { dash: sh, x0: p.x, y0: p.y, src: a.hit, act: a }));
+    for (let k = 1; k <= DASH_ECHO_HITS; k++) G.projectiles.push(new EchoStrike(p, a.kind, null, (a.dur || 0.2) + ECHO_DELAY * (k - 1) + 0.04, { dash: sh, x0: p.x, y0: p.y, src: a.hit, act: a, slot: 'dash' }));
   },
   // 기본공격을 휘두를 때
   onSwing(p, fin) {

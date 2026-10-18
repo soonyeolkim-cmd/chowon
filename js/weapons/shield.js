@@ -271,7 +271,7 @@ extendPlayer({
       a.shock.add(t);
       this.deal(t, 'chargeShock', dx / d, dy / d);
     }
-    if (!a.ringed) { a.ringed = true; G.projectiles.push(new DustRing(cx, cy, SHIELD_CHARGE_SHOCK_R * 0.75, 6)); } // 도트 흙먼지 고리: 돌진 한 번에 한 번만 (2026-10-18)
+    if (!a.ringed) { a.ringed = true; G.projectiles.push(new DustRing(cx, cy, SHIELD_CHARGE_SHOCK_R * 0.75, 6, slotCol('special', null))); } // 도트 흙먼지 고리: 돌진 한 번에 한 번만 (2026-10-18)
     G.shake = Math.max(G.shake, 5); Sfx.slam();
   },
   // 후려치기 (대시 공격): 방패를 들어 앞을 내려찍는다
@@ -314,12 +314,13 @@ extendPlayer({
     if (a && a.kind === 'shieldCharge') { // 방패 돌진: 방패를 앞세우고 몸을 숙여 달린다
       const run = a.t < a.run;
       shieldSprite(g, x + c * 15, cy + s * 10, 1.3, glow);
+      const ss = ElFx.slot('special'); // 특수 칸 속성이면 속도선 · 앞 호도 그 색 (2026-10-18)
       if (run) for (let i = 0; i < 3; i++) { // 속도선
         const o = (i - 1) * 7;
-        g.strokeStyle = 'rgba(255,240,210,0.55)'; g.lineWidth = 2;
+        g.strokeStyle = ss ? ElFx.rgba(ss.el, 0.55) : 'rgba(255,240,210,0.55)'; g.lineWidth = 2;
         g.beginPath(); g.moveTo(x - c * 14 - s * o, cy - s * 14 + c * o); g.lineTo(x - c * 30 - s * o, cy - s * 30 + c * o); g.stroke();
       }
-      g.strokeStyle = 'rgba(255,210,138,0.7)'; g.lineWidth = 3;
+      g.strokeStyle = ss ? ElFx.rgba(ss.el, 0.7) : 'rgba(255,210,138,0.7)'; g.lineWidth = 3;
       g.beginPath(); g.arc(x, cy, 24, f - 0.8, f + 0.8); g.stroke();
     } else if (this.dashT > 0 || (this.guardT > 0 && !a)) { // 방패 대시: 앞에 크게 들고 정면 막기
       shieldSprite(g, x + c * 13, cy + s * 9, 1.15, glow);
@@ -363,7 +364,7 @@ extendPlayer({
     } else if (a && a.kind === 'shieldSlam') {
       const p = clamp(a.t / a.dur, 0, 1), lift = p < 0.4 ? p / 0.4 : Math.max(0, 1 - (p - 0.4) / 0.12);
       shieldSprite(g, x + c * (10 + 6 * (1 - lift)), cy + s * 8 - lift * 16, 1.1, glow);
-      if (p > 0.45 && p < 0.9) { const q = (p - 0.45) / 0.45; g.strokeStyle = `rgba(255,240,180,${1 - q})`; g.lineWidth = 3; g.beginPath(); g.ellipse(x + c * 16, y + s * 10, 6 + q * a.r * 0.6, 3 + q * 8, 0, 0, Math.PI * 2); g.stroke(); }
+      // (내려친 자리 둥근 선은 뺐다 → 도트 흙먼지 고리, 대시 칸 속성 색. 2026-10-18)
     } else {
       shieldSprite(g, x + c * 9, cy + s * 6 + 2, 1, glow); // 평소: 앞쪽에 든다
     }
@@ -423,7 +424,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       } else if (!a.ended) { // 끝: 붙잡은 적을 크게 밀쳐낸다
         a.ended = true;
         for (const t of a.carry) if (!t.dead) { t.kvx = c * 520; t.kvy = s * 520; }
-        G.projectiles.push(new DustRing(this.x + c * 16, this.y + s * 10, 20, 4)); G.shake = Math.max(G.shake, 5); Sfx.slam();
+        G.projectiles.push(new DustRing(this.x + c * 16, this.y + s * 10, 20, 4, slotCol('special', null))); G.shake = Math.max(G.shake, 5); Sfx.slam();
       }
       return true;
     }
@@ -433,6 +434,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.hitDone = true;
         this.unearth(a.r, Math.PI, this.x + fx * 14, this.y + fy * 10); // 땅속에 숨은 적도 끌어낸다
         this.hitFan(a, this.x + fx * 14, this.y + fy * 10, a.r, Math.PI, 'shieldSlam', SHIELD_SLAM_STUN);
+        G.projectiles.push(new DustRing(this.x + fx * 16, this.y + fy * 10, a.r * 0.7, 7, slotCol('dash', null))); // 후려치기: 도트 흙먼지 고리
         G.shake = Math.max(G.shake, 5); Sfx.slam();
       }
       return true;
@@ -482,14 +484,15 @@ function bashPuffs(g, x, cy, f, R, offs, q, sz) {
 }
 // 도트 흙먼지 고리: 한 점에서 흙먼지(FX/Smoke) n개가 둘레로 퍼지며 사라진다 (방패 돌진 충격파 등, 2026-10-18)
 class DustRing {
-  constructor(x, y, r, n) { Object.assign(this, { x, y, r, n, t: 0, done: false }); }
+  constructor(x, y, r, n, tint) { Object.assign(this, { x, y, r, n, tint, t: 0, done: false }); } // tint: 칸 속성 색 (없으면 흙먼지 그대로)
   update(dt) { this.t += dt; if (this.t >= DUST_RING_T) this.done = true; }
   draw(g) {
     const q = clamp(this.t / DUST_RING_T, 0, 0.999), fr = Math.floor(q * 6) * 32, R = this.r * (0.45 + 0.55 * q), sz = 15;
     g.save(); g.globalAlpha = 0.9 - q * 0.3;
+    const img = this.tint ? tintedBy(ART.img.smoke, this.tint) : ART.img.smoke;
     for (let i = 0; i < this.n; i++) {
       const a = i / this.n * Math.PI * 2 + 0.3, px = this.x + Math.cos(a) * R, py = this.y + 4 + Math.sin(a) * R * 0.7;
-      g.drawImage(ART.img.smoke, fr, 0, 32, 32, Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz);
+      g.drawImage(img, fr, 0, 32, 32, Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz);
     }
     g.restore();
   }

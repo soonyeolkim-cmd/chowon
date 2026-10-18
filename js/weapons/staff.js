@@ -368,8 +368,8 @@ class MagicCircle {
         if (d > this.r + t.r) continue;
         p.deal(t, 'circle', dx / d, dy / d, { mult, kb: this.small ? 60 : undefined });
       }
-      pixRing(this.x, this.y, '#cfe8ff', this.r); // 마법진 폭발: 도트 고리 (2026-10-18)
-      G.burst(this.x, this.y, this.small ? 8 : 16, ['#cfe8ff', '#fff', '#aaf0ff'], 170);
+      pixRing(this.x, this.y, slotCol('charge', '#cfe8ff'), this.r); // 마법진 폭발: 도트 고리, 차지 칸 속성 색 (2026-10-18)
+      G.burst(this.x, this.y, this.small ? 8 : 16, slotBurst('charge', ['#cfe8ff', '#fff', '#aaf0ff']), 170);
       G.shake = Math.max(G.shake, this.small ? 2 : 5); Sfx.boom();
       if (!this.small) FX.onCircle(p, this.x, this.y, this.r);
       for (let i = 0; i < this.chain; i++) { // 연쇄 마법진
