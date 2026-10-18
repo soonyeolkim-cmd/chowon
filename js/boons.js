@@ -30,7 +30,8 @@ const SHOCK_SRC = ['elec_basic', 'elec_chain', 'elec_charge', 'elec_special', 'e
 const POISON_SRC = ['poison_basic', 'poison_spray', 'poison_charge', 'poison_special', 'poison_dash'];
 
 // 상태이상 기본 수치
-const SHOCK_VULN = 0.2;     // 감전된 적이 받는 피해 +20%
+const SHOCK_VULN = 0.2;
+const BURN_POWER_MAX = 0.35;  // 화상 한 중첩이 0.5초마다 주는 피해의 상한 (공격력 배율). 불 축복을 모아도 곱으로 폭주하지 않게 (2026-10-18)     // 감전된 적이 받는 피해 +20%
 // 얼음 (2026-10-17: 너무 강해서 낮춤) — 빙결 4 → 6중첩, 빙결 시간 1+0.5×Lv → 1+0.25×Lv초, 녹은 뒤 3초는 다시 안 얼고, 큰 냉기(차지 · 특수) 1+Lv → 1+⌈Lv/2⌉
 // 2026-10-18 얼음 버프: 빙결 6 → 4중첩, 다시 안 어는 시간 3 → 2초, 동상(냉기 중첩마다 받는 피해 +5%), 보스는 빙결 대신 얼음 균열
 const FREEZE_AT = 4;
@@ -58,7 +59,7 @@ const BOONS = [
   { id: 'fire_dash', el: 'fire', slot: 'dash', name: '화염 질주',
     desc: lv => `대시한 길에 ${1.5 + 0.5 * lv}초간 불길이 남아 밟은 적에게 화상.` },
   { id: 'kindling', el: 'fire', name: '불씨', req: () => ownsAny(BURN_SRC),
-    desc: lv => `화상 최대 중첩 +${2 * lv}, 지속 시간 +1초.` },
+    desc: lv => `화상 최대 중첩 +${lv}, 지속 시간 +1초.` },
   { id: 'chain_burst', el: 'fire', name: '연쇄 폭발', req: () => ownsAny(BURN_SRC),
     desc: lv => `화상 상태로 쓰러진 적이 폭발해 주변에 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상.` },
 
@@ -353,7 +354,7 @@ const FX = {
     Sfx.zap();
   },
   burn(t, n) {
-    const k = this.lv('kindling'), max = 3 + 2 * k;
+    const k = this.lv('kindling'), max = 3 + k; // 불씨: 레벨당 +1중첩 (2 → 1, 2026-10-18: 불 빌드 폭주)
     const b = t.burn || (t.burn = { stacks: 0, t: 0, tick: 0.5 });
     b.stacks = Math.min(max, b.stacks + n); b.t = 3 + (k ? 1 : 0);
   },
@@ -425,7 +426,7 @@ const FX = {
         life: 0.4, max: 0.4, color: Math.random() < 0.5 ? '#ff9a3c' : '#ffd24a', size: 2.5, grav: 0 });
       if (b.tick <= 0) {
         b.tick = 0.5;
-        const power = 0.1 + 0.03 * this.fireLv() + 0.03 * Math.max(0, this.lv('fire_basic') - 1);
+        const power = Math.min(BURN_POWER_MAX, 0.1 + 0.03 * this.fireLv() + 0.03 * Math.max(0, this.lv('fire_basic') - 1)); // 한 중첩 세기 상한
         this.damage(t, this.atk() * power * b.stacks, '#ff9a4a', 10);
       }
       if (b.t <= 0) b.stacks = 0;
