@@ -2746,9 +2746,13 @@ function openCodePanel(slot) {
   for (const ev of ['keydown', 'keyup']) el.addEventListener(ev, stop);
   let armed = false;
   const close = () => { el.remove(); m.code = false; m.t = 0; };
+  // 안드로이드: 코드 버튼을 탭한 뒤 따라오는 click 이 방금 뜬 창에 떨어져 바로 닫혔다 (2026-10-18)
+  // → 뜬 직후 0.5초 동안 click 은 무시하고, 바깥(어두운 곳)을 눌러서는 닫지 않는다 (닫기 버튼으로만)
+  const openedAt = performance.now();
   el.addEventListener('click', async e => {
+    if (performance.now() - openedAt < 500) return;
     const act = e.target && e.target.dataset && e.target.dataset.act;
-    if (act === 'close' || e.target === el) { close(); return; }
+    if (act === 'close') { close(); return; }
     if (act === 'copy') {
       ta.value = mine; ta.select();
       try { await navigator.clipboard.writeText(mine); say('복사했어요! 다른 기기에서 붙여 넣으세요', true); }
