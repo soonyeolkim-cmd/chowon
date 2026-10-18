@@ -23,7 +23,7 @@
 
 const WEAPONS = {};
 const WEAPON_ORDER = [];      // 마을 무기고에 보이는 순서 (addWeapon 순서)
-const UPCOMING_WEAPONS = [];  // 아직 만들지 않은 무기: { name, cost } → 무기고에 '준비 중'
+const UPCOMING_WEAPONS = [{ name: '사냥꾼의 활', cost: 1 }]; // 아직 만들지 않은 무기: { name, cost } → 무기고에 '차후 구현' (활, 2026-10-18)
 const ACT_HANDLERS = [];      // 기술 진행 처리기 (무기 파일들이 넣는다)
 function addWeapon(id, def) { WEAPONS[id] = def; WEAPON_ORDER.push(id); return def; }
 // 플레이어에 기술 함수 · 계산값(get)을 붙인다

@@ -2039,7 +2039,7 @@ function villageItems(tab) {
       owned: md.unlocked.includes(id), unlockCost: W0.unlockCost || 0 };
   });
   for (const u of UPCOMING_WEAPONS) {
-    list.push({ key: 'next', name: `🔒 ${u.name}`, desc: () => `준비 중 · 해금: 영웅의 증표 ${u.cost}개`, locked: true });
+    list.push({ key: 'next', name: `🔒 ${u.name}`, desc: () => `차후 구현 · 해금: 영웅의 증표 ${u.cost}개`, locked: true });
   }
   // 지금 장착한 무기의 숙련 (무기의 정수로 강화)
   const wid = md.weapon, W0 = WEAPONS[wid];
@@ -2163,7 +2163,7 @@ function drawVillage(blink) {
         if (ws && ws.clears) label(`완주 ${ws.clears}회 · 최고 봉인 등급 ${tierNo(ws.best)}`, r.x + r.w - 100, r.y + r.h * 0.32, 11, '#ffd24a', 'right', '800');
         else label('완주 기록 없음', r.x + r.w - 100, r.y + r.h * 0.32, 10.5, '#7d8a96', 'right', '600');
       }
-      btn = it.locked ? '준비 중' : buy ? `✦ ${it.unlockCost} 해금` : using ? '✓ 장착됨' : '장착하기';
+      btn = it.locked ? '차후 구현' : buy ? `✦ ${it.unlockCost} 해금` : using ? '✓ 장착됨' : '장착하기';
       bcol = it.locked ? 'rgba(80,70,40,0.7)' : buy ? (can ? '#9a7a1a' : 'rgba(80,80,90,0.7)') : using ? 'rgba(63,138,59,0.9)' : '#6a3fb0';
       tcol = it.locked ? '#cbb' : '#fff';
     } else {
@@ -2482,7 +2482,7 @@ function villageAct(i) {
   }
   const it = items[i];
   if (!it || it.header) return;
-  if (it.locked) { v.msg = '아직 준비 중인 무기예요'; Sfx.block(); return; }
+  if (it.locked) { v.msg = '차후 구현 예정인 무기예요'; Sfx.block(); return; }
   if (it.weapon !== undefined) {
     if (!it.owned) {
       if (Meta.data.emblems < it.unlockCost) { v.msg = `영웅의 증표가 ${it.unlockCost}개 필요해요 (봉인 등급 0~4를 처음 완주할 때마다 1개씩 얻어요)`; Sfx.block(); return; }
