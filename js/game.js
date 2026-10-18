@@ -2320,7 +2320,9 @@ function drawTierView() {
   label(`봉인 등급 ${tierNo(n)}`, I.x, y, 16, open ? '#ffd0e0' : '#778', 'left', '900'); y += 24;
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? '  (익숙한 숲 ×0.5)' : ''}`, I.x, y, 12, fm < 1 ? '#ff8a7a' : '#c8b8ff', 'left', '700'); y += 18;
   const cleared = !!Meta.data.tierCleared[n], eb = Meta.data.essBest[n] || 0;
-  label(`✦ 영웅의 증표: ${cleared ? '받음' : '처음 완주하면 1개'}`, I.x, y, 11, cleared ? '#8ff0b0' : '#ffd24a', 'left', '600'); y += 16;
+  if (ti.emblem) label(`✦ 영웅의 증표: ${cleared ? '받음' : '처음 완주하면 1개'}`, I.x, y, 11, cleared ? '#8ff0b0' : '#ffd24a', 'left', '600');
+  else label('◈ 봉인의 핵: 무기 각성 재료 (각성과 함께 추가 예정)', I.x, y, 11, '#c8a0ff', 'left', '600');
+  y += 16;
   label(`⚔ 무기의 정수: ${eb > STAGES_PER_WORLD * FINAL_STAGE ? '모두 받음' : eb ? `${stageLabel(eb)}까지 받음` : '아직 안 받음'}`, I.x, y, 11, '#ccd', 'left', '600'); y += 22;
   label(ti.curses.length ? `봉인의 반발 ${ti.curses.length}개` : '봉인의 반발 없음', I.x, y, 12, ti.curses.length ? '#ff9a7a' : '#8a96a0', 'left', '800'); y += 18;
   ti.curses.forEach((id, k) => {
@@ -2483,7 +2485,7 @@ function villageAct(i) {
   if (it.locked) { v.msg = '아직 준비 중인 무기예요'; Sfx.block(); return; }
   if (it.weapon !== undefined) {
     if (!it.owned) {
-      if (Meta.data.emblems < it.unlockCost) { v.msg = `영웅의 증표가 ${it.unlockCost}개 필요해요 (봉인 등급을 처음 완주할 때마다 1개씩 얻어요)`; Sfx.block(); return; }
+      if (Meta.data.emblems < it.unlockCost) { v.msg = `영웅의 증표가 ${it.unlockCost}개 필요해요 (봉인 등급 0~4를 처음 완주할 때마다 1개씩 얻어요)`; Sfx.block(); return; }
       Meta.data.emblems -= it.unlockCost; Meta.data.unlocked.push(it.weapon);
       Meta.data.weapon = it.weapon; Meta.save();
       v.flash[it.key] = 0.8; v.msg = `${it.name} 해금! 바로 장착했어요`; Sfx.level();
@@ -3088,7 +3090,7 @@ function render() {
         drawRewardResult(H * 0.57);
         const ti = G.tierInfo || tierInfo(1);
         if (G.tierFirst) {
-          const reward = ti.emblem ? `✦ 영웅의 증표 +${EMBLEM_PER_CLEAR} (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요` : `◆ 등급 보너스 +${ti.bonusShards}`;
+          const reward = ti.emblem ? `✦ 영웅의 증표 +${EMBLEM_PER_CLEAR} (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요` : '◈ 봉인의 핵은 무기 각성과 함께 받을 수 있어요';
           label(`봉인 등급 ${tierNo(ti.n)} 첫 돌파!  ${reward}`, W / 2, H * 0.57 + 20, 13, '#ffd24a', 'center', '700');
           const nx = tierInfo(ti.n + 1);
           if (ti.n < TIER_MAX) label(`다음 도전: 봉인 등급 ${tierNo(nx.n)} · ${curseText(nx)}`, W / 2, H * 0.57 + 40, 12, '#e8d8ff', 'center', '600');
