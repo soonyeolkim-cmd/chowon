@@ -2333,7 +2333,7 @@ function drawTierView() {
   // 정하기 버튼
   const P = L.pick, can = open && Meta.data.tier !== n;
   ctx.fillStyle = can ? '#3f8a3b' : 'rgba(50,56,70,0.95)'; ctx.fillRect(P.x, P.y, P.w, P.h);
-  label(Meta.data.tier === n ? '지금 선택된 등급' : open ? '이 등급으로 도전' : '🔒 아직 잠김', P.x + P.w / 2, P.y + P.h / 2 + 1, 13, can ? '#fff' : '#99a', 'center', '800');
+  label(open ? '봉인 등급 선택' : '🔒 아직 잠김', P.x + P.w / 2, P.y + P.h / 2 + 1, 13, can ? '#fff' : '#99a', 'center', '800');
   const d = Input.state.device;
   const how = tv.msg || (d === 'touch' ? '등급을 탭해서 보고, 한 번 더 탭하거나 버튼으로 정해요' : d === 'gamepad' ? '↑↓ 고르기 · A 정하기 · B 닫기' : '↑↓ 고르기 · Enter 정하기 · Esc 닫기');
   label(how, L.x + L.w / 2, L.y + L.h + 12 > H - inset.b - 6 ? L.y + L.h - 8 : L.y + L.h + 12, 11, tv.msg ? '#ff9a7a' : '#aab', 'center', '600');
