@@ -111,10 +111,10 @@ Object.assign(WEAPONS.spear, {
       const pss = fx.lv('poison_spray');
       if (pss && info.tip && !t.dead) fx.poison(t, 1 + pss);
   },
-  // 던진 창에 맞았을 때 (폭발 · 장판 · 낙뢰는 반환점에서: onSpearApex)
+  // 던진 창에 맞았을 때 (폭발 · 장판 · 벼락은 반환점에서: onSpearApex)
   onSpecialHit(fx, t, info, atk) {
 
-    // 던진 창: 폭발 · 장판 · 낙뢰는 반환점에서 (onSpearApex)
+    // 던진 창: 폭발 · 장판 · 벼락은 반환점에서 (onSpearApex)
     if (fx.lv('fire_special')) fx.burn(t, 1);
     if (fx.lv('elec_special')) fx.shock(t);
     const is = fx.lv('ice_special');
@@ -138,8 +138,8 @@ BOON_FORMS.spear = {
   ice_special:    { name: '서리 창', desc: lv => `창에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 반환점에 ${2 + 0.5 * lv}초간 얼음 장판이 생긴다.` },
   elec_basic:     { name: '번개 창날' },
   elec_chain:     { name: '피뢰 관통', desc: lv => `찌르기가 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전. 관통한 적끼리도 번개로 이어진다.` },
-  elec_charge:    { name: '뇌전 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 직후 창끝 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '피뢰 창', desc: lv => `반환점에 낙뢰가 떨어진다 (주변에 공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전. 날아가는 창에 맞은 적도 감전.` },
+  elec_charge:    { name: '벼락 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 직후 창끝 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+  elec_special:   { name: '피뢰 창', desc: lv => `반환점에 벼락이 떨어진다 (주변에 공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전. 날아가는 창에 맞은 적도 감전.` },
   poison_basic:   { name: '독날 창날' },
   poison_spray:   { name: '독 창끝', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
   poison_charge:  { name: '독안개 꿰뚫기', desc: lv => `찌른 줄을 따라 ${2 + 0.5 * lv}초간 독안개가 남는다. 안에 있는 적에게 계속 독.` },
@@ -358,7 +358,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         this.hitSpear(a, a.len, SPEAR_BEAM_WIDTH, 0);
         G.shake = Math.max(G.shake, 6); G.hitstop = Math.max(G.hitstop, 0.05); Input.rumble(0.7, 160);
         G.burst(this.x + fx * a.len, this.y - 2 + fy * a.len, 12, ['#bff4ff', '#fff', '#7fe0ff'], 200);
-        FX.onLungeEnd(this, a.len); // 뇌전 꿰뚫기: 끝 쪽 낙뢰
+        FX.onLungeEnd(this, a.len); // 벼락 꿰뚫기: 끝 쪽 벼락
       }
       if (a.fired && a.stabs < (a.extra || 0) && a.t >= 0.06 + 0.1 * (a.stabs + 1)) { // 연환: 창기가 다시 뻗는다
         a.stabs++; a.hit = new Set(); a.phantomAt = a.t;

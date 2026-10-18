@@ -151,8 +151,8 @@ BOON_FORMS.shield = {
   ice_special:    { name: '서리 돌려치기', desc: lv => `돌려치기에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 돌고 나면 발밑이 얼어붙는다.` },
   elec_basic:     { name: '번개 방패' },
   elec_chain:     { name: '연쇄 번개 방패' },
-  elec_charge:    { name: '뇌전 강타', desc: lv => `방패 강타 직후 충격파 끝 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '뇌격 돌려치기', desc: lv => `돌려치기에 맞은 적은 감전, 돌고 나면 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
+  elec_charge:    { name: '벼락 강타', desc: lv => `방패 강타 직후 충격파 끝 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+  elec_special:   { name: '벼락 돌려치기', desc: lv => `돌려치기에 맞은 적은 감전, 돌고 나면 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
   poison_basic:   { name: '독 방패' },
   poison_charge:  { name: '독안개 강타', desc: lv => `충격파가 지나간 땅에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 돌려치기', desc: lv => `돌려치기에 맞은 적에게 독 ${1 + lv}중첩.` },
@@ -429,7 +429,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
 
 Object.assign(FX, {
   // ── 방패 ──
-  // 방패 강타: 충격파 끝 쪽(cx, cy)에 불길 · 독안개 · 낙뢰, 굳건한 강타
+  // 방패 강타: 충격파 끝 쪽(cx, cy)에 불길 · 독안개 · 벼락, 굳건한 강타
   onQuake(p, cx, cy) {
     const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
     if (fc || pc) {
@@ -448,7 +448,7 @@ Object.assign(FX, {
     const gs = this.lv('guard_spin');
     if (gs) p.spinGuardT = 0.5 + 0.5 * gs;
   },
-  // 돌려치기가 끝날 때: 주변 폭발 · 얼음 · 낙뢰
+  // 돌려치기가 끝날 때: 주변 폭발 · 얼음 · 벼락
   onShieldSpinEnd(p) {
     const atk = p.atk, x = p.x, y = p.y, R = p.spinR;
     const fs = this.lv('fire_special');

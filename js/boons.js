@@ -84,15 +84,15 @@ const BOONS = [
     desc: lv => `기본공격이 감전시킨다. 감전된 적은 4초 동안 받는 피해 +${20 + 10 * (lv - 1)}%. (번개가 튀는 건 연쇄 번개)` },
   { id: 'elec_chain', el: 'thunder', needs: 'elec_basic', name: '연쇄 번개',
     desc: lv => `기본공격이 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전.` },
-  { id: 'elec_charge', el: 'thunder', slot: 'charge', name: '뇌전 회오리',
-    desc: lv => `회전베기 직후 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  { id: 'elec_special', el: 'thunder', slot: 'special', name: '뇌격 검기',
-    desc: lv => `검기에 맞은 적마다 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
-  { id: 'elec_dash', el: 'thunder', slot: 'dash', name: '천둥 발걸음',
-    desc: lv => `대시가 끝나는 자리에 낙뢰. 주변에 공격력의 ${pct(1 + 0.5 * lv)} 피해 + 감전.` },
-  { id: 'static', el: 'thunder', name: '정전기',
-    desc: lv => `적을 때릴 때 ${8 + 4 * lv}% 확률로 하늘에서 낙뢰 (공격력의 150%).` },
-  { id: 'overcharge', el: 'thunder', name: '과충전', req: () => ownsAny(SHOCK_SRC),
+  { id: 'elec_charge', el: 'thunder', slot: 'charge', name: '벼락 회오리',
+    desc: lv => `회전베기 직후 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+  { id: 'elec_special', el: 'thunder', slot: 'special', name: '벼락 검기',
+    desc: lv => `검기에 맞은 적마다 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
+  { id: 'elec_dash', el: 'thunder', slot: 'dash', name: '벼락 발자국',
+    desc: lv => `대시가 끝나는 자리에 벼락. 주변에 공격력의 ${pct(1 + 0.5 * lv)} 피해 + 감전.` },
+  { id: 'static', el: 'thunder', name: '날벼락',
+    desc: lv => `적을 때릴 때 ${8 + 4 * lv}% 확률로 하늘에서 벼락 (공격력의 150%).` },
+  { id: 'overcharge', el: 'thunder', name: '고전압', req: () => ownsAny(SHOCK_SRC),
     desc: lv => `감전된 적이 받는 피해가 ${15 * lv}% 더 늘어난다 (감전 기본 +20%에 더해서).` },
 
   // ── ☠ 독: 중첩될수록 가속되는 피해, 죽으면 주변으로 전염 ──
@@ -329,7 +329,7 @@ const FX = {
     t.shockT = 4;
   },
   // 감전된 적이 받는 피해 배율
-  // 번개 칼날 레벨마다 +10%, 과충전 레벨마다 +15%
+  // 번개 칼날 레벨마다 +10%, 고전압 레벨마다 +15%
   shockMult(t) { return t.shockT > 0 ? 1 + SHOCK_VULN + 0.1 * Math.max(0, this.lv('elec_' + enhanceSlot()) - 1) + 0.15 * this.lv('overcharge') : 1; },
 
   skyBolt(t, dmg) {

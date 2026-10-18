@@ -101,8 +101,8 @@ BOON_FORMS.staff = {
   elec_basic:     { name: '번개 마법봉' },
   elec_chain:     { name: '연쇄 마력탄', needs: 'elec_special', desc: lv => `마력탄이 맞으면 번개가 옆 적에게 ${1 + lv}번 튄다 (한 번에 공격력의 ${pct(0.25 + 0.1 * lv)}) + 감전.` },
   poison_spray:   { name: '독 웅덩이 마력탄', needs: 'poison_special', desc: lv => `마력탄이 맞은 자리에 ${1 + 0.5 * lv}초간 독 웅덩이가 남는다.` },
-  elec_charge:    { name: '뇌전 마법진', desc: lv => `마법진이 터진 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '뇌격 마력탄', desc: lv => `마력탄이 감전시킨다. 감전된 적은 4초 동안 받는 피해 +${20 + 10 * (lv - 1)}%. (번개가 튀는 건 연쇄 마력탄)` },
+  elec_charge:    { name: '벼락 마법진', desc: lv => `마법진이 터진 자리 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+  elec_special:   { name: '벼락 마력탄', desc: lv => `마력탄이 감전시킨다. 감전된 적은 4초 동안 받는 피해 +${20 + 10 * (lv - 1)}%. (번개가 튀는 건 연쇄 마력탄)` },
   poison_basic:   { name: '독 마법봉' },
   poison_charge:  { name: '독안개 마법진', desc: lv => `마법진이 터진 자리에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 마력탄', desc: lv => `마력탄에 맞은 적에게 독 ${1 + Math.floor(lv / 2)}중첩.` },
@@ -233,7 +233,7 @@ Object.assign(FX, {
     if (fs && !t.dead) { this.burn(t, 1); for (const e of this.near(t.x, t.y, 30, t)) { this.burn(e, 1); this.damage(e, atk * (0.25 + 0.1 * fs), '#ff9a4a', 10); } G.burst(t.x, t.y, 6, ['#ff7a3c', '#ffd24a'], 110); }
     const is = this.lv('ice_special');
     if (is && !t.dead) this.chill(t, is >= 3 ? 2 : 1);
-    if (this.lv('elec_special')) this.shock(t); // 뇌격 마력탄: 감전만 (번개가 튀는 건 연쇄 마력탄 몫, 2026-10-17)
+    if (this.lv('elec_special')) this.shock(t); // 벼락 마력탄: 감전만 (번개가 튀는 건 연쇄 마력탄 몫, 2026-10-17)
     const ps = this.lv('poison_special');
     if (ps && !t.dead) this.poison(t, 1 + Math.floor(ps / 2));
     const hw = this.lv('heal_wave'), p = G.player;
@@ -270,7 +270,7 @@ Object.assign(FX, {
     const gs = this.lv('guard_spin');
     if (gs) { p.invuln = Math.max(p.invuln, 0.3); p.spinGuardT = 0.3 + 0.5 + 0.5 * gs; }
   },
-  // 마법진이 터졌을 때: 불길 · 독안개 · 낙뢰
+  // 마법진이 터졌을 때: 불길 · 독안개 · 벼락
   onCircle(p, x, y, r) {
     const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
     if (fc || pc) {

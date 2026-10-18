@@ -60,20 +60,20 @@ const TEST_BUILDS = {
   spin: { weapon: 'sword', mastery: { spin: 3 }, boons: { atk_multispin: 3, atk_spin: 3, ice_charge: 3, shatter: 3, guard_spin: 3, sharp: 3, vital: 3, ambush: 3 } },
   // 화염 팽이: 회전 연참 · 일섬 회전 · 화염 회오리(Lv5) · 불씨 · 연쇄 폭발 · 수호의 회전 · 날카로운 검 · 급소 (+ 회전베기 숙련 3)
   firespin: { weapon: 'sword', mastery: { spin: 3 }, boons: { atk_multispin: 3, atk_spin: 3, fire_charge: 5, kindling: 3, chain_burst: 3, guard_spin: 3, sharp: 3, vital: 3 } },
-  // 검기 최강: 거대 검기 · 뇌격 검기 · 과충전 · 치유의 검기 · 날카로운 검 · 급소 (+ 섬광 검기 숙련 3)
+  // 검기 최강: 거대 검기 · 벼락 검기 · 고전압 · 치유의 검기 · 날카로운 검 · 급소 (+ 섬광 검기 숙련 3)
   wave: { weapon: 'sword', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
-  // 기본공격 번개: 번개 칼날 · 연쇄 번개 · 정전기 · 과충전 · 연격 · 날카로운 검 · 급소 · 연속 타격 (+ 연속베기 숙련 3)
-  // 창 투척: 투척 강화 · 피뢰 창 · 과충전 · 치유의 회수 · 날카로운 창 · 급소 (+ 투척 숙련 3)
+  // 기본공격 번개: 번개 칼날 · 연쇄 번개 · 날벼락 · 고전압 · 연격 · 날카로운 검 · 급소 · 연속 타격 (+ 연속베기 숙련 3)
+  // 창 투척: 투척 강화 · 피뢰 창 · 고전압 · 치유의 회수 · 날카로운 창 · 급소 (+ 투척 숙련 3)
   throw: { weapon: 'spear', mastery: { wave: 3 }, boons: { atk_wave: 3, elec_special: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3 } },
-  // 투창 마스터: 피뢰 창(Lv5) · 투척 강화 · 과충전 · 치유의 회수 · 날카로운 창 · 급소 · 기습 (+ 투척 숙련 3)
+  // 투창 마스터: 피뢰 창(Lv5) · 투척 강화 · 고전압 · 치유의 회수 · 날카로운 창 · 급소 · 기습 (+ 투척 숙련 3)
   javelin: { weapon: 'spear', mastery: { wave: 3 }, boons: { elec_special: 5, atk_wave: 3, overcharge: 3, heal_wave: 3, sharp: 3, vital: 3, ambush: 3 } },
   // 4세계 시험: 늪(물고기 · 나방)부터 바로 (?build=swamp)
   swamp: { weapon: 'sword', mastery: {}, boons: {}, world: 4 },
-  // 마법봉 첫 손맛 / 난사 빌드: 마력 증폭 · 뇌격 마력탄(Lv5) · 마력탄 숙련 3 · 과충전
+  // 마법봉 첫 손맛 / 난사 빌드: 마력 증폭 · 벼락 마력탄(Lv5) · 마력탄 숙련 3 · 고전압
   staff: { weapon: 'staff', mastery: {}, boons: {} },
   // 방패 첫 손맛 (?build=shield)
   shield: { weapon: 'shield', mastery: {}, boons: {} },
-  // 체인라이트닝 도사: 뇌격 마력탄 · 연쇄 마력탄 Lv5 · 과충전 · 정전기 · 마력 증폭 (+ 마력탄 숙련 3)
+  // 체인라이트닝 도사: 벼락 마력탄 · 연쇄 마력탄 Lv5 · 고전압 · 날벼락 · 마력 증폭 (+ 마력탄 숙련 3)
   // 화염 마법사: 화염 마력탄 · 화염구 마력탄 Lv5 · 불씨 · 연쇄 폭발 · 마력 증폭 (+ 마력탄 숙련 3)
   flame: { weapon: 'staff', mastery: { wave: 3 }, boons: { fire_special: 5, fire_bolt: 5, kindling: 3, chain_burst: 3, atk_wave: 3, sharp: 3, vital: 3 } },
   // 얼음 마법사: 서리 마력탄 · 얼음 파편 마력탄 Lv5 · 파쇄 · 한기 · 마력 증폭 (+ 마력탄 숙련 3)
@@ -92,7 +92,7 @@ const TEST_BUILDS = {
   sai: { weapon: 'sai', mastery: {}, boons: {} },
   // 쌍검 연참 빌드: 화염 연참 · 그림자 분신 · 연참 강화 · 불꽃 쌍검 · 연속 베기 · 수호의 연참
   rush: { weapon: 'sai', mastery: { spin: 3 }, boons: { fire_charge: 3, atk_multispin: 3, atk_spin: 3, fire_basic: 3, atk_combo: 3, guard_spin: 3, sharp: 3 } },
-  // 쌍검 받아치기 빌드: 뇌격 받아치기 · 받아치기 강화 · 치유의 받아치기 · 급소
+  // 쌍검 받아치기 빌드: 벼락 받아치기 · 받아치기 강화 · 치유의 받아치기 · 급소
   parry: { weapon: 'sai', mastery: { wave: 3 }, boons: { elec_special: 3, atk_wave: 3, heal_wave: 3, vital: 3, overcharge: 3, sharp: 3 } },
   bolt: { weapon: 'sword', mastery: { combo: 3 }, boons: { elec_basic: 3, elec_chain: 3, static: 3, overcharge: 3, atk_combo: 3, sharp: 3, vital: 3, ambush: 3 } },
 };

@@ -111,8 +111,8 @@ BOON_FORMS.sai = {
   ice_special:    { name: '서리 받아치기', desc: lv => `받아치면 주변 적에게 냉기 ${iceBig(lv)}중첩, 발밑이 얼어붙는다.` },
   elec_basic:     { name: '번개 쌍검' },
   elec_chain:     { name: '연쇄 번개 쌍검' },
-  elec_charge:    { name: '뇌전 그림자', desc: lv => `그림자 베기 · 잔영 베기가 끝난 자리 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '뇌격 받아치기', desc: lv => `받아치면 주변 적 ${2 + lv}명에게 낙뢰 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
+  elec_charge:    { name: '벼락 그림자', desc: lv => `그림자 베기 · 잔영 베기가 끝난 자리 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
+  elec_special:   { name: '벼락 받아치기', desc: lv => `받아치면 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
   poison_basic:   { name: '독날 쌍검' },
   poison_charge:  { name: '독안개 그림자', desc: lv => `그림자 베기 · 잔영 베기가 지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 받아치기', desc: lv => `받아치면 주변 적에게 독 ${1 + lv}중첩.` },
@@ -385,7 +385,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
 
 Object.assign(FX, {
   // ── 쌍검 ──
-  // 그림자 베기가 끝났을 때: 지나간 길에 불길 · 독안개, 끝난 자리 낙뢰, 수호의 연참
+  // 그림자 베기가 끝났을 때: 지나간 길에 불길 · 독안개, 끝난 자리 벼락, 수호의 연참
   onRush(p, x0, y0, x1, y1) {
     const fc = this.lv('fire_charge'), pc = this.lv('poison_charge');
     if (fc || pc) {
@@ -404,7 +404,7 @@ Object.assign(FX, {
     const gs = this.lv('guard_spin');
     if (gs) p.spinGuardT = 0.5 + 0.5 * gs;
   },
-  // 받아치기에 성공했을 때: 주변 폭발 · 냉기 · 낙뢰 · 독, 치유
+  // 받아치기에 성공했을 때: 주변 폭발 · 냉기 · 벼락 · 독, 치유
   onParry(p) {
     const atk = p.atk, x = p.x, y = p.y;
     const fs = this.lv('fire_special');
