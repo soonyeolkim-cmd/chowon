@@ -144,7 +144,7 @@ BOON_FORMS.spear = {
   poison_spray:   { name: '독 창끝', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
   poison_charge:  { name: '독안개 꿰뚫기', desc: lv => `찌른 줄을 따라 ${2 + 0.5 * lv}초간 독안개가 남는다. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독창', desc: lv => `창에 맞은 적에게 독 ${1 + lv}중첩, 반환점에 ${2 + 0.5 * lv}초간 독 웅덩이가 생긴다.` },
-  atk_combo:      { name: '연속 찌르기', desc: lv => `기본공격 속도 +${15 * lv}%, 2타째 피해 +${30 * lv}%.` },
+  atk_combo:      { name: '연속 찌르기', desc: lv => `기본공격 속도 +${Math.round(COMBO_SPEED * 100 * lv)}%, 2타째 피해 +${Math.round(COMBO_FIN * 100 * lv)}%.` },
   atk_multispin:  { name: '연환 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 뒤 정령의 창이 같은 줄을 ${lv}번 더 찌른다. 추가 찌르기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_spin:       { name: '꿰뚫기 강화', desc: lv => `차지 시간 -${15 * lv}%, 관통 찌르기 · 창기 일섬 길이 +${10 * lv}%.` },
   atk_wave:       { name: '투척 강화', desc: lv => `창 비거리·속도 +${20 * lv}%, 투척 쿨타임 -${(0.15 * lv).toFixed(2)}초 (최소 0.5초).` },
@@ -164,7 +164,7 @@ extendPlayer({
     const fin = this.combo === 1;
     this.act = { kind: fin ? 'pokeFin' : 'poke', t: 0, dur: (fin ? 0.18 : 0.15) / SPEAR_SPEED, hit: new Set(), pierced: 0, len: SPEAR_REACH * (fin ? 1.1 : 1) };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.len, 0.35);
-    this.atkCd = (fin ? 0.46 : 0.3) / SPEAR_SPEED * (1 - 0.15 * FX.lv('atk_combo'));
+    this.atkCd = (fin ? 0.46 : 0.3) / SPEAR_SPEED * (1 - COMBO_SPEED * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
     this.atkBuffer = 0;
     Sfx.thrust();

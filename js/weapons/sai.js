@@ -140,7 +140,7 @@ extendPlayer({
       range: fin ? SAI_FIN_REACH : SAI_REACH, half: fin ? 1.1 : 0.85, hand: this.combo === 1 ? -1 : 1,
     };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
-    this.atkCd = (fin ? 0.34 : 0.17) * (1 - 0.15 * FX.lv('atk_combo')) / spd;
+    this.atkCd = (fin ? 0.34 : 0.17) * (1 - COMBO_SPEED * FX.lv('atk_combo')) / spd;
     this.comboT = this.atkCd + 0.3;
     this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 교차 받아치기
     this.atkBuffer = 0;

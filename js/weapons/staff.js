@@ -106,7 +106,7 @@ BOON_FORMS.staff = {
   poison_basic:   { name: '독 마법봉' },
   poison_charge:  { name: '독안개 마법진', desc: lv => `마법진이 터진 자리에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 마력탄', desc: lv => `마력탄에 맞은 적에게 독 ${1 + Math.floor(lv / 2)}중첩.` },
-  atk_combo:      { name: '연속 휘두르기', desc: lv => `기본공격 속도 +${15 * lv}%, 2타째 피해 +${30 * lv}%.` },
+  atk_combo:      { name: '연속 휘두르기', desc: lv => `기본공격 속도 +${Math.round(COMBO_SPEED * 100 * lv)}%, 2타째 피해 +${Math.round(COMBO_FIN * 100 * lv)}%.` },
   atk_spin:       { name: '마법진 강화', desc: lv => `차지 시간 -${15 * lv}%, 마법진 범위 +${15 * lv}%.` },
   atk_multispin:  { name: '연쇄 마법진', desc: lv => `마법진이 터진 뒤 주변에 작은 마법진 ${lv}개가 이어서 터진다 (피해 ${pct(MULTISPIN_MULT)}).` },
   atk_wave:       { name: '마력 증폭', desc: lv => `마력 구슬 최대 개수 +${lv} (기본 ${ORB_BASE}개).` },
@@ -129,7 +129,7 @@ extendPlayer({
     const fin = this.combo === 1;
     this.act = { kind: fin ? 'bonkFin' : 'bonk', t: 0, dur: fin ? 0.2 : 0.16, hit: new Set(), range: STAFF_REACH * (fin ? 1.1 : 1), half: fin ? 1.2 : 1.0, swingDir: fin ? -1 : 1 };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
-    this.atkCd = (fin ? 0.42 : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
+    this.atkCd = (fin ? 0.42 : 0.28) * (1 - COMBO_SPEED * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
     this.finisherT = 0; // 삼연 마력탄은 마법진 뒤로 옮겼다 (2026-10-18)
     this.atkBuffer = 0;

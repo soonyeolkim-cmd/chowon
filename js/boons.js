@@ -42,6 +42,9 @@ const ICE_CRACK_T = 3;         // 얼음 균열 지속
 const ICE_CRACK_STAGGER = 0.5; // 얼음 균열: 보스가 잠깐 멈춘다
 const freezeTime = lv => 1 + 0.25 * Math.max(1, lv);
 const iceBig = lv => 1 + Math.ceil(lv / 2);
+// 공격 축복 개편 (2026-10-18): 슬롯마다 공격 축복 하나 — 기본 = 연격, 차지 = 회전 연참(일섬 회전 합침), 특수 = 거대 검기, 대시 = 돌진 강화
+const COMBO_SPEED = 0.1;    // 연격: 레벨마다 기본공격 속도 (0.15 → 0.1)
+const COMBO_FIN = 0.25;     // 연격: 레벨마다 마지막 타 피해 (0.3 → 0.25)
 const POISON_MAX = 8;       // 독 최대 중첩
 const POISON_TIME = 5;      // 마지막으로 독을 건 뒤 사라지기까지
 const POISON_RAMP_MAX = 2;  // 독이 계속 걸려 있으면 피해가 최대 2배까지 가속
@@ -112,11 +115,12 @@ const BOONS = [
     desc: lv => `독이 최대 중첩에 닿으면 터져 주변에 공격력의 ${pct(1 + 0.5 * lv)} 피해 (독은 절반 남음).` },
 
   // ── ⚔ 공격: 누적 패시브 (위력 · 범위 · 속도) ──
-  { id: 'atk_combo', el: 'might', name: '연격', desc: lv => `기본공격 속도 +${15 * lv}%, 3타째 피해 +${30 * lv}%.` },
-  { id: 'atk_spin', el: 'might', name: '일섬 회전', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${15 * lv}%.` },
+  { id: 'atk_combo', el: 'might', name: '연격', desc: lv => `기본공격 속도 +${Math.round(COMBO_SPEED * 100 * lv)}%, 3타째 피해 +${Math.round(COMBO_FIN * 100 * lv)}%.` },
+  // 일섬 회전: 따로 나오지 않는다. 효과는 회전 연참 레벨을 그대로 따른다 (mergedInto, 2026-10-18)
+  { id: 'atk_spin', el: 'might', name: '일섬 회전', mergedInto: 'atk_multispin', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${15 * lv}%.` },
   { id: 'atk_multispin', el: 'might', name: '회전 연참',
     desc: lv => `회전베기가 ${1 + lv}번 몰아쳐 벤다. 추가 타격은 피해 ${pct(MULTISPIN_MULT)}, 마지막 타격에만 넉백.` },
-  { id: 'atk_wave', el: 'might', name: '거대 검기', desc: lv => `검기 크기·사거리 +${25 * lv}%, 특수공격 쿨타임 -${(0.7 * lv).toFixed(1)}초.` },
+  { id: 'atk_wave', el: 'might', name: '거대 검기', desc: lv => `검기 크기·사거리 +${25 * lv}%, 특수공격 쿨타임 -${(0.5 * lv).toFixed(1)}초.` },
   { id: 'atk_thrust', el: 'might', name: '돌진 강화', desc: lv => `대시 찌르기 피해 +${40 * lv}%, 돌진 거리 +${15 * lv}%.` },
   { id: 'sharp', el: 'might', name: '날카로운 검', desc: lv => `모든 피해 +${10 * lv}%.` },
   { id: 'vital', el: 'might', name: '급소 찌르기', desc: lv => `치명타 확률 +${8 * lv}%, 치명타 피해 +${20 * lv}%.` },
@@ -168,6 +172,11 @@ for (const b of BOONS) {
 // 강화 축복(needs)은 그 슬롯 축복을 가지고 있을 때만 나온다 (보통 기본공격, 마법봉은 특수공격)
 for (const b of BOONS) if (b.needs) b.req = () => !!G.boons[b.needs];
 const BOON_BY_ID = Object.fromEntries(BOONS.map(b => [b.id, b]));
+// 합쳐진 축복: 설명에 합쳐진 쪽 효과를 이어 붙인다 (회전 연참 = 회전 연참 + 일섬 회전)
+for (const b of BOONS) if (b.mergedInto) {
+  const host = BOON_BY_ID[b.mergedInto], hostDesc = Object.getOwnPropertyDescriptor(host, 'desc').get;
+  Object.defineProperty(host, 'desc', { get: () => { const a = hostDesc(), c = b.desc; return lv => a(lv) + ' ' + c(lv); } });
+}
 const boonColor = b => (b.duo ? '#ffb8f0' : ELEMENTS[b.el].color);
 const boonIcon = b => (b.duo ? b.duo.map(e => ELEMENTS[e].icon).join('') : ELEMENTS[b.el].icon);
 // 최대 레벨: 슬롯 축복 · 그 강화 축복은 5 (1~6세계 동안 키울 거리), 패시브는 3, 듀오는 1 (2026-10-17)
@@ -297,6 +306,7 @@ function offGuard(t, p) {
 const FX = {
   lv(id) {
     const b = BOON_BY_ID[id];
+    if (b && b.mergedInto) return this.lv(b.mergedInto); // 일섬 회전 = 회전 연참 레벨
     if (b && b.needs && !G.boons[b.needs]) return 0; // 기본 축복이 빠지면 강화도 꺼진다
     return G.boons[id] || 0;
   },
@@ -614,7 +624,7 @@ const FX = {
   damageMult(p, kind, t) {
     let m = 1 + 0.1 * this.lv('sharp');
     const role = MOVES[kind] && MOVES[kind].role;
-    if (role === 'fin') m *= (1 + 0.3 * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
+    if (role === 'fin') m *= (1 + COMBO_FIN * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
     if (role === 'dash') m *= (1 + 0.4 * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
     const am = p.weapon.slamBoon === 'ambush' ? 0 : this.lv('ambush'); // 방패: 기습 대신 벽꿍 강화 (FX.wallSlam)

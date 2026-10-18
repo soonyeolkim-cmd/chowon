@@ -217,7 +217,7 @@ extendPlayer({
     this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.24 : 0.15, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? SHIELD_FIN_HALF : SHIELD_HALF,
       opts: counter ? { mult: SHIELD_COUNTER_MULT } : undefined, counter };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
-    this.atkCd = (fin ? SHIELD_FIN_CD : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
+    this.atkCd = (fin ? SHIELD_FIN_CD : 0.28) * (1 - COMBO_SPEED * FX.lv('atk_combo'));
     this.guardSrc = 'bash'; // 밀치는 중 막기는 피해 일부
     this.comboT = this.atkCd + 0.35;
     this.finisherT = 0; this.atkBuffer = 0;

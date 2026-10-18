@@ -281,6 +281,7 @@ const G = {
     const slotOwner = slot => BOONS.find(o => o.slot === slot && this.boons[o.id]);
     const locked = slot => { const o = slotOwner(slot); return !!o && this.boons[o.id] >= SLOT_LOCK_LV; };
     const ok = b => {
+      if (b.mergedInto) return false; // 다른 축복에 합쳐진 축복은 따로 안 나온다
       if ((this.boons[b.id] || 0) >= boonMaxLv(b)) return false;
       if (upgrade && !this.boons[b.id]) return false;
       if (b.slot && !this.boons[b.id] && locked(b.slot)) return false;
@@ -2373,7 +2374,7 @@ function boonReqLine(b) {
 }
 function bookList(tab) {
   const k = BOOK_TABS[tab][0];
-  return BOONS.filter(b => (k === 'duo' ? !!b.duo : b.el === k && !b.duo));
+  return BOONS.filter(b => !b.mergedInto && (k === 'duo' ? !!b.duo : b.el === k && !b.duo));
 }
 function bookLayout() { return bookAs(bookLayoutRaw); }
 function bookLayoutRaw() {

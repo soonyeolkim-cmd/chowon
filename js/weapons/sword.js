@@ -21,7 +21,7 @@ addWeapon('sword', {
   chargeTime: 0.55,
   specialCd: 5.0,
   // 특수공격 쿨타임 감소: 거대 검기 레벨당 · 숙련 단계당 (초), 이 아래로는 안 내려간다
-  cdPerLv: 0.7, cdPerMastery: 0.5, cdFloor: 1.5,
+  cdPerLv: 0.5, cdPerMastery: 0.5, cdFloor: 1.5, // 거대 검기 레벨당 0.7 → 0.5 (2026-10-18)
   skillCd: 0,
   basic: (p, mag) => p.startAttack(mag),
   basicAfterDash: p => p.startThrust(),
@@ -90,7 +90,7 @@ extendPlayer({
       range: fin ? 46 : 37, half: fin ? 1.4 : 1.05, swingDir: this.combo === 1 ? -1 : 1,
     };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
-    this.atkCd = (fin ? 0.42 : 0.24) * (1 - 0.15 * FX.lv('atk_combo'));
+    this.atkCd = (fin ? 0.42 : 0.24) * (1 - COMBO_SPEED * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
     this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 삼연 검기 (다른 행동을 하면 끊긴다)
     this.atkBuffer = 0;
