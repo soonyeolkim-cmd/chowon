@@ -1319,6 +1319,7 @@ const padName = i => (Input.settings.padLayout === 'switch' ? PAD_NAMES_SWITCH :
 const PAUSE_ITEMS = [
   { id: 'resume', name: '계속하기' },
   { id: 'moves', name: '기술 · 축복 보기' },
+  { id: 'book', name: '📖 축복 도감' },
   { id: 'settings', name: '설정' },
   { id: 'quit', name: '포기하고 마을로' },
 ];
@@ -1361,6 +1362,7 @@ function menuAxis(o, inp, dt = 0) {
 const stepSel = (sel, dy, len) => (sel + dy + len) % len;
 
 function handlePauseInput(dt, inp) {
+  if (G.book) { handleBoonBook(dt, inp); return; } // 축복 도감
   const m = G.pm || (G.pm = { sel: 0, view: 'menu', axis: 0, t: 0, qsel: 1 });
   m.t += dt;
   if (m.t < 0.15) return;
@@ -1405,12 +1407,14 @@ function handlePauseInput(dt, inp) {
   Sfx.pickup();
   if (id === 'resume') G.state = 'play';
   else if (id === 'moves') { m.view = 'moves'; m.scroll = 0; m.drag = null; }
+  else if (id === 'book') openBoonBook('pause');
   else if (id === 'settings') openSettings('paused');
   else if (id === 'quit') { m.view = 'quit'; m.qsel = 1; }
 }
 
 function drawPauseMenu(big, blink, tap) {
   const m = G.pm || { sel: 0, view: 'menu' };
+  if (G.book) { drawBoonBook(); return; }
   if (m.view === 'moves') { drawPauseScreen(big, blink, tap); return; }
   overlay(0.6);
   if (m.view === 'quit') {
@@ -2021,8 +2025,8 @@ function villageLayout() {
     return r;
   });
   const contentH = y;
-  const tw = rw / 2;
-  const tabs = [0, 1].map(i => ({ x: x0 + i * tw, y: inset.t + 58, w: tw - 4, h: 28 }));
+  const tw = rw / 3;
+  const tabs = [0, 1, 2].map(i => ({ x: x0 + i * tw, y: inset.t + 58, w: tw - 4, h: 28 })); // 세 번째 = 축복 도감
   const start = { x: W / 2 - 110, y: H - inset.b - 48, w: 220, h: 38 };
   const mode = { x: start.x - 152, y: start.y, w: 140, h: 38 };
   const tier = { x: start.x + start.w + 12, y: start.y, w: 132, h: 38 };
@@ -2036,7 +2040,7 @@ function drawVillage(blink) {
   label(`◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}`, W / 2, inset.t + 43, 13, '#c8a0ff', 'center', '800');
   label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
   drawHome(villageHome(), v.sel === -2);
-  ['공통 강화', '무기 해금 · 선택'].forEach((name, i) => {
+  ['공통 강화', '무기 해금 · 선택', '📖 축복 도감'].forEach((name, i) => {
     const t = L.tabs[i], on = v.tab === i;
     ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(30,34,44,0.85)';
     ctx.fillRect(t.x, t.y, t.w, t.h);
@@ -2116,6 +2120,7 @@ function drawVillage(blink) {
     : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
   if (v.tierView) drawTierView();
+  if (G.book) drawBoonBook();
 }
 
 // ── 봉인 등급 창: 왼쪽 등급 목록, 오른쪽 고른 등급의 내역 (반발 · 보상 · 증표 · 정수) (2026-10-17) ──
@@ -2237,6 +2242,111 @@ function drawTierView() {
   label(how, L.x + L.w / 2, L.y + L.h + 12 > H - inset.b - 6 ? L.y + L.h - 8 : L.y + L.h + 12, 11, tv.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
+// ── 축복 도감 (2026-10-18): 속성 6가지 + 듀오. 축복마다 슬롯 · 최대 레벨 · 나오는 조건 · 레벨별 효과 ──
+// 이름과 효과는 지금 무기 모양으로 (같은 축복도 무기마다 다르다). 마을 세 번째 탭 · 일시정지 메뉴에서 연다
+const BOOK_TABS = [['fire'], ['frost'], ['thunder'], ['poison'], ['might'], ['guard'], ['duo']];
+const BOOK_REQ = { fire: '화상을 거는 불 축복', frost: '냉기를 거는 얼음 축복', thunder: '감전을 거는 번개 축복', poison: '독을 거는 독 축복' };
+function openBoonBook(from) { G.book = { from, tab: 0, scroll: 0, t: 0, axis: 0, axisX: 0, drag: null }; Sfx.pickup(); }
+// 레벨별 설명을 한 줄로: 레벨마다 바뀌는 숫자는 "1/2/3" 처럼 모아서
+function boonLevelLine(b) {
+  const max = boonMaxLv(b), re = /(-?\d+(?:\.\d+)?)/;
+  const all = []; for (let lv = 1; lv <= max; lv++) all.push(b.desc(lv).split(re));
+  const base = all[0];
+  if (max === 1 || all.some(t => t.length !== base.length || t.some((x, i) => i % 2 === 0 && x !== base[i]))) return b.desc(max);
+  return base.map((x, i) => {
+    if (i % 2 === 0) return x;
+    const vals = all.map(t => t[i]);
+    return vals.every(v => v === vals[0]) ? vals[0] : vals.join('/');
+  }).join('');
+}
+function boonReqLine(b) {
+  if (b.duo) return `나오는 조건: ${b.duo.map(e => ELEMENTS[e].icon + ' ' + ELEMENTS[e].name).join(' + ')} 축복을 모두 가지고 있을 때`;
+  if (b.needs) return `나오는 조건: ${BOON_BY_ID[b.needs].name} 보유 (강화 축복)`;
+  if (b.req && BOOK_REQ[b.el]) return `나오는 조건: ${BOOK_REQ[b.el]}을 하나 이상 보유`;
+  if (b.slot) return `나오는 조건: 없음 · 같은 ${SLOT_NAMES[b.slot]}에는 속성 하나만 (다른 속성을 고르면 바뀌고, Lv${SLOT_LOCK_LV}부터는 고정)`;
+  return b.rare ? '나오는 조건: 없음 (드물게 나와요)' : '나오는 조건: 없음';
+}
+function bookList(tab) {
+  const k = BOOK_TABS[tab][0];
+  return BOONS.filter(b => (k === 'duo' ? !!b.duo : b.el === k && !b.duo));
+}
+function bookLayout() {
+  const w = Math.min(W - 24, 760), x = (W - w) / 2, y = inset.t + 8, h = H - inset.t - inset.b - 16;
+  const tabs = BOOK_TABS.map(([k], i) => { const tw = (w - 24) / BOOK_TABS.length; return { k, x: x + 12 + i * tw, y: y + 40, w: tw - 4, h: 28 }; });
+  const view = { x: x + 12, y: y + 76, w: w - 24, h: h - 76 - 22 };
+  const close = { x: x + w - 74, y: y + 8, w: 64, h: 26 };
+  const cards = []; let cy = 0;
+  for (const b of bookList(G.book.tab)) {
+    const tag = (b.slot ? SLOT_NAMES[b.slot] : b.needs ? '강화 축복' : b.duo ? '듀오 축복' : '패시브') + ` · 최대 Lv${boonMaxLv(b)}`;
+    const eff = wrap(boonLevelLine(b), view.w - 24, 12, '500'), req = wrap(boonReqLine(b), view.w - 24, 11, '600');
+    const hh = 26 + req.length * 15 + eff.length * 16 + 10;
+    cards.push({ b, tag, eff, req, top: cy, h: hh }); cy += hh + 6;
+  }
+  return { x, y, w, h, tabs, view, close, cards, maxScroll: Math.max(0, cy - view.h) };
+}
+function handleBoonBook(dt, inp) {
+  const bk = G.book, L = bookLayout();
+  bk.t += dt;
+  if (bk.t < 0.15) return;
+  const close = () => { G.book = null; Sfx.pickup(); if (G.village) { G.village.t = 0.3; G.village.armed = false; } };
+  if (inp.back || inp.pause) { close(); return; }
+  const setTab = t => { t = (t + BOOK_TABS.length) % BOOK_TABS.length; if (t !== bk.tab) { bk.tab = t; bk.scroll = 0; Sfx.pickup(); } };
+  if (inp.lb || inp.rb) { setTab(bk.tab + (inp.rb ? 1 : -1)); return; }
+  const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
+  if (hx && hx !== bk.axisX) setTab(bk.tab + hx);
+  bk.axisX = hx;
+  const vdir = inp.my > 0.5 ? 1 : inp.my < -0.5 ? -1 : 0;
+  if (vdir) bk.scroll += vdir * 360 * dt;
+  if (Input.wheel) { bk.scroll += Input.wheel * 0.6; Input.wheel = 0; }
+  if (bk.drag) { const pt = Input.pointers.get(bk.drag.id); if (pt) bk.scroll = bk.drag.scroll0 - (pt.y - bk.drag.y); else bk.drag = null; }
+  if (inp.tap) {
+    if (inRectPt(inp.tap, L.close)) { close(); return; }
+    const ti = L.tabs.findIndex(r => inRectPt(inp.tap, r));
+    if (ti >= 0) { setTab(ti); return; }
+    if (inRectPt(inp.tap, L.view)) {
+      let id = null;
+      for (const [pid, pt] of Input.pointers) if (Math.abs(pt.x - inp.tap.x) < 1 && Math.abs(pt.y - inp.tap.y) < 1) id = pid;
+      if (id !== null) bk.drag = { id, y: inp.tap.y, scroll0: bk.scroll };
+    }
+  }
+  bk.scroll = clamp(bk.scroll, 0, L.maxScroll);
+}
+function drawBoonBook() {
+  const bk = G.book, L = bookLayout();
+  overlay(0.75);
+  ctx.fillStyle = 'rgba(14,18,26,0.97)'; ctx.fillRect(L.x, L.y, L.w, L.h);
+  ctx.strokeStyle = 'rgba(255,224,138,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(L.x + 0.5, L.y + 0.5, L.w - 1, L.h - 1);
+  label('📖 축복 도감', L.x + 16, L.y + 22, 18, '#ffe08a', 'left', '900');
+  label(`${WEAPONS[curWeapon()].name} 기준 · 같은 축복도 무기마다 이름과 효과가 달라요`, L.x + 140, L.y + 23, 11, '#aab', 'left', '600');
+  const c = L.close; ctx.fillStyle = 'rgba(40,46,60,0.95)'; ctx.fillRect(c.x, c.y, c.w, c.h); label('닫기', c.x + c.w / 2, c.y + c.h / 2 + 1, 12, '#ccd', 'center', '700');
+  L.tabs.forEach((t, i) => {
+    const on = bk.tab === i, el = ELEMENTS[t.k], col = t.k === 'duo' ? '#ffb8f0' : el.color;
+    ctx.fillStyle = on ? 'rgba(60,52,90,0.95)' : 'rgba(28,32,44,0.9)'; ctx.fillRect(t.x, t.y, t.w, t.h);
+    if (on) { ctx.fillStyle = col; ctx.fillRect(t.x, t.y + t.h - 3, t.w, 3); }
+    label(t.k === 'duo' ? '✨ 듀오' : `${el.icon} ${el.name}`, t.x + t.w / 2, t.y + t.h / 2, 12, on ? col : '#99a', 'center', '800');
+  });
+  const V = L.view;
+  ctx.save(); ctx.beginPath(); ctx.rect(V.x, V.y, V.w, V.h); ctx.clip();
+  for (const cd of L.cards) {
+    const y = V.y + cd.top - bk.scroll;
+    if (y + cd.h < V.y || y > V.y + V.h) continue;
+    const b = cd.b, col = boonColor(b), own = G.player && G.boons && G.boons[b.id];
+    ctx.fillStyle = 'rgba(24,30,40,0.95)'; ctx.fillRect(V.x, y, V.w, cd.h);
+    ctx.fillStyle = col; ctx.fillRect(V.x, y, 3, cd.h);
+    ctx.font = `16px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(boonIcon(b), V.x + 10, y + 14);
+    label(b.name + (own ? `  (지금 Lv${G.boons[b.id]})` : ''), V.x + 34, y + 14, 14, col, 'left', '800');
+    label(cd.tag, V.x + V.w - 10, y + 14, 11, '#aab', 'right', '600');
+    let ly = y + 32;
+    cd.req.forEach(l => { label(l, V.x + 12, ly, 11, cd.b.duo || cd.b.needs || cd.b.req ? '#ffb07a' : '#7d8a96', 'left', '600'); ly += 15; });
+    cd.eff.forEach(l => { label(l, V.x + 12, ly + 1, 12, '#e8e8e8', 'left', '500'); ly += 16; });
+  }
+  ctx.restore();
+  if (L.maxScroll > 0) { const k = V.h / (V.h + L.maxScroll), bh = V.h * k, by = V.y + (bk.scroll / L.maxScroll) * (V.h - bh); ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(V.x + V.w + 4, by, 3, bh); }
+  const d = Input.state.device;
+  const how = d === 'touch' ? '속성 탭을 눌러 바꾸고, 목록은 밀어서 스크롤 · 숫자 "1/2/3"은 레벨별 값' : d === 'gamepad' ? 'LB · RB / ←→ 속성 · ↑↓ 스크롤 · B 닫기 · 숫자 "1/2/3"은 레벨별 값' : '←→ 속성 · ↑↓ · 휠 스크롤 · Esc 닫기 · 숫자 "1/2/3"은 레벨별 값';
+  label(how, L.x + L.w / 2, L.y + L.h - 10, 11, '#8a96a0', 'center', '600');
+}
+
 function villageAct(i) {
   const v = G.village, items = villageItems(v.tab);
   if (i === -1) { openSettings('village'); return; } // ⚙ 설정
@@ -2286,12 +2396,13 @@ function handleVillageInput(dt, inp) {
   for (const k in v.flash) v.flash[k] = Math.max(0, v.flash[k] - dt);
   if (v.t < 0.5) { Input.wheel = 0; return; }
   if (!v.armed) { if (inp.attackHeld || Input.pointers.size) return; v.armed = true; }
+  if (G.book) { handleBoonBook(dt, inp); return; }
   if (v.tierView) { handleTierView(dt, inp); return; }
   let L = villageLayout();
   const n = L.items.length;
   const inRect = (pt, r) => pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
   const selectable = i => i === n || i === n + 1 || i === n + 2 || (L.items[i] && !L.items[i].header);
-  const setTab = t => { if (t !== v.tab) { v.tab = t; v.sel = villageItems(t).length; v.scroll = 0; v.msg = null; Sfx.pickup(); } };
+  const setTab = t => { if (t === 2) { openBoonBook('village'); return; } if (t !== v.tab) { v.tab = t; v.sel = villageItems(t).length; v.scroll = 0; v.msg = null; Sfx.pickup(); } };
 
   // 휠 스크롤
   if (Input.wheel) { v.scroll = clamp(v.scroll + Input.wheel * 0.6, 0, L.maxScroll); Input.wheel = 0; }
@@ -2346,7 +2457,7 @@ function handleVillageInput(dt, inp) {
   };
   // B(취소): 위쪽(목록 · ⚙)에 있으면 아래 버튼 줄의 '모험 떠나기'로 내려간다
   if (inp.back && !inBar) { v.sel = n; v.msg = null; Sfx.pickup(); return; }
-  const nextTab = d => (v.tab + d + 2) % 2; // 탭도 끝에서 반대쪽 끝으로
+  const nextTab = d => (v.tab + d + 3) % 3; // 탭도 끝에서 반대쪽 끝으로 (2 = 축복 도감 열기)
   if (inp.lb || inp.rb) { const d = inp.rb ? 1 : -1; if (inBar) barMove(d); else tabTo(nextTab(d)); return; }
   // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
