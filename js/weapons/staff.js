@@ -59,7 +59,7 @@ addWeapon('staff', {
     ['대시', `${D} (쿨타임 ${DASH_CD}초)`, '짧은 무적 이동'],
     ['마력 파동', `${D} → ${A}`, '주변을 크게 밀어낸다', 'thrust'],
     ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 반격 치명타 + 구슬 가득', 'dodge'],
-    ['삼연 마력탄', `2타째 직후 ${P}`, '구슬 1개로 세 발이 부채꼴로', 'triple'],
+    ['삼연 마력탄', `마법진 직후 ${P}`, '구슬 1개로 세 발이 부채꼴로', 'triple'],
   ],
   shieldHint: '저 방패병은 정면 공격을 막아요! 2타째 휘두르기나 마법진은 방패를 깨요. 마력탄으로 등 뒤를 노려도 돼요.',
   mastery: [
@@ -131,7 +131,7 @@ extendPlayer({
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
     this.atkCd = (fin ? 0.42 : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
-    this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 삼연 마력탄
+    this.finisherT = 0; // 삼연 마력탄은 마법진 뒤로 옮겼다 (2026-10-18)
     this.atkBuffer = 0;
     Sfx.swing(fin);
     FX.onSwing(this, fin);
@@ -159,6 +159,7 @@ extendPlayer({
     G.projectiles.push(new MagicCircle(cx, cy, this.circleR, FX.lv('atk_multispin')));
     this.act = { kind: 'cast', t: 0, dur: 0.25, hit: new Set(), circleCast: true };
     this.atkCd = 0.4; this.charge = 0; this.comboT = 0;
+    this.finisherT = 0.8; // 마법진을 깐 직후 특수공격 → 삼연 마력탄 (2026-10-18)
     G.text(this.x, this.y - 24, '마법진', '#ffd24a', 12, 0.6);
     Sfx.charged();
     FX.onCircleCast(this);
