@@ -7,7 +7,7 @@ const ORB_RECHARGE = 0.5;       // 구슬 1개 충전 시간 (1.0 → 0.4 → 0.
 const ORB_INTERVAL = 0.12;      // 누르고 있을 때 연사 간격
 const ORB_REFUND = 0.25;        // 기본공격이 맞으면 충전이 이만큼 빨라진다
 const ORB_RANGE = 136;          // 마력탄 사거리 (220 → 170 → 136, 2026-10-17)
-const STAFF_REACH = 34;         // 마법봉 휘두르기 사거리
+const STAFF_REACH = 46;         // 마법봉 휘두르기 사거리 (34 → 46: 봉 끝의 마법 구체를 살짝 휘둘러 친다, 2026-10-18)
 const CIRCLE_R = 55;            // 마법진 반경
 const CIRCLE_DELAY = 0.5;       // 마법진이 터지기까지
 const PULSE_R = 50;             // 마력 파동 반경
@@ -52,7 +52,7 @@ addWeapon('staff', {
   special: (p, mag) => p.castOrb(mag),
   skill: null,
   rows: (A, P, D) => [
-    ['기본 · 2연타', `${A} ${A}`, '약하고 짧다 · 맞힐 때마다 구슬 충전이 빨라짐'],
+    ['기본 · 2연타', `${A} ${A}`, '봉 끝의 마법 구체를 살짝 휘둘러 친다 (사거리 46) · 맞힐 때마다 구슬 충전이 빨라짐'],
     ['마력 구슬', `최대 ${ORB_BASE}개 · ${ORB_RECHARGE}초마다 1개`, '머리 위에 떠 있는 탄창 · 마력 증폭 축복으로 늘어난다'],
     ['특수 · 마력탄', `${P} (누르고 있으면 연사)`, '구슬 1개로 살짝 유도되는 마력탄 · 사거리 136'],
     ['차지 · 마법진', `${A} 길게 눌렀다 떼기`, '앞쪽(가까운 적 발밑)에 마법진 · 0.5초 뒤 폭발'],
@@ -183,8 +183,19 @@ extendPlayer({
       const a0 = f - a.half * a.swingDir, ang = a0 + 2 * a.half * a.swingDir * e;
       const bs = ElFx.slot('basic');
       if (bs) ElFx.arc(g, bs, x, cy, a.range - 8, Math.min(a0, ang), Math.max(a0, ang), 3, 0.6 * (1 - pr));
-      else { g.strokeStyle = `rgba(207,232,255,${0.5 * (1 - pr)})`; g.lineWidth = 3; g.beginPath(); g.arc(x, cy, a.range - 8, Math.min(a0, ang), Math.max(a0, ang)); g.stroke(); }
+      else { g.strokeStyle = `rgba(207,232,255,${0.35 * (1 - pr)})`; g.lineWidth = 2; g.beginPath(); g.arc(x, cy, a.range - 8, Math.min(a0, ang), Math.max(a0, ang)); g.stroke(); }
       wandSprite(g, x, cy, ang, 4);
+      // 봉 끝의 마법 구체: 휘두르는 길을 따라 작은 빛 구슬이 꼬리를 끌며 지나간다 (2026-10-18)
+      const R = a.range - 8, main = bs ? EL_STYLE[bs.el].main : '#7fe0ff', fin = a.kind === 'bonkFin';
+      for (let k = 4; k >= 0; k--) {
+        const q = ang - a.swingDir * k * 0.22; if ((q - a0) * a.swingDir < 0) continue;
+        const ox = x + Math.cos(q) * R, oy = cy + Math.sin(q) * R * 0.85, rr = (fin ? 4.5 : 3.6) * (1 - k * 0.17);
+        g.globalAlpha = (1 - k * 0.2) * (1 - pr * 0.5);
+        g.fillStyle = bs ? ElFx.rgba(bs.el, 0.35) : 'rgba(127,224,255,0.35)'; g.beginPath(); g.arc(ox, oy, rr + 2.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = main; g.beginPath(); g.arc(ox, oy, rr, 0, Math.PI * 2); g.fill();
+        if (k === 0) { g.fillStyle = '#fff'; g.beginPath(); g.arc(ox - 1, oy - 1, rr * 0.4, 0, Math.PI * 2); g.fill(); }
+      }
+      g.globalAlpha = 1;
     } else if (a && a.kind === 'cast' && a.orbCast) {
       wandSprite(g, x, cy, f, 6);
       const tx = x + c * 22, ty = cy + s * 22 - 4, ss = ElFx.slot('special');
