@@ -1114,7 +1114,7 @@ function drawHud() {
   if (G.phase === 'totems') {
     const seal = G.totems[0];
     const goal = seal && seal.shielded ? `웨이브 ${Math.max(1, G.waveIdx + 1)} / ${G.waves.length}` : '봉인석을 부숴라!';
-    label(`봉인 등급 ${G.tier || 1} · ${G.stage}-${G.sub}  ·  ${goal}` /* 상태창엔 봉인 등급만 (반발은 일시정지 · 축복 창), 2026-10-17 */, cxm, inset.t + 22, 14, '#e8d8ff', 'center', '700');
+    label(`봉인 등급 ${tierNo(G.tier || 1)} · ${G.stage}-${G.sub}  ·  ${goal}` /* 상태창엔 봉인 등급만 (반발은 일시정지 · 축복 창), 2026-10-17 */, cxm, inset.t + 22, 14, '#e8d8ff', 'center', '700');
   }
   else if (boss) {
     label(boss.name, cxm, inset.t + 20, 14, boss.enraged ? '#ff8a6a' : '#ffe08a', 'center', '700');
@@ -1441,7 +1441,7 @@ function drawPauseMenu(big, blink, tap) {
     return;
   }
   label('일시정지', W / 2, pauseLayout()[0].y - 40, big * 0.6, '#ffe08a', 'center', '900');
-  if (G.tier) label(`봉인 등급 ${G.tier} · ${G.stage}-${G.sub}${Meta.data.mode === 'easy' ? ' · 쉬움' : ''}`, W / 2, pauseLayout()[0].y - 14, 12, '#ccd', 'center', '600');
+  if (G.tier) label(`봉인 등급 ${tierNo(G.tier)} · ${G.stage}-${G.sub}${Meta.data.mode === 'easy' ? ' · 쉬움' : ''}`, W / 2, pauseLayout()[0].y - 14, 12, '#ccd', 'center', '600');
   pauseLayout().forEach((r, i) => {
     const sel = m.sel === i;
     ctx.fillStyle = sel ? 'rgba(70,60,110,0.97)' : 'rgba(24,28,40,0.92)'; ctx.fillRect(r.x, r.y, r.w, r.h);
@@ -2052,9 +2052,60 @@ function villageLayout() {
   return { rows, tabs, start, mode, tier, items, view, maxScroll: Math.max(0, contentH - view.h) };
 }
 
+// 뜨거운 열기: 봉인 등급 1 이상을 고르면 마을 화면 아래에서 붉은 기운과 불티가 올라온다. 등급이 높을수록 세다 (2026-10-18)
+const heatHash = (i, k) => { const v = Math.sin(i * 91.7 + k * 47.3) * 43758.5453; return v - Math.floor(v); };
+function drawHeat(lv, embers) {
+  if (lv <= 0) return;
+  if (embers) return drawEmbers(lv);
+  const t = performance.now() / 1000, k = lv / (TIER_MAX - 1); // 0 ~ 1
+  const fl = 0.85 + 0.15 * Math.sin(t * 5.3) * Math.sin(t * 2.1 + 1);
+  // 아래에서 올라오는 붉은 기운
+  const gh = H * (0.35 + 0.3 * k);
+  const g = ctx.createLinearGradient(0, H, 0, H - gh);
+  g.addColorStop(0, `rgba(255,80,20,${(0.22 + 0.3 * k) * fl})`);
+  g.addColorStop(0.5, `rgba(220,50,10,${(0.08 + 0.14 * k) * fl})`);
+  g.addColorStop(1, 'rgba(180,30,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, H - gh, W, gh);
+  // 양옆 가장자리도 살짝 달아오른다
+  const sw = W * 0.12;
+  for (const [x0, x1] of [[0, sw], [W, W - sw]]) {
+    const s = ctx.createLinearGradient(x0, 0, x1, 0);
+    s.addColorStop(0, `rgba(255,70,20,${(0.06 + 0.14 * k) * fl})`); s.addColorStop(1, 'rgba(255,70,20,0)');
+    ctx.fillStyle = s; ctx.fillRect(Math.min(x0, x1), 0, sw, H);
+  }
+}
+// 불티: 아래에서 흔들리며 올라가다 사라진다 (도트 네모). 패널 위로 날아다니게 맨 마지막에 그린다
+function drawEmbers(lv) {
+  const t = performance.now() / 1000, k = lv / (TIER_MAX - 1);
+  const n = 8 + lv * 6;
+  for (let i = 0; i < n; i++) {
+    const per = 2.6 + heatHash(i, 1) * 2.8, ph = (t / per + heatHash(i, 2)) % 1;
+    const x = heatHash(i, 3) * W + Math.sin(t * (1 + heatHash(i, 4) * 2) + i) * 14;
+    const y = H + 6 - ph * H * (0.55 + 0.35 * heatHash(i, 5));
+    const a = (ph < 0.15 ? ph / 0.15 : 1 - (ph - 0.15) / 0.85) * (0.6 + 0.4 * k);
+    const sz = heatHash(i, 6) < 0.3 ? 3 : 2;
+    ctx.fillStyle = heatHash(i, 7) < 0.35 ? `rgba(255,220,120,${a})` : `rgba(255,${110 + ((heatHash(i, 8) * 60) | 0)},40,${a})`;
+    ctx.fillRect(Math.round(x), Math.round(y), sz, sz);
+  }
+}
+// 봉인 등급 버튼 위로 일렁이는 작은 불꽃 (도트)
+function drawHeatFlames(r, lv) {
+  if (lv <= 0) return;
+  const t = performance.now() / 1000, n = Math.round(r.w / 9), k = lv / (TIER_MAX - 1);
+  for (let i = 0; i < n; i++) {
+    const x = r.x + 4 + (i + 0.5) * (r.w - 8) / n;
+    const h = (5 + 9 * k) * (0.55 + 0.45 * Math.abs(Math.sin(t * (6 + heatHash(i, 9) * 4) + i * 1.7)));
+    for (let j = 0; j < h; j += 2) {
+      const q = j / h, w = Math.max(1, Math.round((1 - q) * 4));
+      ctx.fillStyle = q < 0.35 ? '#ffd86a' : q < 0.7 ? '#ff8a2a' : '#e0401a';
+      ctx.fillRect(Math.round(x - w / 2), Math.round(r.y - 1 - j - 2), w, 2);
+    }
+  }
+}
 function drawVillage(blink) {
   const v = G.village, L = villageLayout(), md = Meta.data;
   overlay(0.7);
+  drawHeat(tierNo(md.tier || 1));
   label('숲 마을 · 정령의 제단', W / 2, inset.t + 20, 22, '#ffe08a', 'center', '900');
   label(`◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}`, W / 2, inset.t + 43, 13, '#c8a0ff', 'center', '800');
   label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
@@ -2130,15 +2181,17 @@ function drawVillage(blink) {
   label(easy ? '받는 피해 1/3' : '눌러서 바꾸기', mtx, mb.y + mb.h / 2 + 9, 9, '#aab', 'center', '600');
   // 봉인 등급 버튼
   const tb = L.tier, tsel = v.sel === L.items.length + 2, ti = tierInfo(md.tier);
+  drawHeatFlames(tb, tierNo(ti.n));
   ctx.fillStyle = ti.curses.length ? 'rgba(110,40,60,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
   ctx.strokeStyle = tsel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(tb.x + 1, tb.y + 1, tb.w - 2, tb.h - 2);
-  label(`봉인 등급 ${ti.n}`, tb.x + tb.w / 2, tb.y + tb.h / 2 - 6, 13, '#ffd0e0', 'center', '800');
+  label(`봉인 등급 ${tierNo(ti.n)}`, tb.x + tb.w / 2, tb.y + tb.h / 2 - 6, 13, '#ffd0e0', 'center', '800');
   const fm = familiarMult(ti.n);
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정 · 왼쪽 위 처음 화면'
     : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
+  drawHeat(tierNo(md.tier || 1), true);
   if (v.tierView) drawTierView();
   if (G.book) drawBoonBook();
 }
@@ -2173,10 +2226,10 @@ function tierScrollTo(i) {
 }
 function tierPick(n) {
   const v = G.village;
-  if (!tierOpen(n)) { v.tierView.msg = `봉인 등급 ${n - 1}${josaEul(n - 1)} 완주하면 열려요`; Sfx.block(); return; }
+  if (!tierOpen(n)) { v.tierView.msg = `봉인 등급 ${tierNo(n - 1)}${josaEul(tierNo(n - 1))} 완주하면 열려요`; Sfx.block(); return; }
   Meta.data.tier = n; Meta.save(); v.tierView = null;
   const ti = tierInfo(n);
-  v.msg = `봉인 등급 ${n}${josaRo(n)} 정했어요 · 보상 ×${(ti.rewardMult * familiarMult(n)).toFixed(2)} · 반발 ${ti.curses.length}개`;
+  v.msg = `봉인 등급 ${tierNo(n)}${josaRo(tierNo(n))} 정했어요 · 보상 ×${(ti.rewardMult * familiarMult(n)).toFixed(2)} · 반발 ${ti.curses.length}개`;
   Sfx.boon();
 }
 function handleTierView(dt, inp) {
@@ -2228,7 +2281,7 @@ function drawTierView() {
     const open = tierOpen(n), cleared = !!Meta.data.tierCleared[n], cur = Meta.data.tier === n, sel = tv.sel === i, ti = tierInfo(n);
     ctx.fillStyle = sel ? 'rgba(110,40,70,0.95)' : 'rgba(30,34,46,0.9)'; ctx.fillRect(Ls.x, y + 1, Ls.w, TIER_ROW - 3);
     if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(Ls.x + 1, y + 2, Ls.w - 2, TIER_ROW - 5); }
-    label((open ? '' : '🔒 ') + '봉인 등급 ' + n, Ls.x + 10, y + TIER_ROW / 2, 13, open ? (cur ? '#ffd24a' : '#fff') : '#778', 'left', '800');
+    label((open ? '' : '🔒 ') + '봉인 등급 ' + tierNo(n), Ls.x + 10, y + TIER_ROW / 2, 13, open ? (cur ? '#ffd24a' : '#fff') : '#778', 'left', '800');
     const tag = cur ? '선택됨' : cleared ? '✓ 완주' : open ? `반발 ${ti.curses.length}` : '';
     label(tag, Ls.x + Ls.w - 10, y + TIER_ROW / 2, 10, cur ? '#ffd24a' : cleared ? '#8ff0b0' : '#aab', 'right', '700');
   }
@@ -2240,7 +2293,7 @@ function drawTierView() {
   // 고른 등급의 내역
   const n = tv.sel + 1, ti = tierInfo(n), I = L.info, open = tierOpen(n), fm = familiarMult(n);
   let y = I.y + 10;
-  label(`봉인 등급 ${n}`, I.x, y, 16, open ? '#ffd0e0' : '#778', 'left', '900'); y += 24;
+  label(`봉인 등급 ${tierNo(n)}`, I.x, y, 16, open ? '#ffd0e0' : '#778', 'left', '900'); y += 24;
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? '  (익숙한 숲 ×0.5)' : ''}`, I.x, y, 12, fm < 1 ? '#ff8a7a' : '#c8b8ff', 'left', '700'); y += 18;
   const cleared = !!Meta.data.tierCleared[n], eb = Meta.data.essBest[n] || 0;
   label(`✦ 영웅의 증표: ${cleared ? '받음' : '처음 완주하면 1개'}`, I.x, y, 11, cleared ? '#8ff0b0' : '#ffd24a', 'left', '600'); y += 16;
@@ -2679,7 +2732,7 @@ function drawProfiles(blink) {
       label(row[0], lx, yy + rh * 0.6, 11, '#aab4c0', 'left', '600');
       label(String(row[1]), rx, yy + rh * 0.6, 12, '#fff', 'right', '700');
     });
-    foot(`이어하기 · 봉인 등급 ${s.tier}${s.mode === 'easy' ? ' · 쉬움' : ''}`, '#c8b8ff');
+    foot(`이어하기 · 봉인 등급 ${tierNo(s.tier || 1)}${s.mode === 'easy' ? ' · 쉬움' : ''}`, '#c8b8ff');
   });
   const b = L.back;
   ctx.fillStyle = 'rgba(20,26,34,0.85)'; ctx.fillRect(b.x, b.y, b.w, b.h);
@@ -2738,7 +2791,7 @@ function overlay(alpha) { ctx.fillStyle = `rgba(5,12,5,${alpha})`; ctx.fillRect(
 // 이번 모험의 봉인 등급과 반발(불리한 규칙)을 아래쪽부터 위로 쌓아 쓴다: 축복 창 · 일시정지 (2026-10-17)
 function curseLineText() {
   const ti = G.tierInfo || tierInfo(1);
-  return ti.curses.length ? '봉인 등급 ' + ti.n + ' · 반발: ' + ti.curses.map(id => CURSES[id].name + ' (' + CURSES[id].desc + ')').join(' · ') : '봉인 등급 ' + ti.n + ' · 반발 없음';
+  return ti.curses.length ? '봉인 등급 ' + tierNo(ti.n) + ' · 반발: ' + ti.curses.map(id => CURSES[id].name + ' (' + CURSES[id].desc + ')').join(' · ') : '봉인 등급 ' + tierNo(ti.n) + ' · 반발 없음';
 }
 function drawCurseLines(yBottom) {
   const ti = G.tierInfo || tierInfo(1), cl = wrap(curseLineText(), Math.min(W - 40, 760), 11, '600');
@@ -2893,10 +2946,10 @@ function render() {
         const ti = G.tierInfo || tierInfo(1);
         if (G.tierFirst) {
           const reward = ti.emblem ? `✦ 영웅의 증표 +${EMBLEM_PER_CLEAR} (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요` : `◆ 등급 보너스 +${ti.bonusShards}`;
-          label(`봉인 등급 ${ti.n} 첫 돌파!  ${reward}`, W / 2, H * 0.57 + 20, 13, '#ffd24a', 'center', '700');
+          label(`봉인 등급 ${tierNo(ti.n)} 첫 돌파!  ${reward}`, W / 2, H * 0.57 + 20, 13, '#ffd24a', 'center', '700');
           const nx = tierInfo(ti.n + 1);
-          if (ti.n < TIER_MAX) label(`다음 도전: 봉인 등급 ${nx.n} · ${curseText(nx)}`, W / 2, H * 0.57 + 40, 12, '#e8d8ff', 'center', '600');
-        } else label(`봉인 등급 ${ti.n} · 이미 완주한 등급이라 첫 돌파 보상은 없어요`, W / 2, H * 0.57 + 20, 12, '#aab', 'center', '600');
+          if (ti.n < TIER_MAX) label(`다음 도전: 봉인 등급 ${tierNo(nx.n)} · ${curseText(nx)}`, W / 2, H * 0.57 + 40, 12, '#e8d8ff', 'center', '600');
+        } else label(`봉인 등급 ${tierNo(ti.n)} · 이미 완주한 등급이라 첫 돌파 보상은 없어요`, W / 2, H * 0.57 + 20, 12, '#aab', 'center', '600');
         if (G.clearT > 1.5 && blink) label(`${tap} 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
       }
     }

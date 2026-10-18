@@ -1,8 +1,9 @@
 'use strict';
 // 봉인 등급: 한 번의 모험으로 세계 1~6을 모두 지나야 완주. 처음 완주하면 다음 등급이 열린다.
 // 등급이 오를수록 '봉인의 반발'(불리한 규칙)이 하나씩 더 붙는다. 대신 보상 배율이 오른다.
-//   등급 1 = 반발 없음, 등급 8 = 반발 7개 전부
-//   영웅의 증표: 봉인 등급을 처음 완주할 때마다 1개 (등급 1~8, 모두 8개). 2026-10-17
+//   등급 0 = 반발 없음, 등급 7 = 반발 7개 전부
+//   화면에 보이는 번호는 0부터 (tierNo). 안에서는 1~8로 그대로 센다 (세이브 호환, 2026-10-18)
+//   영웅의 증표: 봉인 등급을 처음 완주할 때마다 1개 (등급 0~7, 모두 8개). 2026-10-17
 // 쉬움 모드로 깨도 모두 인정된다.
 
 const ROUTES = {
@@ -47,5 +48,6 @@ function playableTiers() {
   for (let n = 1; n <= TIER_MAX; n++) if (tierPlayable(n)) list.push(n);
   return list;
 }
+const tierNo = n => n - 1; // 화면에 보이는 봉인 등급 번호 (0부터)
 const curse = id => !!(G.tierCurses && G.tierCurses.includes(id));
 const curseText = info => (info.curses.length ? info.curses.map(id => `${CURSES[id].name}(${CURSES[id].desc})`).join(', ') : '반발 없음');
