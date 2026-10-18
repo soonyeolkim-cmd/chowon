@@ -48,7 +48,7 @@ const COMBO_SPEED = 0;
 const COMBO_FIN = 0;
 const ECHO_MULT = 0.5;      // 잔상 한 번의 피해 (마지막 타의 50%)
 const ECHO_DELAY = 0.16;    // 처음 잔상이 치기까지 · 잔상 사이 간격 (초)
-const ECHO_FLASH = 0.1;     // 잔상이 친 자국이 보이는 시간 (짧게 반짝하고 사라진다)
+const ECHO_FLASH = 0.05;    // 잔상이 친 자국이 보이는 시간 (0.1 → 0.05, 번쩍 하고 바로 사라진다)
 const WAVE_DMG = 0.1;       // 거대 검기(무기마다 특수 강화): 레벨마다 특수공격 피해 +10% (2026-10-18 추가)
 // 돌진 강화(무기마다 대시 공격 강화) = 다단히트 (2026-10-18): 1레벨부터 2번 더 몰아친다(고정), 2 · 3레벨은 대시 공격 피해만 조금씩
 const DASH_ECHO_HITS = 2;
@@ -227,10 +227,10 @@ class EchoStrike {
     g.save(); g.lineCap = 'round';
     if (S.line) {
       const c = Math.cos(this.dir), s = Math.sin(this.dir);
-      for (const [w, a] of [[5, 0.3], [2, 0.9]]) { g.strokeStyle = `rgba(255,240,210,${a * al})`; g.lineWidth = w; g.beginPath(); g.moveTo(this.x + c * 14, cy + s * 14); g.lineTo(this.x + c * S.line, cy + s * S.line); g.stroke(); }
+      for (const [w, a] of [[3.5, 0.25], [1.5, 0.85]]) { g.strokeStyle = `rgba(255,240,210,${a * al})`; g.lineWidth = w; g.beginPath(); g.moveTo(this.x + c * 14, cy + s * 14); g.lineTo(this.x + c * S.line, cy + s * S.line); g.stroke(); }
     } else {
-      const r = S.range - 6, a0 = this.dir - S.half * 0.85, a1 = this.dir + S.half * 0.85;
-      for (const [w, a] of [[5, 0.3], [2, 0.9]]) { g.strokeStyle = `rgba(255,240,210,${a * al})`; g.lineWidth = w; g.beginPath(); g.arc(this.x, cy, r, a0, a1); g.stroke(); }
+      const r = S.range - 6, a0 = this.dir - S.half * 0.55, a1 = this.dir + S.half * 0.55; // 칼자국은 짧게
+      for (const [w, a] of [[3.5, 0.25], [1.5, 0.85]]) { g.strokeStyle = `rgba(255,240,210,${a * al})`; g.lineWidth = w; g.beginPath(); g.arc(this.x, cy, r, a0, a1); g.stroke(); }
     }
     g.restore();
   }

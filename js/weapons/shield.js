@@ -25,7 +25,7 @@ const SHIELD_SPIN_R = 62;       // 돌려치기 반경 (46 → 62, 2026-10-17)
 const SHIELD_QUAKE_R = 72;      // 방패 강타 충격파 거리
 const SHIELD_QUAKE_HALF = 0.8;  // 충격파 부채꼴 반각 (약 ±46°)
 const SHIELD_QUAKE_STUN = 0.6;
-const QUAKE_WAVE_SPEED = 380;   // 충격파가 부채꼴로 퍼져 나가는 속도 (2026-10-17)
+const QUAKE_WAVE_SPEED = 620;   // 충격파가 부채꼴로 퍼져 나가는 속도 (380 → 620: 빨리 퍼지고 빨리 사라진다, 2026-10-18)
 const QUAKE_WAVE_REACH = 1.35;  // 충격파가 가는 거리 = 강타 거리 × 이 값 (1.7 → 1.35, 약 120 → 97, 2026-10-18)
 const QUAKE_NEAR = 30;          // 내려친 바로 앞은 그 자리에서 맞는다  // 강타에 맞은 적 기절 (보스 제외)
 const SHIELD_SLAM_R = 40;       // 후려치기 범위
@@ -490,12 +490,12 @@ class QuakeWave {
   draw(g) {
     const k = 1 - clamp((this.r - QUAKE_NEAR) / (this.maxR - QUAKE_NEAR), 0, 1), f = this.dir, cs = ElFx.slot('charge');
     const col = this.after ? '170,210,230' : '200,170,120';
-    const vis = 0.2 + 0.6 * k; // 멀어질수록 흐리게
+    const vis = 0.7 * k * k; // 멀어질수록 빨리 흐려진다
     for (const [rr, w, al, white] of [[this.r, 4, vis * 0.55], [this.r, 1.5, vis * 0.7, true]]) { // 흙빛 굵은 선 + 가는 밝은 선 (예전: 3겹 굵은 금빛)
       if (rr <= 0) continue;
       g.save(); g.translate(this.x, this.y); g.scale(1, 0.75); // 땅 위를 퍼지는 느낌으로 살짝 납작하게
-      if (cs && !this.after && !white) ElFx.arc(g, cs, 0, 0, rr, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF, w, al);
-      else { g.strokeStyle = white ? `rgba(255,240,210,${al})` : `rgba(${col},${al})`; g.lineWidth = w; g.beginPath(); g.arc(0, 0, rr, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF); g.stroke(); }
+      if (cs && !this.after && !white) ElFx.arc(g, cs, 0, 0, rr, f - SHIELD_QUAKE_HALF * 0.7, f + SHIELD_QUAKE_HALF * 0.7, w, al);
+      else { g.strokeStyle = white ? `rgba(255,240,210,${al})` : `rgba(${col},${al})`; g.lineWidth = w; g.beginPath(); g.arc(0, 0, rr, f - SHIELD_QUAKE_HALF * 0.7, f + SHIELD_QUAKE_HALF * 0.7); g.stroke(); } // 선은 부채꼴보다 짧게
       g.restore();
     }
   }
