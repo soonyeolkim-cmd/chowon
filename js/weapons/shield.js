@@ -329,11 +329,11 @@ extendPlayer({
     } else if (a && a.kind === 'bashFin') { // 몸으로 밀어치기: 방패를 몸에 붙이고 어깨로 들이받는다
       const p = a.t / a.dur, e = p < 0.45 ? p / 0.45 : 1 - (p - 0.45) / 0.55;
       shieldSprite(g, x + c * (11 + e * 4), cy + s * (8 + e * 3), 1.15, glow || a.counter);
-      if (e > 0.3) { g.strokeStyle = `rgba(255,240,210,${0.75 * e})`; g.lineWidth = 4; g.beginPath(); g.arc(x, cy, a.range - 6, f - a.half * 0.7, f + a.half * 0.7); g.stroke(); }
+      if (p > 0.3) bashPuffs(g, x, cy, f, a.range - 10, [-0.55, 0, 0.55].map(o => o * a.half), (p - 0.3) / 0.7, 17); // 3타: 앞쪽 넓게 도트 흙먼지 (2026-10-18, 선 → 도트)
     } else if (a && a.kind === 'bash') {
       const p = a.t / a.dur, e = p < 0.35 ? p / 0.35 : 1 - (p - 0.35) / 0.65;
       shieldSprite(g, x + c * (9 + e * (a.range - 18)), cy + s * (6 + e * (a.range - 18)), 1, glow || a.counter);
-      if (e > 0.5) { const bs = ElFx.slot('basic'); if (bs) ElFx.arc(g, bs, x, cy, a.range - 4, f - a.half * 0.6, f + a.half * 0.6, 4, 0.7 * e); else { g.strokeStyle = `rgba(255,240,210,${0.7 * e})`; g.lineWidth = 3; g.beginPath(); g.arc(x, cy, a.range - 4, f - a.half * 0.6, f + a.half * 0.6); g.stroke(); } }
+      if (p > 0.3) bashPuffs(g, x, cy, f, a.range - 8, [0], (p - 0.3) / 0.7, 14); // 1 · 2타: 방패 앞 도트 흙먼지 한 점 (2026-10-18, 선 → 도트)
     } else if (a && a.kind === 'shieldSpin') {
       const p = clamp(a.t / a.dur, 0, 1), ang = a.a0 + Math.PI * 2 * p;
       // 막기 이펙트와 같은 도트 방패 호가 몸 둘레를 돈다 (2026-10-18, 선 → 도트 그림)
@@ -464,6 +464,14 @@ Object.assign(FX, {
   },
 });
 
+// 밀치기 이펙트: 방패 앞(각도 offs)에 도트 흙먼지(FX/Smoke)가 피어오른다. 기본공격 칸 속성이 있으면 그 색으로 (2026-10-18)
+function bashPuffs(g, x, cy, f, R, offs, q, sz) {
+  const bs = ElFx.slot('basic'), img = bs ? tintedBy(ART.img.smoke, EL_STYLE[bs.el].main) : ART.img.smoke;
+  const fr = Math.min(5, Math.floor(q * 6)) * 32;
+  g.save(); g.globalAlpha = 0.95 - q * 0.35;
+  for (const o of offs) { const px = x + Math.cos(f + o) * R, py = cy + Math.sin(f + o) * R * 0.8 + 3; g.drawImage(img, fr, 0, 32, 32, Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz); }
+  g.restore();
+}
 // 도트 흙먼지 고리: 한 점에서 흙먼지(FX/Smoke) n개가 둘레로 퍼지며 사라진다 (방패 돌진 충격파 등, 2026-10-18)
 class DustRing {
   constructor(x, y, r, n) { Object.assign(this, { x, y, r, n, t: 0, done: false }); }
