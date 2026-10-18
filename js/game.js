@@ -10,7 +10,6 @@ const WAVES_PER_STAGE = [2, 2, 3, 3];  // 1~4스테이지의 웨이브 수
 const ENEMY_COST = { demon: 2, lantern: 1, statue: 2, babydragon: 1, lion: 1, trex: 2, cyclops2: 2, lizard: 1, kappa: 1, axolot: 1, spider: 1, mollusc: 2, tadpole: 1, fish: 1, moth: 1, slime: 1, bat: 1, mushroom: 1, mole: 1, racoon: 1, bear: 3, snake: 1, owl: 1, shield: 2, skull: 2, eye: 2, flam: 1, orc: 3 }; // 웨이브 구성 점수
 const WAVE_SPAWN_GAP = 0.25;           // 웨이브 안에서 마물이 나오는 간격 (초)
 const DEEP_SHARD_MULT = 0.6;          // 깊은 숲(세계 4~6): 정령의 조각은 덜
-const DEEP_ESSENCE_MULT = 2;          // 깊은 숲(세계 4~6): 무기의 정수는 두 배
 const EASY_DMG_TAKEN = 1 / 3;        // 쉬움 모드: 받는 피해 배율 (1/3)
 const WAVE_SIZE_MULT = 1.75;            // 웨이브 규모 (마물 수) 배율
 // 회복 하트는 몬스터가 아니라 봉인석을 부술 때만 나온다 (2026-10-17)
@@ -244,8 +243,6 @@ const G = {
       if (at <= best) { if (x !== undefined) this.text(x, y, '⚔ 이미 받음', '#8a8f99', 10, 0.9); return; }
       this.essRunBest = Math.max(this.essRunBest || 0, at);
     }
-    const total = n * ESSENCE_RATE * (this.stage >= 4 ? DEEP_ESSENCE_MULT : 1) + (this.essFrac || 0);
-    n = Math.floor(total); this.essFrac = total - n; // 1이 안 되는 몫은 모아 둔다
     if (n <= 0) return;
     this.runEssence += n;
     if (x !== undefined) this.text(x, y, '⚔' + n, '#ffcf6a', 13, 1.2);
@@ -567,7 +564,7 @@ const G = {
     if (left > 0) { this.banner = { title: '봉인석 파괴!', sub: `남은 봉인석 ${left}개`, t: 2.2 }; return; }
     // 마지막 봉인석 → 스테이지 클리어. 갇혀 있던 정령이 축복을 준다.
     this.clearEl = this.pickElement();
-    this.earnEssence(ESSENCE_STAGE, t.x, t.y - 34, (this.stage - 1) * STAGES_PER_WORLD + this.sub);
+    this.earnEssence(ESSENCE_STONE[Math.min(this.stage, ESSENCE_STONE.length) - 1][this.sub - 1] || 0, t.x, t.y - 34, (this.stage - 1) * STAGES_PER_WORLD + this.sub);
     this.banner = { title: `${this.stage}-${this.sub} 클리어!`, sub: `${ELEMENTS[this.clearEl].spirit}이 풀려났다`, t: 2.4 };
     for (const e of this.enemies) if (!e.dead) { e.dead = true; this.burst(e.x, e.y, 10, [e.color, '#fff'], 150); }
     this.phase = 'done'; this.clearDelay = 1.4; this.slowT = 0.5;
@@ -852,7 +849,7 @@ const G = {
           this.state = this.stage === this.finalWorld ? 'ending' : 'clear';
           this.clearT = 0;
           if (this.stage === this.finalWorld) {
-            Meta.data.clears++; this.earn(SHARD_ALL_CLEAR); this.earnEssence(ESSENCE_ALL_CLEAR, undefined, undefined, STAGES_PER_WORLD * FINAL_STAGE + 1);
+            Meta.data.clears++; this.earn(SHARD_ALL_CLEAR);
             const info = this.tierInfo || tierInfo(1);
             this.tierFirst = !Meta.data.tierCleared[info.n];
             if (this.tierFirst) {
