@@ -155,6 +155,12 @@ const World = {
 
   solidAt(px, py) { return SOLID[this.tile(Math.floor(px / TILE), Math.floor(py / TILE))]; },
   // 날아가는 것(투사체)을 막는 칸: 나무 · 바위만. 물 위로는 날아간다
+  // (x0,y0) → (x1,y1) 직선 위에 투사체를 막는 칸이 있나. 있으면 처음 막히는 거리, 없으면 -1 (2026-10-18: 우리 투사체도 나무 · 바위에 막힌다)
+  shotLineBlock(x0, y0, x1, y1) {
+    const L = Math.hypot(x1 - x0, y1 - y0) || 1, n = Math.ceil(L / 8);
+    for (let i = 1; i <= n; i++) { const k = i / n; if (this.shotBlockedAt(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k + 6)) return L * (i - 1) / n; }
+    return -1;
+  },
   shotBlockedAt(px, py) { const v = this.tile(Math.floor(px / TILE), Math.floor(py / TILE)); return SOLID[v] && v !== T.WATER; },
 
   // 물을 헤엄쳐 건널 수 있는 몬스터 (갓파): 나무 · 바위만 막힌다

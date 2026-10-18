@@ -353,6 +353,8 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       const d0 = a.dur0;
       if (a.t > 0.06 && !a.fired) { // 쏜 순간 줄 전체를 한 번에
         a.fired = true;
+        const wb = World.shotLineBlock(this.x, this.y, this.x + fx * a.len, this.y + fy * a.len);
+        if (wb >= 0) a.len = Math.max(30, wb + 6); // 나무 · 바위에 막히면 거기까지 (2026-10-18)
         this.hitSpear(a, a.len, SPEAR_BEAM_WIDTH, 0);
         G.shake = Math.max(G.shake, 6); G.hitstop = Math.max(G.hitstop, 0.05); Input.rumble(0.7, 160);
         G.burst(this.x + fx * a.len, this.y - 2 + fy * a.len, 12, ['#bff4ff', '#fff', '#7fe0ff'], 200);
@@ -480,7 +482,9 @@ class SpearShot {
       nx = Math.cos(this.dir); ny = Math.sin(this.dir);
       const step = this.speed * dt;
       this.x += nx * step; this.y += ny * step; this.dist += step;
-      if (this.dist >= this.range) { this.back = true; this.hit = new Set(); FX.onSpearApex(this); }
+      const wall = World.shotBlockedAt(this.x, this.y + 6); // 나무 · 바위에 꽂히면 거기가 반환점 (2026-10-18)
+      if (wall) { this.x -= nx * step; this.y -= ny * step; G.burst(this.x, this.y, 6, ['#d8c8a8', '#fff'], 120); Sfx.block(); }
+      if (wall || this.dist >= this.range) { this.back = true; this.hit = new Set(); FX.onSpearApex(this); }
     } else {
       const dx = p.x - this.x, dy = p.y - 2 - this.y, d = Math.hypot(dx, dy) || 1;
       nx = dx / d; ny = dy / d;

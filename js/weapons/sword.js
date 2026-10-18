@@ -211,6 +211,7 @@ class Wave {
     this.x += c * 360 * dt; this.y += s * 360 * dt;
     this.life -= dt;
     if (this.life <= 0) this.done = true;
+    if (World.shotBlockedAt(this.x, this.y + 6)) { this.done = true; G.burst(this.x, this.y, 8, ['#bff4ff', '#fff'], 120); return; } // 나무 · 바위에 막힌다 (물 위로는 날아간다)
     FX.onWaveMove(this);
     clearShotsNear(this.x, this.y, this.size);
     for (const t of G.targets()) {

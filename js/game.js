@@ -2768,6 +2768,8 @@ function drawHint() {
   ctx.globalAlpha = 1;
 }
 
+// 숲의 군주 격노 어둠: 보이는 반경(화면 짧은 변의 비율) · 바깥 어둠 진하기
+let FOREST_DARK_R = 0.36, FOREST_DARK_A = 0.94;
 function render() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = World.pal.bg; ctx.fillRect(0, 0, W, H);
@@ -2776,9 +2778,17 @@ function render() {
   ctx.textBaseline = 'middle';
 
   if (G.boss && !G.boss.dead && G.boss.kind === 2 && G.boss.enraged) { // 숲의 군주 격노: 숲이 시든다
-    const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.22, W / 2, H / 2, Math.max(W, H) * 0.55);
-    gr.addColorStop(0, 'rgba(30,0,10,0)'); gr.addColorStop(1, 'rgba(30,0,10,0.6)');
+    // 숲이 시들어 캄캄해진다: 리안 둘레만 조금 보이고 나머지는 거의 까맣게 (2026-10-18)
+    const p = G.player, v = G.view, px = p ? (p.x - v.x) * SCALE : W / 2, py = p ? (p.y - 8 - v.y) * SCALE : H / 2;
+    const R = Math.min(W, H) * FOREST_DARK_R;
+    const gr = ctx.createRadialGradient(px, py, R * 0.55, px, py, R);
+    gr.addColorStop(0, 'rgba(8,0,6,0)'); gr.addColorStop(1, `rgba(8,0,6,${FOREST_DARK_A})`);
     ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+    // 보스 공격 예고(빨간 표시)는 어둠 속에서도 빛난다: 안 보이는 데서 맞는 억울함은 없게
+    const k = DPR * SCALE;
+    ctx.save(); ctx.setTransform(k, 0, 0, k, -v.x * k, -v.y * k); ctx.globalAlpha = 0.85;
+    G.boss.drawTelegraph(ctx);
+    ctx.restore(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.globalAlpha = 1;
   }
   if (World.pal === PALETTES[3]) { // 안개 늪: 가장자리에 짙은 안개, 천천히 흐른다
     const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.62);

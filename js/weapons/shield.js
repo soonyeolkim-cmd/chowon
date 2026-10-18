@@ -449,6 +449,7 @@ class QuakeWave {
       const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
       if (d > this.r + t.r || d < this.r - 22 - t.r) continue; // 앞머리 근처만
       if (Math.abs(angDiff(Math.atan2(dy, dx), this.dir)) > SHIELD_QUAKE_HALF + 0.1) continue;
+      if (World.shotLineBlock(this.x, this.y, t.x, t.y) >= 0) continue; // 나무 · 바위 뒤는 안 닿는다 (2026-10-18)
       this.hit.add(t);
       p.deal(t, 'quake', dx / d, dy / d, this.opts);
       if (this.stun && !t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, this.stun);

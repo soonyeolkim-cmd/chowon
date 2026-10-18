@@ -317,7 +317,7 @@ class MagicOrb {
     if (best) { const want = angDiff(Math.atan2(best.y - this.y, best.x - this.x), this.dir), turn = 4 * dt; this.dir += clamp(want, -turn, turn); }
     const step = this.speed * dt;
     this.x += Math.cos(this.dir) * step; this.y += Math.sin(this.dir) * step; this.dist += step;
-    if (this.dist > ORB_RANGE) { this.pop(); return; } // 검기처럼 물 · 나무 위로도 날아간다
+    if (this.dist > ORB_RANGE || World.shotBlockedAt(this.x, this.y + 6)) { this.pop(); return; } // 나무 · 바위에 막힌다 (물 위로는 날아간다, 2026-10-18)
     for (const t of G.targets()) {
       if (Math.hypot(t.x - this.x, t.y - this.y) > t.r + this.r) continue;
       G.player.deal(t, 'orb', Math.cos(this.dir), Math.sin(this.dir));
