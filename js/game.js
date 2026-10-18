@@ -2754,9 +2754,20 @@ function openCodePanel(slot) {
     const act = e.target && e.target.dataset && e.target.dataset.act;
     if (act === 'close') { close(); return; }
     if (act === 'copy') {
-      ta.value = mine; ta.select();
-      try { await navigator.clipboard.writeText(mine); say('복사했어요! 다른 기기에서 붙여 넣으세요', true); }
-      catch (_) { try { document.execCommand('copy'); say('복사했어요! 다른 기기에서 붙여 넣으세요', true); } catch (__) { say('복사가 안 되면 코드를 길게 눌러 전체 선택 후 복사해 주세요'); } }
+      // 입력 칸에 포커스를 주지 않는다: 휴대폰에서 키보드가 뜨지 않게 (2026-10-18)
+      ta.value = mine;
+      let done = false;
+      try { await navigator.clipboard.writeText(mine); done = true; } catch (_) {}
+      if (!done) { // 예전 방식: 화면 밖 읽기 전용 칸으로 복사 (읽기 전용이라 키보드가 안 뜬다)
+        const tmp = document.createElement('textarea');
+        tmp.value = mine; tmp.readOnly = true; tmp.setAttribute('inputmode', 'none');
+        tmp.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+        document.body.appendChild(tmp); tmp.select(); tmp.setSelectionRange(0, mine.length);
+        try { done = document.execCommand('copy'); } catch (_) {}
+        tmp.remove();
+      }
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      say(done ? '복사했어요! 다른 기기에서 붙여 넣으세요' : '복사가 안 되면 코드를 길게 눌러 전체 선택 후 복사해 주세요', done);
       return;
     }
     if (act === 'load') {
