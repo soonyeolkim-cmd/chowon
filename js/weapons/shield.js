@@ -123,7 +123,7 @@ Object.assign(WEAPONS.shield, {
     for (const t of G.targets()) {
       const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy);
       if (d > t.r + SHIELD_BUMP || dx * fx + dy * fy < 0) continue;
-      if (!p.dashBumped) { p.dashBumped = true; p.deal(t, 'shieldBump', fx, fy); G.burst(p.x + fx * 12, p.y - 6 + fy * 12, 6, ['#ffd28a', '#fff'], 120); Sfx.block(); }
+      if (!p.dashBumped) { p.dashBumped = true; p.deal(t, 'shieldBump', fx, fy); G.burst(p.x + fx * 12, p.y - 6 + fy * 12, 6, slotBurst('dash', ['#ffd28a', '#fff']), 120); Sfx.block(); }
       return true;
     }
     return false;
@@ -314,14 +314,8 @@ extendPlayer({
     if (a && a.kind === 'shieldCharge') { // 방패 돌진: 방패를 앞세우고 몸을 숙여 달린다
       const run = a.t < a.run;
       shieldSprite(g, x + c * 15, cy + s * 10, 1.3, glow);
-      const ss = ElFx.slot('special'); // 특수 칸 속성이면 속도선 · 앞 호도 그 색 (2026-10-18)
-      if (run) for (let i = 0; i < 3; i++) { // 속도선
-        const o = (i - 1) * 7;
-        g.strokeStyle = ss ? ElFx.rgba(ss.el, 0.55) : 'rgba(255,240,210,0.55)'; g.lineWidth = 2;
-        g.beginPath(); g.moveTo(x - c * 14 - s * o, cy - s * 14 + c * o); g.lineTo(x - c * 30 - s * o, cy - s * 30 + c * o); g.stroke();
-      }
-      g.strokeStyle = ss ? ElFx.rgba(ss.el, 0.7) : 'rgba(255,210,138,0.7)'; g.lineWidth = 3;
-      g.beginPath(); g.arc(x, cy, 24, f - 0.8, f + 0.8); g.stroke();
+      // 달리는 동안 발 뒤로 도트 흙먼지가 흩날린다 (속도선 · 앞 호 선 → 도트, 특수 칸 속성 색. 2026-10-18)
+      if (run) bashPuffs(g, x, cy + 4, f + Math.PI, 16, [-0.45, 0.45], (G.time * 5) % 1, 12, slotCol('special', null));
     } else if (this.dashT > 0 || (this.guardT > 0 && !a)) { // 방패 대시: 앞에 크게 들고 정면 막기
       shieldSprite(g, x + c * 13, cy + s * 9, 1.15, glow);
       const k = 0.4 + 0.2 * Math.sin(G.time * 40);
@@ -417,7 +411,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         for (const t of G.targets()) {
           const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
           if (d > SHIELD_CHARGE_GRAB + t.r + 8 || Math.abs(angDiff(Math.atan2(dy, dx), a.dir)) > SHIELD_CHARGE_HALF) continue;
-          if (!a.hit.has(t)) { a.hit.add(t); this.deal(t, 'shieldCharge', c, s, { kb: 0 }); G.burst(t.x, t.y - 4, 6, ['#fff', '#ffd28a'], 140); Sfx.block(); this.chargeShock(a, t); }
+          if (!a.hit.has(t)) { a.hit.add(t); this.deal(t, 'shieldCharge', c, s, { kb: 0 }); G.burst(t.x, t.y - 4, 6, slotBurst('special', ['#fff', '#ffd28a']), 140); Sfx.block(); this.chargeShock(a, t); }
           if (t.type !== 'boss' && !t.superArmor && t.type !== 'totem' && !a.carry.has(t)) { a.carry.add(t); t.slamT = 0.6; } // 벽꿍은 한 번만
         }
         for (const t of a.carry) if (!t.dead) { t.kvx = c * SHIELD_CHARGE_SPEED * 1.05; t.kvy = s * SHIELD_CHARGE_SPEED * 1.05; t.stun = Math.max(t.stun || 0, 0.3); }
@@ -475,8 +469,8 @@ Object.assign(FX, {
 });
 
 // 밀치기 이펙트: 방패 앞(각도 offs)에 도트 흙먼지(FX/Smoke)가 피어오른다. 기본공격 칸 속성이 있으면 그 색으로 (2026-10-18)
-function bashPuffs(g, x, cy, f, R, offs, q, sz) {
-  const bs = ElFx.slot('basic'), img = bs ? tintedBy(ART.img.smoke, EL_STYLE[bs.el].main) : ART.img.smoke;
+function bashPuffs(g, x, cy, f, R, offs, q, sz, tint) { // tint: 다른 칸 색으로 그릴 때 (undefined = 기본공격 칸)
+  const col = tint === undefined ? slotCol('basic', null) : tint, img = col ? tintedBy(ART.img.smoke, col) : ART.img.smoke;
   const fr = Math.min(5, Math.floor(q * 6)) * 32;
   g.save(); g.globalAlpha = 0.95 - q * 0.35;
   for (const o of offs) { const px = x + Math.cos(f + o) * R, py = cy + Math.sin(f + o) * R * 0.8 + 3; g.drawImage(img, fr, 0, 32, 32, Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz); }

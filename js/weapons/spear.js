@@ -238,7 +238,7 @@ extendPlayer({
       // 쓸고 가는 방향(옆)으로 쳐낸다
       const side = Math.atan2(dy, dx) + Math.PI / 2;
       const nx = Math.cos(side) * 0.7 + dx / d * 0.3, ny = Math.sin(side) * 0.7 + dy / d * 0.3, nl = Math.hypot(nx, ny) || 1;
-      if (tip) G.burst(t.x, t.y, 6, ['#fff', '#ffe18a'], 160);
+      if (tip) G.burst(t.x, t.y, 6, slotBurst('dash', ['#fff', '#ffe18a']), 160);
       this.deal(t, 'sweep', nx / nl, ny / nl, { mult: tip ? SPEAR_TIP_MULT : haft ? SPEAR_HAFT_MULT : 1, tip });
     }
   },
@@ -258,7 +258,7 @@ extendPlayer({
       a.hit.add(t); a.pierced++;
       if (a.kind === 'lunge' || (a.kind === 'spearBeam' && a.opts)) { this.deal(t, a.kind, fx, fy, a.opts); continue; }
       const tip = along > len * SPEAR_TIP, haft = along < SPEAR_HAFT;
-      if (tip) G.burst(t.x - fx * t.r, t.y - fy * t.r, 6, ['#fff', '#ffe18a'], 160);
+      if (tip) G.burst(t.x - fx * t.r, t.y - fy * t.r, 6, slotBurst(a.kind === 'poke' || a.kind === 'pokeFin' ? 'basic' : 'charge', ['#fff', '#ffe18a']), 160); // 칸 속성 색 (2026-10-18)
       this.deal(t, a.kind, fx, fy, { mult: tip ? SPEAR_TIP_MULT : haft ? SPEAR_HAFT_MULT : 1, tip });
     }
   },
@@ -332,7 +332,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.stabs++; a.hit = new Set(); a.phantomAt = a.t;
         a.opts = { mult: MULTISPIN_MULT, kb: a.stabs < a.extra ? 40 : undefined };
         this.hitSpear(a, a.len, SPEAR_WIDTH + 2, 0);
-        G.burst(this.x + fx * a.len, this.y - 1 + fy * a.len, 5, ['#7fe0ff', '#fff'], 120); Sfx.thrust();
+        G.burst(this.x + fx * a.len, this.y - 1 + fy * a.len, 5, slotBurst('charge', ['#7fe0ff', '#fff']), 120); Sfx.thrust();
       }
       return true;
     }
@@ -344,7 +344,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         if (wb >= 0) a.len = Math.max(30, wb + 6); // 나무 · 바위에 막히면 거기까지 (2026-10-18)
         this.hitSpear(a, a.len, SPEAR_BEAM_WIDTH, 0);
         G.shake = Math.max(G.shake, 6); G.hitstop = Math.max(G.hitstop, 0.05); Input.rumble(0.7, 160);
-        G.burst(this.x + fx * a.len, this.y - 2 + fy * a.len, 12, ['#bff4ff', '#fff', '#7fe0ff'], 200);
+        G.burst(this.x + fx * a.len, this.y - 2 + fy * a.len, 12, slotBurst('charge', ['#bff4ff', '#fff', '#7fe0ff']), 200);
         FX.onLungeEnd(this, a.len); // 벼락 꿰뚫기: 끝 쪽 벼락
       }
       if (a.fired && a.stabs < (a.extra || 0) && a.t >= 0.06 + 0.1 * (a.stabs + 1)) { // 연환: 창기가 다시 뻗는다

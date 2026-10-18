@@ -183,8 +183,7 @@ extendPlayer({
       const pr = a.t / a.dur, e = 1 - Math.pow(1 - pr, 3);
       const a0 = f - a.half * a.swingDir, ang = a0 + 2 * a.half * a.swingDir * e;
       const bs = ElFx.slot('basic');
-      if (bs) ElFx.arc(g, bs, x, cy, a.range - 8, Math.min(a0, ang), Math.max(a0, ang), 3, 0.6 * (1 - pr));
-      else { g.strokeStyle = `rgba(207,232,255,${0.35 * (1 - pr)})`; g.lineWidth = 2; g.beginPath(); g.arc(x, cy, a.range - 8, Math.min(a0, ang), Math.max(a0, ang)); g.stroke(); }
+      // (휘두른 호 선은 뺐다 — 구체 꼬리만, 2026-10-18)
       wandSprite(g, x, cy, ang, 4);
       // 봉 끝의 마법 구체: 휘두르는 길을 따라 작은 빛 구슬이 꼬리를 끌며 지나간다 (2026-10-18)
       const R = a.range - 8, main = bs ? EL_STYLE[bs.el].main : '#7fe0ff', fin = a.kind === 'bonkFin';

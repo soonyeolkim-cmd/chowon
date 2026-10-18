@@ -188,7 +188,7 @@ extendPlayer({
         G.burst(this.x, this.y - 4, 14, ['#ffffff', '#bff4ff', '#7fe0ff'], 200);
         G.text(this.x, this.y - 34, '반격 준비!', '#7fe0ff', 12, 0.8); Sfx.charged();
       }
-      G.burst(t.x, t.y - 4, 6, ['#fff', '#cfe8ff'], 140);
+      G.burst(t.x, t.y - 4, 6, slotBurst(a.echo ? 'special' : 'charge', ['#fff', '#cfe8ff']), 140);
     }
   },
   // 받아치기 (특수): 잠깐 막는 자세. 그 사이 공격을 받으면 G.hurtPlayer 가 parry() 를 부른다
@@ -247,7 +247,7 @@ extendPlayer({
     this.deal(t, 'riposte', dx / d, dy / d);
     if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, PARRY_STUN);
     a.marks.push({ x: t.x, y: t.y - 4, t: a.t, ang: this.facing + rand(-0.5, 0.5) });
-    G.burst(t.x, t.y - 4, 12, ['#ffffff', '#bff4ff', '#ffe18a'], 200);
+    G.burst(t.x, t.y - 4, 12, slotBurst('special', ['#ffffff', '#bff4ff', '#ffe18a']), 200);
   },
   // 선풍 베기 (대시 직후 공격): 쌍검으로 한 바퀴 돌며 주변을 벤다
   get whirlR() { return WHIRL_R * (1 + 0.1 * FX.lv('atk_thrust')); },
@@ -282,8 +282,9 @@ extendPlayer({
       idle(-Math.sign(side));
       if (ext > 0.5) { // 찌르기 궤적
         const bs = ElFx.slot('basic'), tx = x + c * a.range, ty = cy + s * a.range;
-        if (bs) { ElFx.line(g, bs, hx, hy, tx, ty, 3, 0.8 * ext); if (Math.random() < 0.5) ElFx.spark(bs, tx, ty); }
-        else { g.strokeStyle = `rgba(255,255,255,${0.6 * ext})`; g.lineWidth = 2; g.beginPath(); g.moveTo(hx, hy); g.lineTo(tx, ty); g.stroke(); }
+        // 선 → 창 찌르기와 같은 도트 베기 그림(Cut), 기본공격 칸 색 (2026-10-18)
+        cutFx(g, hx, hy, Math.atan2(ty - hy, tx - hx), Math.hypot(tx - hx, ty - hy) + 6, 8, (ext - 0.5) * 2, bs ? EL_STYLE[bs.el].main : null);
+        if (bs && Math.random() < 0.5) ElFx.spark(bs, tx, ty);
       }
     } else if (a && a.kind === 'saiFin') {
       const pr = a.t / a.dur, e = 1 - Math.pow(1 - pr, 3);

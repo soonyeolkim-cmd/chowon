@@ -166,10 +166,9 @@ extendPlayer({
       this.blade(g, x, cy, ang);
     } else if (a && a.kind === 'thrust') {
       const p = a.t / a.dur;
-      const ds = ElFx.slot('dash');
-      g.fillStyle = ds ? ElFx.rgba(ds.el, (ds.max ? 0.65 : 0.5) * (1 - p)) : `rgba(156,220,255,${0.5 * (1 - p)})`;
+      // 찌르기 궤적: 채운 삼각형 → 도트 베기 그림(FX/Attack/Cut)을 길게, 대시 칸 속성 색 (없으면 다른 대시 공격처럼 푸른빛). 2026-10-18
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
-      g.beginPath(); g.moveTo(x - s * 8, cy + c * 8); g.lineTo(x + c * 54, cy + s * 54); g.lineTo(x + s * 8, cy - c * 8); g.closePath(); g.fill();
+      cutFx(g, x - c * 4, cy - s * 4, this.facing, 58, 16, Math.min(0.999, p * 1.6), slotCol('dash', ECHO_COLOR)); // 창 관통 찌르기와 같은 모양
       this.blade(g, x, cy, this.facing);
     } else {
       this.blade(g, x + Math.cos(this.facing) * 4, cy + 6, this.facing + 1.1);
@@ -228,7 +227,7 @@ class Wave {
     this.x += c * 360 * dt; this.y += s * 360 * dt;
     this.life -= dt;
     if (this.life <= 0) this.done = true;
-    if (World.shotBlockedAt(this.x, this.y + 6)) { this.done = true; G.burst(this.x, this.y, 8, ['#bff4ff', '#fff'], 120); return; } // 나무 · 바위에 막힌다 (물 위로는 날아간다)
+    if (World.shotBlockedAt(this.x, this.y + 6)) { this.done = true; G.burst(this.x, this.y, 8, slotBurst('special', ['#bff4ff', '#fff']), 120); return; } // 나무 · 바위에 막힌다 (물 위로는 날아간다)
     FX.onWaveMove(this);
     clearShotsNear(this.x, this.y, this.size);
     for (const t of G.targets()) {
