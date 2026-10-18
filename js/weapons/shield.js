@@ -160,7 +160,7 @@ BOON_FORMS.shield = {
   atk_spin:       { name: '강타 강화', desc: lv => `차지 시간 -${15 * lv}%, 강타 거리 +${10 * lv}%.` },
   atk_multispin:  { name: '여진', desc: lv => `방패 강타 뒤 땅이 ${lv}번 더 울린다. 여진은 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_wave:       { name: '돌려치기 강화', desc: lv => `돌려치기 범위 +${10 * lv}%, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
-  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
+  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${Math.round(THRUST_DMG * 100 * lv)}%, 범위 +${10 * lv}%.` },
   sharp:          { name: '날 선 방패' },
   ambush:         { name: '벽치기', desc: lv => `벽꿍 피해 +${60 * lv}%, 벽꿍 기절 +${(0.3 * lv).toFixed(1)}초.` }, // 기습 대신
   lifesteal:      { name: '흡혈 방패' },

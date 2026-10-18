@@ -21,7 +21,7 @@ addWeapon('sword', {
   chargeTime: 0.55,
   specialCd: 5.0,
   // 특수공격 쿨타임 감소: 거대 검기 레벨당 · 숙련 단계당 (초), 이 아래로는 안 내려간다
-  cdPerLv: 0.5, cdPerMastery: 0.5, cdFloor: 1.5, // 거대 검기 레벨당 0.7 → 0.5 (2026-10-18)
+  cdPerLv: 0.6, cdPerMastery: 0.5, cdFloor: 1.5, // 거대 검기 레벨당 0.7 → 0.5 → 0.6 (2026-10-18)
   skillCd: 0,
   basic: (p, mag) => p.startAttack(mag),
   basicAfterDash: p => p.startThrust(),

@@ -110,7 +110,7 @@ BOON_FORMS.staff = {
   atk_spin:       { name: '마법진 강화', desc: lv => `차지 시간 -${15 * lv}%, 마법진 범위 +${15 * lv}%.` },
   atk_multispin:  { name: '연쇄 마법진', desc: lv => `마법진이 터진 뒤 주변에 작은 마법진 ${lv}개가 이어서 터진다 (피해 ${pct(MULTISPIN_MULT)}).` },
   atk_wave:       { name: '마력 증폭', desc: lv => `마력 구슬 최대 개수 +${lv} (기본 ${ORB_BASE}개).` },
-  atk_thrust:     { name: '마력 파동 강화', desc: lv => `마력 파동 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
+  atk_thrust:     { name: '마력 파동 강화', desc: lv => `마력 파동 피해 +${Math.round(THRUST_DMG * 100 * lv)}%, 범위 +${10 * lv}%.` },
   sharp:          { name: '예리한 마력' },
   lifesteal:      { name: '흡혈 마법봉' },
   guard_spin:     { name: '수호의 마법진', desc: lv => `마법진을 그릴 때 잠깐 무적, 그 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },

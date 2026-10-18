@@ -148,7 +148,7 @@ BOON_FORMS.spear = {
   atk_multispin:  { name: '연환 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 뒤 정령의 창이 같은 줄을 ${lv}번 더 찌른다. 추가 찌르기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_spin:       { name: '꿰뚫기 강화', desc: lv => `차지 시간 -${15 * lv}%, 관통 찌르기 · 창기 일섬 길이 +${10 * lv}%.` },
   atk_wave:       { name: '투척 강화', desc: lv => `창 비거리·속도 +${20 * lv}%, 투척 쿨타임 -${(0.15 * lv).toFixed(2)}초 (최소 0.5초).` },
-  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${40 * lv}%, 범위 +${10 * lv}%.` },
+  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${Math.round(THRUST_DMG * 100 * lv)}%, 범위 +${10 * lv}%.` },
   sharp:          { name: '날카로운 창' },
   lifesteal:      { name: '흡혈 창날' },
   guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 · 창기 일섬 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
