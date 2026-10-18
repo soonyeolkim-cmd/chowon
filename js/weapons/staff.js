@@ -18,8 +18,8 @@ Object.assign(MOVES, {
 // 마법봉: 기본공격은 약하고, 마력탄 한 발도 약하지만 여러 발을 쏟아 낸다
 bonk:    { mult: 0.8, kb: 160, guardBreak: false, role: 'basic', light: true, orbRefund: true },
 bonkFin: { mult: 1.2, kb: 300, guardBreak: true, role: 'fin', orbRefund: true },    // 2타째
-orb:     { mult: 0.8, kb: 60, guardBreak: false, role: 'special', light: true, ranged: true },    // 마력탄 한 발 (0.6 → 0.8, 2026-10-17)
-circle:  { mult: 2.4, kb: 260, guardBreak: true, role: 'charge' },    // 마법진 폭발 (차지)
+orb:     { mult: 1.6, kb: 60, guardBreak: false, role: 'special', light: true, ranged: true },    // 마력탄 한 발 (0.6 → 0.8 → 1.6, 2026-10-18 원거리가 너무 약하다는 의견으로 두 배)
+circle:  { mult: 3.84, kb: 260, guardBreak: true, role: 'charge' },    // 마법진 폭발 (차지) 2.4 → 3.84 (+60%, 2026-10-18)
 pulse:   { mult: 1.0, kb: 340, guardBreak: false, role: 'dash' },   // 마력 파동 (대시 공격)
 });
 
