@@ -81,6 +81,7 @@ const ART_FILES = {
   cutX:      'FX/Attack/CutX/SpriteSheet.png',          // 쌍검 3타째 X자 베기 (32x32 4장)
   circSlash: 'FX/Attack/CircularSlash/SpriteSheet.png', // 쌍검 선풍 베기
   smoke:     'FX/Smoke/Smoke/SpriteSheet.png',
+  waveArc:   'FX/Slash/SpriteSheetArc.png',        // 검의 섬광 검기 (38x34 6장, 2026-10-18)
   floor:     'Backgrounds/Tilesets/TilesetFloor.png',
   water:     'Backgrounds/Tilesets/TilesetWater.png',
   nature:    'Backgrounds/Tilesets/TilesetNature.png',

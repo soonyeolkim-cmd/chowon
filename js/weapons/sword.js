@@ -224,19 +224,14 @@ class Wave {
       }
     }
   }
+  // 그림: 에셋 팩 도트 초승달(FX/Slash/SpriteSheetArc, 38x34 6장). 날아가는 동안 1~3장을 돌리고, 사라질 때 4~6장 (2026-10-18, 선 → 도트)
   draw(g) {
-    g.globalAlpha = clamp(this.life / this.max * 2, 0, 1);
-    g.lineCap = 'round';
-    const ss = ElFx.slot('special'), ox = this.x - Math.cos(this.dir) * 8, oy = this.y - Math.sin(this.dir) * 8;
-    if (ss) {
-      ElFx.arc(g, ss, ox, oy, this.size, this.dir - 1.1, this.dir + 1.1, 8, 0.6);
-      if (Math.random() < 0.7) { const a = this.dir + rand(-1, 1); ElFx.spark(ss, ox + Math.cos(a) * this.size, oy + Math.sin(a) * this.size); }
-    } else {
-      g.strokeStyle = 'rgba(127,224,255,0.5)'; g.lineWidth = 8;
-      g.beginPath(); g.arc(ox, oy, this.size, this.dir - 1.1, this.dir + 1.1); g.stroke();
-    }
-    g.strokeStyle = ss ? EL_STYLE[ss.el].light : '#fff'; g.lineWidth = 3;
-    g.beginPath(); g.arc(this.x - Math.cos(this.dir) * 8, this.y - Math.sin(this.dir) * 8, this.size, this.dir - 1, this.dir + 1); g.stroke();
-    g.globalAlpha = 1;
+    const ss = ElFx.slot('special'), img = ss ? tintedBy(ART.img.waveArc, EL_STYLE[ss.el].main) : ART.img.waveArc;
+    const left = this.life / this.max, fi = left < 0.25 ? 3 + Math.min(2, Math.floor((0.25 - left) / 0.25 * 3)) : Math.floor((1 - left) * 18) % 3;
+    const w = this.size * 2.4, h = w * 34 / 38;
+    g.save(); g.translate(this.x, this.y); g.rotate(this.dir - Math.PI / 2); // 그림의 볼록한 쪽(아래)이 날아가는 쪽
+    g.drawImage(img, fi * 38, 0, 38, 34, -w / 2, -h * 0.75, w, h);
+    g.restore();
+    if (ss && Math.random() < 0.5) { const a = this.dir + rand(-1, 1); ElFx.spark(ss, this.x + Math.cos(a) * this.size * 0.8, this.y + Math.sin(a) * this.size * 0.8); }
   }
 }
