@@ -36,6 +36,7 @@ const SHIELD_SIZE = 0.75;
 const SHIELD_CHARGE_TIME = 0.34;  // 달리는 시간
 const SHIELD_CHARGE_SPEED = 340;  // 달리는 속도 (약 115 거리)
 const SHIELD_CHARGE_GRAB = 22;    // 방패 앞 이 거리 안의 적을 붙잡아 민다
+const SHIELD_CHARGE_SHOCK_R = 48; // 방패 돌진에 맞은 적 자리에서 퍼지는 충격파 반경 (2026-10-18)
 const SHIELD_CHARGE_HALF = 0.95;  // 붙잡는 앞쪽 각도 (약 ±54°)       // 방패 그림 크기 (16픽셀 × PIX × 이 값)
 
 Object.assign(MOVES, {
@@ -46,6 +47,7 @@ quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방�
 shieldSpin: { mult: 1.1, kb: 760, guardBreak: true, role: 'special', shove: true },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
 shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 후려치기 (대시 공격)
 shieldCharge: { mult: 1.4, kb: 520, guardBreak: true, role: 'special', shove: true }, // 방패 돌진 (대시 중 특수)
+chargeShock: { mult: 0.9, kb: 320, guardBreak: false, role: 'special' }, // 방패 돌진 충격파 (맞은 적 둘레)
 shieldBump: { mult: 0.4, kb: 260, guardBreak: false, role: 'dash', light: true }, // 돌진하다 부딪힘
 });
 
@@ -76,7 +78,7 @@ addWeapon('shield', {
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 120까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
-    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
+    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (막으면 피해 0 · 다음 밀치기는 반격 밀치기) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '대시 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음', 'thrust'],
@@ -250,13 +252,27 @@ extendPlayer({
   startShieldCharge(mag) {
     const dir = this.dashDir !== undefined && (this.dashT > 0 || this.postDashT > 0) ? this.dashDir : this.facing;
     this.facing = dir;
-    this.act = { kind: 'shieldCharge', t: 0, dur: SHIELD_CHARGE_TIME + 0.12, run: SHIELD_CHARGE_TIME, hit: new Set(), carry: new Set(), dir };
+    this.act = { kind: 'shieldCharge', t: 0, dur: SHIELD_CHARGE_TIME + 0.12, run: SHIELD_CHARGE_TIME, hit: new Set(), carry: new Set(), shock: new Set(), dir };
     this.guardT = Math.max(this.guardT, this.act.dur + 0.05); // 달리는 내내 정면을 막는다
     this.guardOnset = G.time; // 방패 돌진을 누른 순간부터 저스트 가드
     this.guardSrc = 'dash';
     this.postDashT = 0; this.atkBuffer = 0; this.comboT = 0; this.finisherT = 0; this.charge = 0;
     G.text(this.x, this.y - 26, '방패 돌진!', '#ffd28a', 13, 0.6);
     G.shake = Math.max(G.shake, 3); Sfx.lunge(); Input.rumble(0.5, 140);
+  },
+  // 방패 돌진 충격파: 맞은 적 자리에서 둘레로 퍼져 주변 적을 때리고 밀어낸다 (적 하나당 한 번, 2026-10-18)
+  chargeShock(a, src) {
+    const cx = src.x, cy = src.y;
+    for (const t of G.targets()) {
+      if (t === src || a.shock.has(t) || a.carry.has(t)) continue;
+      const dx = t.x - cx, dy = t.y - cy, d = Math.hypot(dx, dy) || 1;
+      if (d > SHIELD_CHARGE_SHOCK_R + t.r) continue;
+      a.shock.add(t);
+      this.deal(t, 'chargeShock', dx / d, dy / d);
+    }
+    G.fxRing(cx, cy, '#ffd28a', SHIELD_CHARGE_SHOCK_R); G.fxRing(cx, cy, '#ffffff', SHIELD_CHARGE_SHOCK_R * 0.6);
+    for (let i = 0; i < 8; i++) { const k = i / 8 * Math.PI * 2; G.dust(cx + Math.cos(k) * 18, cy + Math.sin(k) * 12 + 6); }
+    G.shake = Math.max(G.shake, 5); Sfx.slam();
   },
   // 후려치기 (대시 공격): 방패를 들어 앞을 내려찍는다
   startShieldSlam() {
@@ -388,7 +404,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         for (const t of G.targets()) {
           const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
           if (d > SHIELD_CHARGE_GRAB + t.r + 8 || Math.abs(angDiff(Math.atan2(dy, dx), a.dir)) > SHIELD_CHARGE_HALF) continue;
-          if (!a.hit.has(t)) { a.hit.add(t); this.deal(t, 'shieldCharge', c, s, { kb: 0 }); G.burst(t.x, t.y - 4, 6, ['#fff', '#ffd28a'], 140); Sfx.block(); }
+          if (!a.hit.has(t)) { a.hit.add(t); this.deal(t, 'shieldCharge', c, s, { kb: 0 }); G.burst(t.x, t.y - 4, 6, ['#fff', '#ffd28a'], 140); Sfx.block(); this.chargeShock(a, t); }
           if (t.type !== 'boss' && !t.superArmor && t.type !== 'totem' && !a.carry.has(t)) { a.carry.add(t); t.slamT = 0.6; } // 벽꿍은 한 번만
         }
         for (const t of a.carry) if (!t.dead) { t.kvx = c * SHIELD_CHARGE_SPEED * 1.05; t.kvy = s * SHIELD_CHARGE_SPEED * 1.05; t.stun = Math.max(t.stun || 0, 0.3); }
