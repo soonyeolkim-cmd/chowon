@@ -1089,16 +1089,30 @@ function bar(x, y, w, h, frac, color, bg = 'rgba(0,0,0,0.55)') {
   ctx.fillStyle = color; ctx.fillRect(x, y, w * clamp(frac, 0, 1), h);
 }
 
+// 부활 하트: 9×8 도트 하트 (검은 테두리 · 흰 반짝임), 남은 횟수는 오른쪽 아래 둥근 배지에 크게
+const HEART_PIX = ['.XX...XX.', 'XXXX.XXXX', 'XXXXXXXXX', 'XXXXXXXXX', '.XXXXXXX.', '..XXXXX..', '...XXX...', '....X....'];
+function drawReviveHeart(cx, cy, n) {
+  const on = n > 0, beat = on ? 1 + Math.max(0, Math.sin(G.time * 5)) * 0.1 : 1;
+  const s = 2 * beat, ox = cx - 4.5 * s, oy = cy - 4 * s;
+  const cell = (c, r) => ctx.fillRect(Math.round(ox + c * s), Math.round(oy + r * s), Math.ceil(s), Math.ceil(s));
+  ctx.fillStyle = on ? '#3a0a14' : 'rgba(20,20,26,0.7)'; // 테두리: 네 방향으로 한 칸씩
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 9; c++) if (HEART_PIX[r][c] === 'X') for (const [dc, dr] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) cell(c + dc, r + dr);
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 9; c++) if (HEART_PIX[r][c] === 'X') {
+    ctx.fillStyle = on ? (r >= 5 || (r === 4 && (c === 1 || c === 7)) ? '#d8324a' : '#ff4f68') : 'rgba(140,140,150,0.75)';
+    cell(c, r);
+  }
+  if (on) { ctx.fillStyle = '#ffffff'; cell(1, 1); cell(2, 1); cell(1, 2); }
+  if (!on) return;
+  const bx = cx + 8, by = cy + 7; // 숫자 배지
+  ctx.fillStyle = '#1a1020'; ctx.beginPath(); ctx.arc(bx, by, 7.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bx, by, 7, 0, Math.PI * 2); ctx.stroke();
+  label(String(n), bx, by + 0.5, 11, '#ffffff', 'center', '900');
+}
 function drawHud() {
   const p = G.player;
   const x = inset.l + 16, y = inset.t + 14;
-  // 하트 = 남은 부활 (불굴의 의지 · 두 번째 기회). 있으면 빨갛게 두근두근, 없으면 회색. 2개 이상이면 숫자
-  const rv = G.reviveLeft || 0;
-  if (rv > 0) {
-    const beat = 1 + Math.max(0, Math.sin(G.time * 5)) * 0.12;
-    label('♥', x + 6, y + 7, 16 * beat, '#ff5a6e', 'center');
-    if (rv > 1) label('×' + rv, x + 13, y + 14, 9, '#ffd0d6', 'left', '800');
-  } else label('♥', x + 6, y + 7, 16, 'rgba(150,150,160,0.55)', 'center');
+  // 하트 = 남은 부활 (불굴의 의지 · 두 번째 기회). 도트 하트 + 오른쪽 아래 숫자 배지 (2026-10-18 가독성), 없으면 회색
+  drawReviveHeart(x + 6, y + 7, G.reviveLeft || 0);
   const bx = x + 22, bw = clamp(W * 0.26, 120, 220);
   bar(bx, y, bw, 13, p.hp / p.maxHp, p.hp / p.maxHp < 0.3 ? '#ff5a5a' : '#e04848');
   label(`${Math.ceil(p.hp)} / ${p.maxHp}`, bx + bw / 2, y + 7, 10, '#fff', 'center');
