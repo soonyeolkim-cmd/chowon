@@ -2316,10 +2316,19 @@ function drawTierView() {
 }
 
 // ── 축복 도감 (2026-10-18): 속성 6가지 + 듀오. 축복마다 슬롯 · 최대 레벨 · 나오는 조건 · 레벨별 효과 ──
-// 이름과 효과는 지금 무기 모양으로 (같은 축복도 무기마다 다르다). 마을 세 번째 탭 · 일시정지 메뉴에서 연다
+// 위 줄에서 무기를 고르면 그 무기 모양의 이름 · 효과로 보인다 (같은 축복도 무기마다 다르다, 2026-10-18). 마을 '축복 도감' 버튼 · 일시정지 메뉴에서 연다
 const BOOK_TABS = [['fire'], ['frost'], ['thunder'], ['poison'], ['might'], ['guard'], ['duo']];
 const BOOK_REQ = { fire: '화상을 거는 불 축복', frost: '냉기를 거는 얼음 축복', thunder: '감전을 거는 번개 축복', poison: '독을 거는 독 축복' };
-function openBoonBook(from) { G.book = { from, tab: 0, scroll: 0, t: 0, axis: 0, axisX: 0, drag: null }; Sfx.pickup(); }
+function openBoonBook(from) { G.book = { from, tab: 0, weapon: curWeapon(), scroll: 0, t: 0, axis: 0, axisX: 0, drag: null }; Sfx.pickup(); }
+// 도감이 고른 무기 기준으로 fn 을 돌린다 (축복 이름 · 설명 · 강화 조건이 그 무기 모양이 된다)
+function bookAs(fn) { const prev = G.bookWeapon; G.bookWeapon = G.book && G.book.weapon; try { return fn(); } finally { G.bookWeapon = prev; } }
+// 슬롯이 이 무기에선 어떤 기술인지: 숙련 이름에서 ' 숙련'을 뗀다 (combo = 기본, spin = 차지, wave = 특수, thrust = 대시 공격)
+const BOOK_SLOT_SKILL = { basic: 'combo', charge: 'spin', special: 'wave', dash: 'thrust' };
+function bookSlotName(slot) {
+  const m = (WEAPONS[curWeapon()].mastery || []).find(x => x.id === BOOK_SLOT_SKILL[slot]);
+  const skill = m ? m.name.replace(/ 숙련$/, '') : '';
+  return SLOT_NAMES[slot] + (skill && slot !== 'dash' ? ` (${skill})` : '');
+}
 // 레벨별 설명을 한 줄로: 레벨마다 바뀌는 숫자는 "1/2/3" 처럼 모아서
 function boonLevelLine(b) {
   const max = boonMaxLv(b), re = /(-?\d+(?:\.\d+)?)/;
@@ -2343,19 +2352,21 @@ function bookList(tab) {
   const k = BOOK_TABS[tab][0];
   return BOONS.filter(b => (k === 'duo' ? !!b.duo : b.el === k && !b.duo));
 }
-function bookLayout() {
+function bookLayout() { return bookAs(bookLayoutRaw); }
+function bookLayoutRaw() {
   const w = Math.min(W - 24, 760), x = (W - w) / 2, y = inset.t + 8, h = H - inset.t - inset.b - 16;
-  const tabs = BOOK_TABS.map(([k], i) => { const tw = (w - 24) / BOOK_TABS.length; return { k, x: x + 12 + i * tw, y: y + 40, w: tw - 4, h: 28 }; });
-  const view = { x: x + 12, y: y + 76, w: w - 24, h: h - 76 - 22 };
+  const weapons = WEAPON_ORDER.map((id, i) => { const ww = (w - 24) / WEAPON_ORDER.length; return { id, x: x + 12 + i * ww, y: y + 38, w: ww - 4, h: 24 }; });
+  const tabs = BOOK_TABS.map(([k], i) => { const tw = (w - 24) / BOOK_TABS.length; return { k, x: x + 12 + i * tw, y: y + 66, w: tw - 4, h: 26 }; });
+  const view = { x: x + 12, y: y + 98, w: w - 24, h: h - 98 - 22 };
   const close = { x: x + w - 74, y: y + 8, w: 64, h: 26 };
   const cards = []; let cy = 0;
   for (const b of bookList(G.book.tab)) {
-    const tag = (b.slot ? SLOT_NAMES[b.slot] : b.needs ? '강화 축복' : b.duo ? '듀오 축복' : '패시브') + ` · 최대 Lv${boonMaxLv(b)}`;
+    const tag = (b.slot ? bookSlotName(b.slot) : b.needs ? '강화 축복' : b.duo ? '듀오 축복' : '패시브') + ` · 최대 Lv${boonMaxLv(b)}`;
     const eff = wrap(boonLevelLine(b), view.w - 24, 12, '500'), req = wrap(boonReqLine(b), view.w - 24, 11, '600');
     const hh = 26 + req.length * 15 + eff.length * 16 + 10;
     cards.push({ b, tag, eff, req, top: cy, h: hh }); cy += hh + 6;
   }
-  return { x, y, w, h, tabs, view, close, cards, maxScroll: Math.max(0, cy - view.h) };
+  return { x, y, w, h, weapons, tabs, view, close, cards, maxScroll: Math.max(0, cy - view.h) };
 }
 function handleBoonBook(dt, inp) {
   const bk = G.book, L = bookLayout();
@@ -2364,7 +2375,9 @@ function handleBoonBook(dt, inp) {
   const close = () => { G.book = null; Sfx.pickup(); if (G.village) { G.village.t = 0.3; G.village.armed = false; } };
   if (inp.back || inp.pause) { close(); return; }
   const setTab = t => { t = (t + BOOK_TABS.length) % BOOK_TABS.length; if (t !== bk.tab) { bk.tab = t; bk.scroll = 0; Sfx.pickup(); } };
-  if (inp.lb || inp.rb) { setTab(bk.tab + (inp.rb ? 1 : -1)); return; }
+  const setWeapon = id => { if (id !== bk.weapon) { bk.weapon = id; bk.scroll = 0; Sfx.pickup(); } };
+  // LB · RB = 무기 바꾸기, ←→ = 속성 바꾸기
+  if (inp.lb || inp.rb) { const n = WEAPON_ORDER.length, i = WEAPON_ORDER.indexOf(bk.weapon); setWeapon(WEAPON_ORDER[(i + (inp.rb ? 1 : -1) + n) % n]); return; }
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
   if (hx && hx !== bk.axisX) setTab(bk.tab + hx);
   bk.axisX = hx;
@@ -2374,6 +2387,8 @@ function handleBoonBook(dt, inp) {
   if (bk.drag) { const pt = Input.pointers.get(bk.drag.id); if (pt) bk.scroll = bk.drag.scroll0 - (pt.y - bk.drag.y); else bk.drag = null; }
   if (inp.tap) {
     if (inRectPt(inp.tap, L.close)) { close(); return; }
+    const wi = L.weapons.find(r => inRectPt(inp.tap, r));
+    if (wi) { setWeapon(wi.id); return; }
     const ti = L.tabs.findIndex(r => inRectPt(inp.tap, r));
     if (ti >= 0) { setTab(ti); return; }
     if (inRectPt(inp.tap, L.view)) {
@@ -2384,13 +2399,20 @@ function handleBoonBook(dt, inp) {
   }
   bk.scroll = clamp(bk.scroll, 0, L.maxScroll);
 }
-function drawBoonBook() {
-  const bk = G.book, L = bookLayout();
+function drawBoonBook() { bookAs(drawBoonBookRaw); }
+function drawBoonBookRaw() {
+  const bk = G.book, L = bookLayoutRaw();
   overlay(0.75);
   ctx.fillStyle = 'rgba(14,18,26,0.97)'; ctx.fillRect(L.x, L.y, L.w, L.h);
   ctx.strokeStyle = 'rgba(255,224,138,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(L.x + 0.5, L.y + 0.5, L.w - 1, L.h - 1);
   label('📖 축복 도감', L.x + 16, L.y + 22, 18, '#ffe08a', 'left', '900');
-  label(`${WEAPONS[curWeapon()].name} 기준 · 같은 축복도 무기마다 이름과 효과가 달라요`, L.x + 140, L.y + 23, 11, '#aab', 'left', '600');
+  label('같은 축복도 무기마다 이름과 효과가 달라요', L.x + 140, L.y + 23, 11, '#aab', 'left', '600');
+  const mine = G.player ? G.player.weaponId : Meta.data.weapon;
+  L.weapons.forEach(r => {
+    const on = bk.weapon === r.id;
+    ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(28,32,44,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+    label((r.id === mine ? '★ ' : '') + WEAPONS[r.id].name, r.x + r.w / 2, r.y + r.h / 2, 12, on ? '#fff' : '#99a', 'center', '800');
+  });
   const c = L.close; ctx.fillStyle = 'rgba(40,46,60,0.95)'; ctx.fillRect(c.x, c.y, c.w, c.h); label('닫기', c.x + c.w / 2, c.y + c.h / 2 + 1, 12, '#ccd', 'center', '700');
   L.tabs.forEach((t, i) => {
     const on = bk.tab === i, el = ELEMENTS[t.k], col = t.k === 'duo' ? '#ffb8f0' : el.color;
@@ -2403,7 +2425,7 @@ function drawBoonBook() {
   for (const cd of L.cards) {
     const y = V.y + cd.top - bk.scroll;
     if (y + cd.h < V.y || y > V.y + V.h) continue;
-    const b = cd.b, col = boonColor(b), own = G.player && G.boons && G.boons[b.id];
+    const b = cd.b, col = boonColor(b), own = G.player && G.boons && G.boons[b.id] && bk.weapon === G.player.weaponId;
     ctx.fillStyle = 'rgba(24,30,40,0.95)'; ctx.fillRect(V.x, y, V.w, cd.h);
     ctx.fillStyle = col; ctx.fillRect(V.x, y, 3, cd.h);
     ctx.font = `16px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(boonIcon(b), V.x + 10, y + 14);
@@ -2416,7 +2438,7 @@ function drawBoonBook() {
   ctx.restore();
   if (L.maxScroll > 0) { const k = V.h / (V.h + L.maxScroll), bh = V.h * k, by = V.y + (bk.scroll / L.maxScroll) * (V.h - bh); ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(V.x + V.w + 4, by, 3, bh); }
   const d = Input.state.device;
-  const how = d === 'touch' ? '속성 탭을 눌러 바꾸고, 목록은 밀어서 스크롤 · 숫자 "1/2/3"은 레벨별 값' : d === 'gamepad' ? 'LB · RB / ←→ 속성 · ↑↓ 스크롤 · B 닫기 · 숫자 "1/2/3"은 레벨별 값' : '←→ 속성 · ↑↓ · 휠 스크롤 · Esc 닫기 · 숫자 "1/2/3"은 레벨별 값';
+  const how = d === 'touch' ? '무기 · 속성을 눌러 바꾸고, 목록은 밀어서 스크롤 · ★ 지금 무기 · "1/2/3"은 레벨별 값' : d === 'gamepad' ? 'LB · RB 무기 · ←→ 속성 · ↑↓ 스크롤 · B 닫기 · ★ 지금 무기 · "1/2/3"은 레벨별 값' : '무기는 클릭 · ←→ 속성 · ↑↓ · 휠 스크롤 · Esc 닫기 · ★ 지금 무기 · "1/2/3"은 레벨별 값';
   label(how, L.x + L.w / 2, L.y + L.h - 10, 11, '#8a96a0', 'center', '600');
 }
 

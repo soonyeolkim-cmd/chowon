@@ -152,7 +152,8 @@ const BOONS = [
 // name 만 있으면 설명은 원래 것을 그대로 쓴다.
 const BOON_FORMS = {
 };
-const curWeapon = () => (typeof G !== 'undefined' && G.player ? G.player.weaponId : typeof Meta !== 'undefined' && Meta.data ? Meta.data.weapon : 'sword'); // 파일을 불러오는 중엔 G · Meta 가 아직 없다
+// 축복 도감에서 다른 무기를 볼 때는 G.bookWeapon 이 잠깐 그 무기를 가리킨다 (도감 그리는 동안만)
+const curWeapon = () => (typeof G !== 'undefined' && G.bookWeapon ? G.bookWeapon : typeof G !== 'undefined' && G.player ? G.player.weaponId : typeof Meta !== 'undefined' && Meta.data ? Meta.data.weapon : 'sword'); // 파일을 불러오는 중엔 G · Meta 가 아직 없다
 const curWeaponDef = () => WEAPONS[curWeapon()] || WEAPONS.sword;
 const enhanceSlot = () => curWeaponDef().enhanceSlot || 'basic'; // 강화 축복 · 번개 감전 강화가 붙는 칸
 for (const b of BOONS) {
