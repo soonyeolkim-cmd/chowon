@@ -257,7 +257,7 @@ class Player {
     if (this.dashStock >= this.dashMax) this.dashRecharge = this.dashCdBase;
     this.dashStock--;
     FX.onDashStart(this);
-    if (this.weapon.dashGuard) { this.guardT = DASH_TIME + this.weapon.dashGuard; this.guardOnset = G.time; this.dashBumped = false; } // 방패: 누른 순간부터 저스트 가드 // 방패 돌진: 무적 · 저스트 회피 없이 정면만 막는다
+    if (this.weapon.dashGuard) { this.guardT = DASH_TIME + this.weapon.dashGuard; this.guardOnset = G.time; this.guardSrc = 'dash'; this.dashBumped = false; } // 방패: 누른 순간부터 저스트 가드 // 방패 돌진: 무적 · 저스트 회피 없이 정면만 막는다
     else { this.invuln = Math.max(this.invuln, 0.2); this.dodgeT = 0.22; }
     Sfx.dash();
   }

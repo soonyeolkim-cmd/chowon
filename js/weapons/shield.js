@@ -5,15 +5,20 @@
 // 그림: Things by SnoopethDuckDuck (CC0) 의 청동 원형 방패, 막기 보호막은 에셋 팩 FX/Magic/Shield
 
 // 방패 수치
-const SHIELD_REACH = 34;        // 밀치기 거리
-const SHIELD_FIN_REACH = 52;    // 3타째 몸으로 밀어치기 (40 → 52, 2026-10-17)
+// 2026-10-18 방패 강화 ("범위가 좁다"): 밀치기 34 → 42 · 좌우 ±49° → ±75°, 3타째 52 → 58 · ±72° → ±89°, 1 · 2타 배율 1.0 → 1.15, 3타 뒤 쉬는 시간 0.6 → 0.45초
+const SHIELD_REACH = 42;        // 밀치기 거리 (검 37)
+const SHIELD_HALF = 1.3;        // 밀치기 좌우 각도 (검 1.05) — 방패 면으로 넓게 민다
+const SHIELD_FIN_REACH = 58;    // 3타째 몸으로 밀어치기
+const SHIELD_FIN_HALF = 1.55;
+const SHIELD_FIN_CD = 0.45;     // 3타 뒤 다음 공격까지
 const SHIELD_BODY_LUNGE = 190;  // 몸으로 밀어치기: 앞으로 뛰어드는 속도 (동작 앞쪽 45% 동안)
 const SHIELD_GUARD_AFTER = 0.15; // 돌진이 끝난 뒤에도 이만큼 정면을 막는다
 const SHIELD_FRONT = 1.6;       // 막을 수 있는 각도 (정면에서 좌우 약 90°)
 const SHIELD_BLOCK_INV = 0.3;   // 저스트 가드 뒤 잠깐 무적 (같은 공격에 두 번 맞지 않게)
 // 저스트 가드 (2026-10-18): 막기를 새로 시작한 뒤 이 시간 안에 맞으면 저스트. 아니면 일반 막기 = 피해 일부만 받는다
 const SHIELD_JUST_T = 0.25;
-const SHIELD_CHIP = 0.3;        // 일반 막기: 받는 피해 비율
+const SHIELD_CHIP = 0.3;        // 밀치는 중 일반 막기: 받는 피해 비율 (방패 대시 · 방패 돌진으로 막으면 0, 2026-10-18)
+const SHIELD_DASH_BLOCK_INV = 0.2; // 방패 대시로 막은 뒤 잠깐 무적 (다른 무기 대시 무적과 같은 0.2초)
 const SHIELD_JUST_STUN = 1.2;   // 저스트 가드: 때린 적 기절
 const SHIELD_COUNTER_MULT = 1.6; // 막은 뒤 다음 밀치기 피해 배율
 const SHIELD_SPIN_R = 62;       // 돌려치기 반경 (46 → 62, 2026-10-17)
@@ -35,7 +40,7 @@ const SHIELD_CHARGE_HALF = 0.95;  // 붙잡는 앞쪽 각도 (약 ±54°)       
 
 Object.assign(MOVES, {
 // 방패: 한 방이 무겁고 크게 밀어낸다
-bash:       { mult: 1.0, kb: 150, guardBreak: false, role: 'basic', light: true }, // 1 · 2타: 가볍게 툭
+bash:       { mult: 1.15, kb: 150, guardBreak: false, role: 'basic', light: true }, // 1 · 2타: 가볍게 툭
 bashFin:    { mult: 1.95, kb: 760, guardBreak: true, role: 'fin', shove: true },  // 3타: 몸으로 밀어치기 (넉백 440 → 760, 약 100 날아감, 무거운 적도 꽤 밀림)
 quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방패 강타 (차지): 앞쪽 부채꼴 충격파 + 기절
 shieldSpin: { mult: 1.1, kb: 760, guardBreak: true, role: 'special', shove: true },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
@@ -73,13 +78,13 @@ addWeapon('shield', {
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
     ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
-    ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (일반 막기는 피해 30%) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
+    ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (막으면 피해 0 · 다음 밀치기는 반격 밀치기) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '대시 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음', 'thrust'],
   ],
   notesTitle: '방패 특성 · 막기',
   notes: [
     '방패는 저스트 회피가 없어요. 대시가 방패 대시예요.',
-    '방패 대시 중 · 끝난 직후 잠깐 · 밀치는 동안 · 방패 돌진 중, 정면에서 오는 공격과 탄을 막아요. 그냥 막으면 피해를 30%만 받아요.',
+    '방패 대시 중 · 끝난 직후 잠깐 · 밀치는 동안 · 방패 돌진 중, 정면에서 오는 공격과 탄을 막아요. 방패 대시 · 돌진으로 막으면 피해 0, 밀치는 동안 막으면 피해를 30%만 받아요. 막으면 다음 밀치기는 반격 밀치기(피해 ×1.6)예요.',
     '저스트 가드: 막기를 새로 시작하고 0.25초 안에 맞으면(공격이 닿는 순간 밀치기 · 대시 · 돌진을 누르면) 피해 0, 특수 · 대시 쿨타임 초기화, 때린 적은 튕겨 나가 1.2초 기절, 다음 밀치기는 반격 밀치기(피해 ×1.6, 확정 치명타)가 돼요. 밀치기를 계속 이어 누르는 중에는 저스트가 안 돼요.',
     '못 막는 것: 바닥에서 터지는 범위 공격(빨간 원 · 뿌리 · 폭발)과 옆 · 뒤에서 오는 공격. 이건 위치로 피해야 해요.',
     '돌진은 적을 통과하지 못하고 부딪혀 멈춰요. 포위당하면 돌려치기로 밀어내세요.',
@@ -175,12 +180,14 @@ extendPlayer({
     const bx = this.x + c * 14, by = this.y - 8 + s * 14, isFoe = src && src.type && !src.dead && src.kvx !== undefined;
     const just = G.time - (this.guardOnset ?? -99) <= SHIELD_JUST_T;
     this.guardFxT = 0.3;
-    if (!just) { // 일반 막기: 버티기만. 피해 일부를 받고 조금 밀린다
+    if (!just) { // 일반 막기: 방패 대시 · 돌진이면 피해 0, 밀치는 중이면 피해 일부. 어느 쪽이든 다음 밀치기는 반격 밀치기 (2026-10-18)
       this.kvx -= c * 90; this.kvy -= s * 90;
+      this.bashReady = true;
       if (isFoe && src.type !== 'boss') { src.kvx += c * 140; src.kvy += s * 140; }
       G.text(this.x, this.y - 30, '막기', '#c8d8e8', 12, 0.6);
       G.burst(bx, by, 6, ['#ffffff', '#9fdcff'], 120);
       Sfx.block(); Input.rumble(0.4, 80);
+      if (this.guardSrc === 'dash') { this.invuln = Math.max(this.invuln, SHIELD_DASH_BLOCK_INV); return 0; }
       return SHIELD_CHIP;
     }
     // 저스트 가드: 피해 없음 · 쿨타임 초기화 · 다음 밀치기는 반격(확정 치명타) · 때린 적은 크게 튕겨 나가 기절
@@ -205,10 +212,11 @@ extendPlayer({
     this.aim(mag);
     const fin = this.combo === 2, counter = !!this.bashReady;
     this.bashReady = false;
-    this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.24 : 0.15, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? 1.25 : 0.85,
+    this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.24 : 0.15, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? SHIELD_FIN_HALF : SHIELD_HALF,
       opts: counter ? { mult: SHIELD_COUNTER_MULT } : undefined, counter };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
-    this.atkCd = (fin ? 0.6 : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
+    this.atkCd = (fin ? SHIELD_FIN_CD : 0.28) * (1 - 0.15 * FX.lv('atk_combo'));
+    this.guardSrc = 'bash'; // 밀치는 중 막기는 피해 일부
     this.comboT = this.atkCd + 0.35;
     this.finisherT = 0; this.atkBuffer = 0;
     if (this.guardT <= 0) this.guardOnset = G.time; // 저스트 가드 기준: 막기를 새로 켠 순간 (연타로 이어 막는 중엔 다시 안 잼)
@@ -245,6 +253,7 @@ extendPlayer({
     this.act = { kind: 'shieldCharge', t: 0, dur: SHIELD_CHARGE_TIME + 0.12, run: SHIELD_CHARGE_TIME, hit: new Set(), carry: new Set(), dir };
     this.guardT = Math.max(this.guardT, this.act.dur + 0.05); // 달리는 내내 정면을 막는다
     this.guardOnset = G.time; // 방패 돌진을 누른 순간부터 저스트 가드
+    this.guardSrc = 'dash';
     this.postDashT = 0; this.atkBuffer = 0; this.comboT = 0; this.finisherT = 0; this.charge = 0;
     G.text(this.x, this.y - 26, '방패 돌진!', '#ffd28a', 13, 0.6);
     G.shake = Math.max(G.shake, 3); Sfx.lunge(); Input.rumble(0.5, 140);
