@@ -851,6 +851,10 @@ const G = {
           if (this.stage === this.finalWorld) {
             Meta.data.clears++; this.earn(SHARD_ALL_CLEAR);
             const info = this.tierInfo || tierInfo(1);
+            { // 무기별 완주 기록: 완주 횟수 · 완주한 가장 높은 봉인 등급 (무기 선택 칸에 보인다, 2026-10-18)
+              const wid = this.player.weaponId, ws = Meta.data.wstats[wid] || (Meta.data.wstats[wid] = { clears: 0, best: 0 });
+              ws.clears++; ws.best = Math.max(ws.best, info.n);
+            }
             this.tierFirst = !Meta.data.tierCleared[info.n];
             if (this.tierFirst) {
               Meta.data.tierCleared[info.n] = true;
@@ -2153,6 +2157,11 @@ function drawVillage(blink) {
       // 무기 탭
       label(it.desc(), r.x + 12, r.y + r.h * 0.74, 10.5, '#b8c0cc', 'left', '500');
       const using = it.weapon === md.weapon, buy = !it.locked && !it.owned, can = buy && md.emblems >= it.unlockCost;
+      if (it.owned) { // 이 무기의 완주 기록 (2026-10-18)
+        const ws = md.wstats[it.weapon];
+        if (ws && ws.clears) label(`완주 ${ws.clears}회 · 최고 봉인 등급 ${tierNo(ws.best)}`, r.x + r.w - 100, r.y + r.h * 0.32, 11, '#ffd24a', 'right', '800');
+        else label('완주 기록 없음', r.x + r.w - 100, r.y + r.h * 0.32, 10.5, '#7d8a96', 'right', '600');
+      }
       btn = it.locked ? '준비 중' : buy ? `✦ ${it.unlockCost} 해금` : using ? '✓ 장착됨' : '장착하기';
       bcol = it.locked ? 'rgba(80,70,40,0.7)' : buy ? (can ? '#9a7a1a' : 'rgba(80,80,90,0.7)') : using ? 'rgba(63,138,59,0.9)' : '#6a3fb0';
       tcol = it.locked ? '#cbb' : '#fff';

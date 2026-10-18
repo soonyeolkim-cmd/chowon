@@ -164,6 +164,7 @@ const Meta = {
       gifts: d.gifts || [],     // 이미 쓴 선물 코드
       weapon: d.weapon || 'sword', unlocked: d.unlocked || ['sword'],
       wup: d.wup || {},          // 무기별 숙련: { sword: { combo: 2, ... } }
+      wstats: d.wstats || {},    // 무기별 완주 기록: { sword: { clears: 3, best: 2 } } (best = 봉인 등급, 안에서 세는 1~8). 2026-10-18 부터 센다
       // 무기의 정수 (예전 저장의 무기별 정수 { sword: 12, spear: 3 } 은 합쳐서 옮긴다)
       normal1: d.normal1 !== false && !DEV_BUILD, // 로컬 일반 모드로 시작한 저장 표시
       essence: typeof d.essence === 'number' ? d.essence : Object.values(d.essence || {}).reduce((a, b) => a + b, 0),
