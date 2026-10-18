@@ -26,7 +26,7 @@ addWeapon('sword', {
   basic: (p, mag) => p.startAttack(mag),
   basicAfterDash: p => p.startThrust(),
   // 대시 찌르기 다단히트: 돌진해 지나간 길을 칼바람이 다시 벤다
-  dashEcho: (p, e) => { const dx = p.x - e.x0, dy = p.y - e.y0, L = Math.hypot(dx, dy); return { x: e.x0, y: e.y0, dir: L > 4 ? Math.atan2(dy, dx) : e.dir, shape: { line: Math.max(46, L + 30) } }; },
+  dashEcho: (p, e) => { const x0 = e.o.x0, y0 = e.o.y0, dx = p.x - x0, dy = p.y - y0, L = Math.hypot(dx, dy); return { x: x0, y: y0, dir: L > 4 ? Math.atan2(dy, dx) : p.facing, shape: { line: Math.max(46, L + 30) } }; }, // 출발점 · 끝점은 대시 찌르기가 끝난 자리 기준
   charged: (p, mag) => p.startSpin(mag),
   special: (p, mag) => p.castWave(mag),
   skill: null,
@@ -122,9 +122,14 @@ extendPlayer({
   castWave(mag) {
     this.aim(mag, WAVE_AIM);
     const triple = this.finisherT > 0 && G.has('triple');
-    const dirs = triple ? [-0.35, 0, 0.35] : [0];
+    // 삼연 검기: 세 갈래가 하나로 뭉쳐 보이지 않게 더 벌리고(±0.35 → ±0.55), 가운데는 크게 · 양옆은 작게 조금 뒤에서 출발 (2026-10-18)
+    const dirs = triple ? [-0.55, 0, 0.55] : [0];
     const cast = { healed: false }; // 치유의 검기: 한 번 쏠 때 한 번만 (삼연 검기 세 갈래도 함께)
-    for (const o of dirs) { const w = new Wave(this.x, this.y - 2, this.facing + o, triple); w.cast = cast; G.projectiles.push(w); }
+    for (const o of dirs) {
+      const side = triple && o !== 0, back = side ? 14 : 0, f = this.facing + o;
+      const w = new Wave(this.x - Math.cos(f) * back, this.y - 2 - Math.sin(f) * back, f, side);
+      w.cast = cast; G.projectiles.push(w);
+    }
     if (triple) G.text(this.x, this.y - 24, '삼연 검기!', '#7fe0ff', 13, 0.7);
     this.finisherT = 0;
     this.act = { kind: 'cast', t: 0, dur: 0.16, hit: new Set() };
@@ -153,20 +158,17 @@ extendPlayer({
     } else if (a && a.kind === 'spin') {
       const p = a.t / a.dur, ang = this.facing + p * Math.PI * 2.2;
       const sr = this.spinRange, cs = ElFx.slot('charge');
-      if (cs) {
-        ElFx.arc(g, cs, x, cy, sr - 12, ang - 2.4, ang, 10, 0.65 * (1 - p));
-        if (Math.random() < 0.8) ElFx.spark(cs, x + Math.cos(ang) * (sr - 12), cy + Math.sin(ang) * (sr - 12), 2);
-      } else {
-        g.strokeStyle = `rgba(255,220,120,${0.6 * (1 - p)})`; g.lineWidth = 10;
-        g.beginPath(); g.arc(x, cy, sr - 12, ang - 2.4, ang); g.stroke();
-      }
+      // 회전베기: 굵은 호 선 대신 도트 둥근 베기 그림(쌍검 선풍 베기와 같은 FX/Attack/CircularSlash). 차지 칸 속성이면 그 색 (2026-10-18)
+      const im = slimRing(cs ? tintedBy(ART.img.circSlash, EL_STYLE[cs.el].main) : ART.img.circSlash), sz = (sr + 10) * 2 / 0.94, fr = Math.min(3, Math.floor(p * 4)); // 그림 속 고리 반지름 = 칸의 94%. 실제로 맞는 거리(범위 + 적 몸 반지름 약 10)에 맞춘다
+      g.save(); g.globalAlpha *= 0.95; g.translate(x, cy); // 방향에 따라 돌리지 않는다: 늘 같은 모양의 원 (바라보는 쪽마다 좌우로 길어 보여 헷갈렸다, 2026-10-18)
+      g.drawImage(im, fr * 32, 0, 32, 32, -sz / 2, -sz / 2, sz, sz);
+      g.restore();
       this.blade(g, x, cy, ang);
     } else if (a && a.kind === 'thrust') {
       const p = a.t / a.dur;
       const ds = ElFx.slot('dash');
       g.fillStyle = ds ? ElFx.rgba(ds.el, (ds.max ? 0.65 : 0.5) * (1 - p)) : `rgba(156,220,255,${0.5 * (1 - p)})`;
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
-      if (ds && Math.random() < 0.7) ElFx.spark(ds, x + c * rand(10, 50), cy + s * rand(10, 50));
       g.beginPath(); g.moveTo(x - s * 8, cy + c * 8); g.lineTo(x + c * 54, cy + s * 54); g.lineTo(x + s * 8, cy - c * 8); g.closePath(); g.fill();
       this.blade(g, x, cy, this.facing);
     } else {
@@ -201,6 +203,19 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
     }
 });
 
+// 회전베기 고리를 날씬하게: 둥근 베기 그림(32x32 4장)에서 고리 안쪽을 깎아 낸 그림을 한 번 만들어 둔다 (2026-10-18)
+// 장마다 고리가 놓인 반지름이 달라서 깎는 반지름도 장마다 (그림 칸 기준, 가운데 16)
+const RING_CUT = [14.2, 12.4, 13.8, 14.6];
+const _slimRing = new Map();
+function slimRing(img) {
+  let cv = _slimRing.get(img); if (cv) return cv;
+  if (!img.width) return img;
+  cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+  const x = cv.getContext('2d'); x.drawImage(img, 0, 0); x.globalCompositeOperation = 'destination-out';
+  for (let f = 0; f < 4; f++) { x.beginPath(); x.arc(f * 32 + 16, 16, RING_CUT[f], 0, Math.PI * 2); x.fill(); }
+  _slimRing.set(img, cv); return cv;
+}
+
 // 검기: 관통하는 초승달 모양 투사체
 class Wave {
   constructor(x, y, dir, small) {
@@ -224,13 +239,13 @@ class Wave {
       }
     }
   }
-  // 그림: 에셋 팩 도트 초승달(FX/Slash/SpriteSheetArc, 38x34 6장). 날아가는 동안 1~3장을 돌리고, 사라질 때 4~6장 (2026-10-18, 선 → 도트)
+  // 그림: 칼을 휘두를 때와 같은 베기 그림(ART.img.slash, FX/Attack/SlashCurved 32x32 4장)이 그대로 날아간다 (2026-10-18)
+  // 날아가는 동안은 꽉 찬 3번째 장으로 고정(깜빡이지 않게), 사라질 때 4번째 장. 속성 축복이 있으면 그 색으로
   draw(g) {
-    const ss = ElFx.slot('special'), img = ss ? tintedBy(ART.img.waveArc, EL_STYLE[ss.el].main) : ART.img.waveArc;
-    const left = this.life / this.max, fi = left < 0.25 ? 3 + Math.min(2, Math.floor((0.25 - left) / 0.25 * 3)) : Math.floor((1 - left) * 18) % 3;
-    const w = this.size * 2.4, h = w * 34 / 38;
-    g.save(); g.translate(this.x, this.y); g.rotate(this.dir - Math.PI / 2); // 그림의 볼록한 쪽(아래)이 날아가는 쪽
-    g.drawImage(img, fi * 38, 0, 38, 34, -w / 2, -h * 0.75, w, h);
+    const ss = ElFx.slot('special'), img = ss ? tintedBy(ART.img.slash, EL_STYLE[ss.el].main) : ART.img.slash;
+    const left = this.life / this.max, fi = left < 0.2 ? 3 : 2, s = this.size * 2.6;
+    g.save(); g.globalAlpha = clamp(left * 4, 0, 1); g.translate(this.x, this.y); g.rotate(this.dir); // 그림의 볼록한 쪽(오른쪽)이 날아가는 쪽
+    g.drawImage(img, fi * 32, 0, 32, 32, -s * 0.62, -s / 2, s, s);
     g.restore();
     if (ss && Math.random() < 0.5) { const a = this.dir + rand(-1, 1); ElFx.spark(ss, this.x + Math.cos(a) * this.size * 0.8, this.y + Math.sin(a) * this.size * 0.8); }
   }

@@ -204,7 +204,7 @@ extendPlayer({
       src.flash = 0.15;
     }
     G.text(this.x, this.y - 32, '저스트 가드!', '#ffffff', 16, 0.9);
-    G.burst(bx, by, 20, ['#ffffff', '#ffe8a8', '#9fdcff'], 240); G.fxRing(bx, by, '#ffffff', 26); G.fxRing(bx, by, '#ffd28a', 54);
+    G.burst(bx, by, 20, ['#ffffff', '#ffe8a8', '#9fdcff'], 240); pixRing(bx, by, '#ffd28a', 40); // 저스트 가드: 도트 고리 (2026-10-18)
     G.hitstop = Math.max(G.hitstop, 0.08); G.shake = Math.max(G.shake, 6); G.slowT = Math.max(G.slowT, 0.3);
     Sfx.guardBreak(); Sfx.block(); Input.rumble(0.9, 180);
     return 0;
@@ -336,14 +336,22 @@ extendPlayer({
       if (p > 0.3) bashPuffs(g, x, cy, f, a.range - 8, [0], (p - 0.3) / 0.7, 14); // 1 · 2타: 방패 앞 도트 흙먼지 한 점 (2026-10-18, 선 → 도트)
     } else if (a && a.kind === 'shieldSpin') {
       const p = clamp(a.t / a.dur, 0, 1), ang = a.a0 + Math.PI * 2 * p;
-      // 막기 이펙트와 같은 도트 방패 호가 몸 둘레를 돈다 (2026-10-18, 선 → 도트 그림)
-      const ss = ElFx.slot('special'), im = ss ? tintedBy(ART.img.guardFx, EL_STYLE[ss.el].main) : ART.img.guardFx, fr = Math.min(5, Math.floor(p * 6)) * 24;
-      for (const [back, al] of [[0.9, 0.45], [0, 1]]) {
-        const q = ang - back, R = a.r * 0.6;
-        g.save(); g.globalAlpha = al * (1 - p * 0.3); g.translate(x + Math.cos(q) * R, cy + Math.sin(q) * R * 0.8); g.rotate(q + Math.PI / 2);
-        g.drawImage(im, fr, 0, 24, 26, -20, -22, 40, 44); g.restore();
+      // 방패 테두리가 몸 둘레를 휩쓸고 지나가는 도트 선 (2026-10-18): 2픽셀 네모를 호 따라 찍는다.
+      // 방패 쪽(앞)은 굵고 밝게, 꼬리로 갈수록 가늘고 흐리게. 바깥 줄은 방패 테두리 금빛, 안쪽은 밝은 크림색
+      const ss = ElFx.slot('special'), edge = ss ? EL_STYLE[ss.el].main : '#ffc65a', core = '#fff4d8', R = a.r * 0.6, P = 2;
+      const tail = Math.min(2.2, p * Math.PI * 2), fadeOut = p > 0.85 ? (1 - p) / 0.15 : 1;
+      g.save();
+      for (let d = 0; d <= tail * R; d += P) {
+        const k = d / (tail * R), q = ang - d / R, w = Math.round(2 - 2 * k); // 0 = 방패 쪽, 1 = 꼬리
+        g.globalAlpha = (1 - k * 0.8) * fadeOut;
+        for (let j = -w; j <= w; j++) {
+          const rr = R + j * P, px = Math.round(x + Math.cos(q) * rr), py = Math.round(cy + Math.sin(q) * rr * 0.8);
+          g.fillStyle = Math.abs(j) === w && w > 0 ? edge : core;
+          g.fillRect(px, py, P, P);
+        }
       }
-      shieldSprite(g, x + Math.cos(ang) * 16, cy + Math.sin(ang) * 11, 1, glow);
+      g.restore();
+      shieldSprite(g, x + Math.cos(ang) * 16, cy + Math.sin(ang) * 11, 1.2, glow); // 돌진 때처럼 방패를 크게
     } else if (a && a.kind === 'quake') {
       const p = clamp(a.t / a.dur0, 0, 1), lift = p < 0.3 ? p / 0.3 : 0, down = p >= 0.3;
       shieldSprite(g, x + c * (down ? 14 : 8), cy + s * (down ? 10 : 6) - lift * 14, 1.1, glow);

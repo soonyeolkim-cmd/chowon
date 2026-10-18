@@ -81,7 +81,11 @@ const ART_FILES = {
   cutX:      'FX/Attack/CutX/SpriteSheet.png',          // 쌍검 3타째 X자 베기 (32x32 4장)
   circSlash: 'FX/Attack/CircularSlash/SpriteSheet.png', // 쌍검 선풍 베기
   smoke:     'FX/Smoke/Smoke/SpriteSheet.png',
-  waveArc:   'FX/Slash/SpriteSheetArc.png',        // 검의 섬광 검기 (38x34 6장, 2026-10-18)
+  cut:       'FX/Attack/Cut/SpriteSheet.png',          // 창 찌르기 · 관통 · 일섬 · 던진 창 꼬리 (32x32 4장, 2026-10-18)
+  fxBoom:    'FX/Elemental/Explosion/SpriteSheet.png', // 도트 폭발 (40x40 9장)
+  fxIce:     'FX/Elemental/Ice/SpriteSheet.png',       // 도트 얼음 (32x32 10장)
+  fxThunder: 'FX/Elemental/Thunder/SpriteSheet.png',   // 도트 번개 (20x28 8장)
+  fxRingPx:  'FX/Magic/Circle/SpriteSheetSpark.png',   // 도트 고리 (32x32 6장) — 동그란 선 고리 대신 (2026-10-18)
   floor:     'Backgrounds/Tilesets/TilesetFloor.png',
   water:     'Backgrounds/Tilesets/TilesetWater.png',
   nature:    'Backgrounds/Tilesets/TilesetNature.png',

@@ -56,12 +56,22 @@ const DEV_LOCAL = /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+
 const DEV_MODE = DEV_LOCAL ? 'spear' : null; // 로컬에서만 창 해금 (끄려면 null)
 // 시험 빌드: 로컬에서 주소 뒤에 ?build=spin 을 붙이면 런을 그 축복들을 가진 채로 시작한다
 const TEST_BUILDS = {
-  // 공격 축복 개편 시험 (2026-10-18): 잔상 일격 · 회전 연참 · 특수 강화 · 질주 연계 모두 3레벨 (?build=might_sword 등)
-  might_sword: { weapon: 'sword', mastery: {}, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
-  might_spear: { weapon: 'spear', mastery: {}, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
-  might_sai: { weapon: 'sai', mastery: {}, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
-  might_staff: { weapon: 'staff', mastery: {}, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
-  might_shield: { weapon: 'shield', mastery: {}, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
+  // 공격 축복 개편 시험 (2026-10-18): 잔상 일격 · 회전 연참 · 특수 강화 · 다단히트 모두 3레벨 (?build=might_sword 등). 무기 전부 해금이라 마을에서 바꿔도 된다
+  // 속성별 기본 · 차지 · 특수 · 대시 축복 모두 3레벨 (2026-10-18): ?build=el_fire / el_ice / el_elec / el_poison (무기 전부 해금)
+  el_fire: { weapon: 'sword', mastery: {}, all: true, boons: { fire_basic: 3, fire_charge: 3, fire_special: 3, fire_dash: 3 } },
+  el_ice: { weapon: 'sword', mastery: {}, all: true, boons: { ice_basic: 3, ice_charge: 3, ice_special: 3, ice_dash: 3 } },
+  el_elec: { weapon: 'sword', mastery: {}, all: true, boons: { elec_basic: 3, elec_charge: 3, elec_special: 3, elec_dash: 3 } },
+  el_poison: { weapon: 'sword', mastery: {}, all: true, boons: { poison_basic: 3, poison_charge: 3, poison_special: 3, poison_dash: 3 } },
+  // 투창 반환점 속성 이펙트 시험 (2026-10-18): ?build=spear_fire / spear_elec / spear_ice / spear_poison
+  spear_fire:   { weapon: 'spear', mastery: {}, all: true, boons: { fire_special: 3 } },
+  spear_elec:   { weapon: 'spear', mastery: {}, all: true, boons: { elec_special: 3 } },
+  spear_ice:    { weapon: 'spear', mastery: {}, all: true, boons: { ice_special: 3 } },
+  spear_poison: { weapon: 'spear', mastery: {}, all: true, boons: { poison_special: 3 } },
+  might_sword: { weapon: 'sword', mastery: {}, all: true, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
+  might_spear: { weapon: 'spear', mastery: {}, all: true, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
+  might_sai: { weapon: 'sai', mastery: {}, all: true, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
+  might_staff: { weapon: 'staff', mastery: {}, all: true, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
+  might_shield: { weapon: 'shield', mastery: {}, all: true, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3 } },
   // 회전베기 최강: 회전 연참 · 일섬 회전 · 빙결 회오리 · 파쇄 · 수호의 회전 · 날카로운 검 · 급소 · 연속 타격 (+ 회전베기 숙련 3)
   spin: { weapon: 'sword', mastery: { spin: 3 }, boons: { atk_multispin: 3, ice_charge: 3, shatter: 3, guard_spin: 3, sharp: 3, vital: 3, ambush: 3 } },
   // 화염 팽이: 회전 연참 · 일섬 회전 · 화염 회오리(Lv5) · 불씨 · 연쇄 폭발 · 수호의 회전 · 날카로운 검 · 급소 (+ 회전베기 숙련 3)
@@ -211,6 +221,7 @@ const Meta = {
     if (DEV_BUILD) { // 시험 빌드: 무기 · 숙련 맞추기
       const d = this.data;
       if (!d.unlocked.includes(DEV_BUILD.weapon)) d.unlocked.push(DEV_BUILD.weapon);
+      if (DEV_BUILD.all) for (const id of WEAPON_ORDER) if (!d.unlocked.includes(id)) d.unlocked.push(id); // 무기 전부 해금: 마을에서 무기를 바꿔도 같은 축복으로 시작 (2026-10-18)
       d.weapon = DEV_BUILD.weapon;
       Object.assign(d.wup[DEV_BUILD.weapon] || (d.wup[DEV_BUILD.weapon] = {}), DEV_BUILD.mastery);
     }

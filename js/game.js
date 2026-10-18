@@ -1633,10 +1633,13 @@ function keyNames() {
   return { A: kbName(B.kb.attack[0]), P: kbName(B.kb.special[0]), D: kbName(B.kb.dash[0]), move: arrows ? '방향키' : [B.kb.up, B.kb.left, B.kb.down, B.kb.right].map(l => kbName(l[0])).join('') };
 }
 
+// 기술표의 조작: 기기(마우스 · 키보드 · 패드)마다 키 이름 대신 버튼 이름으로 (2026-10-18). '공격 버튼 공격 버튼 공격 버튼' → '공격 버튼 3회'
+const MOVE_BTN = { A: '공격 버튼', P: '특수 버튼', D: '대시 버튼' };
+const btnRepeat = s => s.replace(/(공격 버튼|특수 버튼|대시 버튼)(?: \1)+/g, (m, b) => `${b} ${m.split(b).length - 1}회`);
 function moveList() {
-  const { A, P, D } = keyNames();
+  const { A, P, D } = MOVE_BTN;
   const Wp = G.player ? G.player.weapon : WEAPONS[Meta.data.weapon];
-  const rows = Wp.rows(A, P, D);
+  const rows = Wp.rows(A, P, D).map(r => [r[0], btnRepeat(r[1]), r[2], r[3]]);
   return rows.map(r => (!r[3] || G.has(r[3]) ? r : ['???', `Lv.${UNLOCK_LV[r[3]]}에 해금`, '레벨을 올려서 배우기']));
 }
 

@@ -44,8 +44,10 @@ const freezeTime = lv => 1 + 0.25 * Math.max(1, lv);
 const iceBig = lv => 1 + Math.ceil(lv / 2);
 // 공격 축복 개편 (2026-10-18): 슬롯마다 공격 축복 하나 — 기본 = 연격, 차지 = 회전 연참(일섬 회전 합침), 특수 = 거대 검기, 대시 = 돌진 강화
 // 연격 → '잔상 일격' (2026-10-18): 숫자 대신 콤보 마지막 타를 잔상이 레벨마다 한 번씩 더 친다. 속도 · 마지막 타 배율은 없앴다 (0)
+// 잔상 일격 (2026-10-18 다시): 다단히트처럼 1레벨부터 잔상 1번(고정), 2 · 3레벨은 마지막 타 피해만 레벨마다 +15%
 const COMBO_SPEED = 0;
-const COMBO_FIN = 0;
+const COMBO_FIN = 0.15;
+const COMBO_ECHO_HITS = 1; // 마지막 타를 잔상이 1번 더 (2 → 1, 2026-10-18)
 const ECHO_MULT = 0.5;      // 잔상 한 번의 피해 (마지막 타의 50%)
 const ECHO_DELAY = 0.16;    // 처음 잔상이 치기까지 · 잔상 사이 간격 (초)
 const ECHO_FLASH = 0.12;    // 잔상 그림(도트 4장)이 넘어가는 시간: 빠르게 휙 (2026-10-18)
@@ -61,8 +63,8 @@ function tintedBy(img, color) {
   _tintCache.set(key, cv); return cv;
 }
 const WAVE_DMG = 0.1;       // 거대 검기(무기마다 특수 강화): 레벨마다 특수공격 피해 +10% (2026-10-18 추가)
-// 돌진 강화(무기마다 대시 공격 강화) = 다단히트 (2026-10-18): 1레벨부터 2번 더 몰아친다(고정), 2 · 3레벨은 대시 공격 피해만 조금씩
-const DASH_ECHO_HITS = 2;
+// 돌진 강화(무기마다 대시 공격 강화) = 다단히트 (2026-10-18): 1레벨부터 1번 더 몰아친다(고정), 2 · 3레벨은 대시 공격 피해만 조금씩
+const DASH_ECHO_HITS = 1;   // 대시 공격이 1번 더 (2 → 1, 2026-10-18)
 const THRUST_DMG = 0.15;    // 2레벨부터 레벨마다 대시 공격 피해 +15%
 const POISON_MAX = 8;       // 독 최대 중첩
 const POISON_TIME = 5;      // 마지막으로 독을 건 뒤 사라지기까지
@@ -134,7 +136,7 @@ const BOONS = [
     desc: lv => `독이 최대 중첩에 닿으면 터져 주변에 공격력의 ${pct(1 + 0.5 * lv)} 피해 (독은 절반 남음).` },
 
   // ── ⚔ 공격: 누적 패시브 (위력 · 범위 · 속도) ──
-  { id: 'atk_combo', el: 'might', name: '잔상 일격', desc: lv => `3타째를 잔상이 ${lv}번 더 친다 (잔상 한 번에 3타째 피해의 ${pct(ECHO_MULT)}).` },
+  { id: 'atk_combo', el: 'might', name: '잔상 일격', desc: lv => `3타째를 잔상이 ${COMBO_ECHO_HITS}번 더 친다 (잔상 한 번에 3타째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 3타째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
   // 일섬 회전: 따로 나오지 않는다. 효과는 회전 연참 레벨을 그대로 따른다 (mergedInto, 2026-10-18)
   { id: 'atk_spin', el: 'might', name: '일섬 회전', mergedInto: 'atk_multispin', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${15 * lv}%.` },
   { id: 'atk_multispin', el: 'might', name: '회전 연참',
@@ -210,6 +212,28 @@ const SLOT_LOCK_LV = 3;
 // 다른 속성이 차지한 슬롯을 바꾸는 카드가 나올 확률 가중치 (낮을수록 덜 나온다)
 const REPLACE_WEIGHT = 0.35;
 
+// ── 도트 그림 이펙트: 에셋 팩 시트(가로로 프레임)를 한 번 재생하고 사라진다 (2026-10-18) ──
+// 예: new SpriteFx('fxBoom', 40, 40, 9, x, y, 96, 0.45) — (x, y) = 그림 가운데
+class SpriteFx {
+  constructor(key, fw, fh, n, x, y, size, dur, tint) { Object.assign(this, { key, fw, fh, n, x, y, size, dur, tint, t: 0, done: false }); }
+  update(dt) { this.t += dt; if (this.t >= this.dur) this.done = true; }
+  draw(g) {
+    const im = this.tint ? tintedBy(ART.img[this.key], this.tint) : ART.img[this.key], fr = Math.min(this.n - 1, Math.floor(this.t / this.dur * this.n));
+    const w = this.size, h = this.size * this.fh / this.fw;
+    g.drawImage(im, fr * this.fw, 0, this.fw, this.fh, Math.round(this.x - w / 2), Math.round(this.y - h / 2), w, h);
+  }
+}
+// 도트 번개 그림: 가운데 큰 번개 + 둘레에 작은 번개 (벼락 · 속성 번개 공통)
+function thunderPix(x, y, r) {
+  G.projectiles.push(new SpriteFx('fxThunder', 20, 28, 8, x, y - 10, 34, 0.35));
+  for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + 0.4; G.projectiles.push(new SpriteFx('fxThunder', 20, 28, 8, x + Math.cos(a) * r * 0.6, y - 8 + Math.sin(a) * r * 0.45, 22, 0.3)); }
+}
+// 도트 고리: 동그란 선 고리(G.fxRing) 대신 쓰는 도트 고리 그림 (무기 기술 공통, 2026-10-18)
+function pixRing(x, y, color, r) { G.projectiles.push(new SpriteFx('fxRingPx', 32, 32, 6, x, y - 4, r * 2, 0.3, color)); }
+// (예전 이름: 창 반환점에서 쓰던 것)
+const explodePix = (x, y, r, dmg, burnIt) => FX.explode(x, y, r, dmg, '#ff7a3c', burnIt);
+const strikePix = (x, y, r, dmg) => FX.strike(x, y, r, dmg);
+
 // ── 잔상 일격: 잠시 뒤 같은 자리에서 같은 모양으로 한 번 더 친다 (2026-10-18) ──
 class EchoStrike {
   // o.dash: 칠 때 자리 · 모양을 정하는 함수 (대시 공격 다단히트: 그때 플레이어 자리 기준)
@@ -218,16 +242,22 @@ class EchoStrike {
   }
   update(dt) {
     this.t += dt;
+    // o.follow: 잔상 일격은 플레이어를 따라간다 (앞으로 걸으며 치면 잔상이 뒤에 남지 않게, 2026-10-18)
+    if (this.o.follow) { this.x = G.player.x; this.y = G.player.y; }
+    // 대시 공격 다단히트: 대시 공격이 진행되는 동안만 플레이어 자리를 따라가고, 끝나면 그 자리에 고정 (끝난 뒤 걸어가도 자리가 안 바뀐다, 2026-10-18)
+    if (this.o.act && G.player.act === this.o.act) { this.o.px = G.player.x; this.o.py = G.player.y; this.o.pf = G.player.facing; }
     if (!this.fired && this.t >= this.delay) {
       this.fired = true;
-      if (this.o.dash) Object.assign(this, this.o.dash(G.player, this));
-      const p = G.player, c = Math.cos(this.dir), s = Math.sin(this.dir), S = this.shape;
+      if (this.o.dash) { const P = G.player, at = Object.create(P, { x: { value: this.o.px ?? P.x }, y: { value: this.o.py ?? P.y }, facing: { value: this.o.pf ?? P.facing } }); Object.assign(this, this.o.dash(at, this)); }
+      // 원래 공격(this.src = 그 동작의 맞힌 적 목록)에 맞은 적만 다시 친다. 빗나갔으면 아무도 안 맞는다 (2026-10-18 버그 고침)
+      const p = G.player, src = this.o.src;
+      let any = false;
       for (const t of G.targets()) {
+        if (!src || !src.has(t) || t.dead) continue;
         const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
-        if (S.line) { const along = dx * c + dy * s, perp = Math.abs(dx * s - dy * c); if (along < 0 || along > S.line + t.r || perp > t.r + 10) continue; }
-        else { if (d > S.range + t.r) continue; if (S.half < Math.PI && d > t.r + 6 && Math.abs(angDiff(Math.atan2(dy, dx), this.dir)) > S.half) continue; }
-        p.deal(t, this.kind, dx / d, dy / d, { mult: ECHO_MULT, kb: 80 });
+        p.deal(t, this.kind, dx / d, dy / d, { mult: ECHO_MULT, kb: 80 }); any = true;
       }
+      if (!any) { this.done = true; return; } // 맞은 적이 없으면 그림도 없이 끝
       Sfx.swing(false);
     }
     if (this.t >= this.delay + ECHO_FLASH) this.done = true;
@@ -422,9 +452,11 @@ const FX = {
     }
     if (list.length) Sfx.zap();
   },
-  strike(x, y, r, dmg) {
-    this.bolt(x + rand(-10, 10), y - 150, x, y);
-    G.fxRing(x, y, '#ffe14a', r);
+  // 벼락: 내리꽂는 번개 + 도트 번개 그림 (고리 선 → 도트, 2026-10-18)
+  // quiet: 번개 그림 없이 노란 도트 장판 색만 잠깐 (전기 대시, 2026-10-18)
+  strike(x, y, r, dmg, quiet) {
+    if (quiet) this.elecMark(x, y, 0.6); // 다른 장판과 같은 크기 (예전엔 피해 범위 45만큼 커서 혼자 커 보였다)
+    else { this.bolt(x + rand(-10, 10), y - 150, x, y); thunderPix(x, y, r); }
     for (const t of this.near(x, y, r)) { this.shock(t); this.damage(t, dmg * this.lightningMult(t), '#ffe14a', 12); }
     Sfx.zap();
   },
@@ -453,7 +485,7 @@ const FX = {
     if (t.chill >= FREEZE_AT && (t.type === 'boss' || t.type === 'dragon')) { // 얼음 균열: 보스는 얼지 않는 대신 잠깐 멈추고 약해진다
       t.chill = 0; t.thawT = FREEZE_IMMUNE; t.crackT = ICE_CRACK_T; t.iceStagger = ICE_CRACK_STAGGER;
       G.text(t.x, t.y - (t.r || 20) - 18, '얼음 균열!', '#bfefff', 14, 0.9);
-      G.burst(t.x, t.y - 6, 18, ['#bfefff', '#ffffff', '#7fd8ff'], 200); G.fxRing(t.x, t.y, '#bfefff', 50);
+      G.burst(t.x, t.y - 6, 18, ['#bfefff', '#ffffff', '#7fd8ff'], 200); G.projectiles.push(new SpriteFx('fxIce', 32, 32, 10, t.x, t.y - 8, 70, 0.45)); // 도트 얼음
       Sfx.shatter ? Sfx.shatter() : Sfx.freeze();
       return;
     }
@@ -465,14 +497,22 @@ const FX = {
       Sfx.freeze();
     }
   },
+  // 폭발: 도트 폭발 그림 (불은 원래 색, 다른 속성은 그 색으로 물들인다). 고리 선 → 도트 (2026-10-18)
   explode(x, y, r, dmg, color, burnIt) {
-    G.fxRing(x, y, color, r);
+    G.projectiles.push(new SpriteFx('fxBoom', 40, 40, 9, x, y - 4, r * 1.9, 0.5, color === '#ff7a3c' || color === '#ffb84a' ? null : color));
     G.burst(x, y, 18, [color, '#fff'], 200);
     G.shake = Math.max(G.shake, 5);
     Sfx.boom();
     for (const t of this.near(x, y, r)) { if (burnIt) this.burn(t, 1); this.damage(t, dmg, color, 12); }
   },
-  zone(x, y, kind, life) { G.zones.push({ x, y, r: 14, kind, life, max: life, tick: 0 }); },
+  // 장판 하나: 깔리는 자리 · 크기 · 남는 시간을 조금씩 흩뜨린다 — 원 · 줄 모양으로 너무 가지런해 보이지 않게 (2026-10-18)
+  zone(x, y, kind, life) {
+    const L = life * rand(0.85, 1.15);
+    const z = { x: x + rand(-7, 7), y: y + rand(-5, 5), r: rand(10, 18), kind, life: L, max: L, tick: rand(0, 0.3) };
+    G.zones.push(z); return z;
+  },
+  // 보이기만 하는 전기 장판 (노란 도트 덩어리, 피해 없음) — 전기 대시 · 회전베기 모양을 불과 같게 (2026-10-18)
+  elecMark(x, y, life) { this.zone(x, y, 'elec', life).look = true; },
 
   updateStatus(t, dt) {
     if (t.shockT > 0) t.shockT -= dt;
@@ -552,13 +592,13 @@ const FX = {
     const n = this.lv('atk_combo'), a = p.act;
     if (!n || !a) return;
     const shape = a.len ? { line: a.len } : { range: a.range, half: a.half };
-    for (let k = 1; k <= n; k++) G.projectiles.push(new EchoStrike(p, a.kind, shape, ECHO_DELAY * k));
+    for (let k = 1; k <= COMBO_ECHO_HITS; k++) G.projectiles.push(new EchoStrike(p, a.kind, shape, ECHO_DELAY * k, { follow: true, src: a.hit }));
   },
-  // 대시 공격 다단히트 (돌진 강화): 대시 공격이 끝난 뒤 같은 곳을 레벨 수만큼 더 친다. 모양은 무기마다 weapon.dashEcho
+  // 대시 공격 다단히트 (돌진 강화): 대시 공격이 끝난 뒤 같은 곳을 1번 더 친다 (DASH_ECHO_HITS). 모양은 무기마다 weapon.dashEcho
   queueDashEcho(p) {
     const lv = this.lv('atk_thrust'), a = p.act, sh = p.weapon.dashEcho;
     if (!lv || !a || !sh) return;
-    for (let k = 1; k <= DASH_ECHO_HITS; k++) G.projectiles.push(new EchoStrike(p, a.kind, null, (a.dur || 0.2) + ECHO_DELAY * (k - 1) + 0.04, { dash: sh, x0: p.x, y0: p.y }));
+    for (let k = 1; k <= DASH_ECHO_HITS; k++) G.projectiles.push(new EchoStrike(p, a.kind, null, (a.dur || 0.2) + ECHO_DELAY * (k - 1) + 0.04, { dash: sh, x0: p.x, y0: p.y, src: a.hit, act: a }));
   },
   // 기본공격을 휘두를 때
   onSwing(p, fin) {
@@ -628,24 +668,29 @@ const FX = {
   onSpin(p) {
     const fc = this.lv('fire_charge');
     if (fc) {
+      const a0 = rand(0, Math.PI * 2); // 회전마다 시작 각도 · 거리를 흩뜨린다 (2026-10-18)
       for (let i = 0; i < 8; i++) {
-        const a = i / 8 * Math.PI * 2;
-        this.zone(p.x + Math.cos(a) * 34, p.y + Math.sin(a) * 34 + 4, 'fire', 1.5 + 0.5 * fc);
+        const a = a0 + i / 8 * Math.PI * 2 + rand(-0.25, 0.25), d = rand(22, 42);
+        this.zone(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d + 4, 'fire', 1.5 + 0.5 * fc);
       }
     }
     const pc = this.lv('poison_charge');
     if (pc) {
       const life = 2 + 0.5 * pc;
       this.zone(p.x, p.y + 4, 'poison', life);
+      const a0 = rand(0, Math.PI * 2);
       for (let i = 0; i < 8; i++) {
-        const a = i / 8 * Math.PI * 2;
-        this.zone(p.x + Math.cos(a) * 32, p.y + Math.sin(a) * 32 + 4, 'poison', life);
+        const a = a0 + i / 8 * Math.PI * 2 + rand(-0.25, 0.25), d = rand(20, 40);
+        this.zone(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d + 4, 'poison', life);
       }
     }
     const ec = this.lv('elec_charge');
     if (ec) {
       const list = this.near(p.x, p.y, 130).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)).slice(0, 2 + ec);
-      for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
+      for (const e of list) { this.shock(e); this.damage(e, p.atk * (0.8 + 0.3 * ec) * this.lightningMult(e), '#ffe14a', 13); this.elecMark(e.x, e.y + 4, 0.6); }
+      const a0 = rand(0, Math.PI * 2);
+      for (let i = 0; i < 8; i++) { const a = a0 + i / 8 * Math.PI * 2 + rand(-0.25, 0.25), d = rand(22, 42); this.elecMark(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d + 4, 0.8 + 0.2 * ec); }
+      Sfx.zap();
     }
     const gs = this.lv('guard_spin');
     if (gs) { p.invuln = Math.max(p.invuln, 0.4); p.spinGuardT = 0.4 + 0.5 + 0.5 * gs; }
@@ -677,18 +722,17 @@ const FX = {
 
   onDashStart(p) { p.dashHits = new Set(); p.zoneFrom = { x: p.x, y: p.y }; },
   onDashMove(p) {
-    const ds = ElFx.slot('dash');
-    if (ds && Math.random() < 0.7) ElFx.spark(ds, p.x, p.y + 6);
-    const fd = this.lv('fire_dash'), id = this.lv('ice_dash'), pd = this.lv('poison_dash');
-    if ((fd || id || pd) && Math.hypot(p.x - p.zoneFrom.x, p.y - p.zoneFrom.y) > 12) {
+    const fd = this.lv('fire_dash'), id = this.lv('ice_dash'), pd = this.lv('poison_dash'), ed = this.lv('elec_dash');
+    if ((fd || id || pd || ed) && Math.hypot(p.x - p.zoneFrom.x, p.y - p.zoneFrom.y) > 12) {
       p.zoneFrom = { x: p.x, y: p.y };
+      if (ed) { this.elecMark(p.x, p.y + 4, 0.8); return; } // 전기: 지나간 길에 노란 덩어리 (보이기만)
       const kind = fd ? 'fire' : id ? 'ice' : 'poison';
       this.zone(p.x, p.y + 4, kind, 1.5 + 0.5 * (fd || id || pd));
     }
   },
   onDashEnd(p) {
     const ed = this.lv('elec_dash');
-    if (ed) this.strike(p.x, p.y, 45, p.atk * (1 + 0.5 * ed));
+    if (ed) this.strike(p.x, p.y, 45, p.atk * (1 + 0.5 * ed), true); // 전기 대시: 색깔만 (2026-10-18)
     if (this.lv('dash_guard')) p.dashGuardT = 1;
   },
 
@@ -702,7 +746,7 @@ const FX = {
   damageMult(p, kind, t) {
     let m = 1 + 0.1 * this.lv('sharp');
     const role = MOVES[kind] && MOVES[kind].role;
-    if (role === 'fin') m *= (1 + COMBO_FIN * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
+    if (role === 'fin') m *= (1 + COMBO_FIN * Math.max(0, this.lv('atk_combo') - 1)) * (1 + 0.15 * p.mastery('combo'));
     if (role === 'special') m *= 1 + WAVE_DMG * this.lv('atk_wave'); // 특수 강화 축복: 특수공격 피해도 조금
     if (role === 'dash') m *= (1 + THRUST_DMG * Math.max(0, this.lv('atk_thrust') - 1)) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
@@ -725,25 +769,33 @@ const FX = {
       if (z.tick > 0) continue;
       z.tick = 0.4;
       for (const e of this.near(z.x, z.y, z.r)) {
+        if (z.look) break; // 보이기만 하는 장판 (전기 대시)
         if (z.kind === 'fire') this.burn(e, 1); else if (z.kind === 'poison') this.poison(e, 1); else this.chill(e, 1);
       }
     }
     G.zones = G.zones.filter(z => z.life > 0);
   },
+  // 장판(불길 · 얼음길 · 독안개): 그림 없이 속성 색깔만, 자로 잰 동그라미 대신 3픽셀 도트 덩어리 (2026-10-18)
+  //   가장자리 칸은 장판마다 다르게 들쭉날쭉(고정된 무작위), 안쪽은 두 가지 색이 섞여 깜빡인다. 불은 빠르게, 얼음은 느리게 반짝
   drawZones(g) {
+    const ga = g.globalAlpha, P = 3;
+    const hash = (a, b, c) => { const v = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453; return v - Math.floor(v); };
+    const COL = { fire: [[255, 120, 40], [255, 186, 70], 0.42, 9], poison: [[110, 196, 64], [160, 222, 90], 0.42, 3], ice: [[180, 230, 255], [235, 250, 255], 0.5, 1.5], elec: [[255, 214, 60], [255, 248, 170], 0.55, 14] };
     for (const z of G.zones) {
-      const a = clamp(z.life / z.max, 0, 1);
-      if (z.kind === 'fire') {
-        g.fillStyle = `rgba(255,${110 + Math.random() * 60 | 0},40,${0.35 * a})`;
-        g.beginPath(); g.arc(z.x, z.y, z.r * (0.9 + Math.random() * 0.15), 0, Math.PI * 2); g.fill();
-      } else if (z.kind === 'poison') {
-        g.fillStyle = `rgba(120,200,70,${0.38 * a})`;
-        g.beginPath(); g.arc(z.x, z.y, z.r * (0.95 + Math.sin(G.time * 3 + z.x) * 0.08), 0, Math.PI * 2); g.fill();
-      } else {
-        g.fillStyle = `rgba(190,235,255,${0.45 * a})`;
-        g.beginPath(); g.arc(z.x, z.y, z.r, 0, Math.PI * 2); g.fill();
+      const [c1, c2, al, speed] = COL[z.kind] || COL.ice, life = clamp(z.life / z.max, 0, 1);
+      const seed = (z.x * 0.37 + z.y * 0.71) | 0, R = z.r, n = Math.ceil(R / P), tick = Math.floor(G.time * speed);
+      const x0 = Math.round(z.x / P) * P, y0 = Math.round(z.y / P) * P;
+      g.globalAlpha = ga * al * Math.min(1, life * 3);
+      for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
+        const d = Math.hypot(i * P, j * P * 1.25) / R; // 땅 위라 위아래로 조금 납작하게
+        if (d > 1) continue;
+        if (d > 0.7 && hash(seed, i, j) < (d - 0.7) / 0.3) continue; // 가장자리는 들쭉날쭉
+        const c = hash(seed + tick, i, j) < 0.3 ? c2 : c1;
+        g.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        g.fillRect(x0 + i * P, y0 + j * P, P, P);
       }
     }
+    g.globalAlpha = ga;
   },
 
   // 플레이어가 맞기 직전: 실제 받을 피해를 돌려준다 (0이면 막음)
@@ -752,7 +804,7 @@ const FX = {
     if (this.lv('leaf') && p.leafT <= 0) {
       p.leafT = 20 - 4 * this.lv('leaf');
       G.text(p.x, p.y - 26, '잎사귀 방패!', '#e8ff9c', 12, 0.8);
-      G.fxRing(p.x, p.y, '#e8ff9c', 30);
+      pixRing(p.x, p.y, '#e8ff9c', 30);
       p.invuln = Math.max(p.invuln, 0.5);
       return 0;
     }

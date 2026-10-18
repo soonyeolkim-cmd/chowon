@@ -145,7 +145,7 @@ BOON_FORMS.spear = {
   poison_spray:   { name: '독 창끝', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
   poison_charge:  { name: '독안개 꿰뚫기', desc: lv => `찌른 줄을 따라 ${2 + 0.5 * lv}초간 독안개가 남는다. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독창', desc: lv => `창에 맞은 적에게 독 ${1 + lv}중첩, 반환점에 ${2 + 0.5 * lv}초간 독 웅덩이가 생긴다.` },
-  atk_combo:      { name: '잔상 찌르기', desc: lv => `2타째를 잔상이 ${lv}번 더 친다 (잔상 한 번에 2타째 피해의 ${pct(ECHO_MULT)}).` },
+  atk_combo:      { name: '잔상 찌르기', desc: lv => `2타째를 잔상이 ${COMBO_ECHO_HITS}번 더 친다 (잔상 한 번에 2타째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 2타째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
   atk_multispin:  { name: '연환 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 뒤 정령의 창이 같은 줄을 ${lv}번 더 찌른다. 추가 찌르기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_spin:       { name: '꿰뚫기 강화', desc: lv => `차지 시간 -${15 * lv}%, 관통 찌르기 · 창기 일섬 길이 +${10 * lv}%.` },
   atk_wave:       { name: '투척 강화', desc: lv => `창 비거리·속도 +${20 * lv}%, 투척 쿨타임 -${(0.15 * lv).toFixed(2)}초 (최소 0.5초).` },
@@ -268,40 +268,34 @@ extendPlayer({
     if (a && a.kind === 'sweep') {
       const p = clamp(a.t / (a.dur * 0.7), 0, 1), e = 1 - Math.pow(1 - p, 2);
       const ang = f - a.half + 2 * a.half * e;
-      const ds = ElFx.slot('dash');
-      if (ds) {
-        ElFx.arc(g, ds, x, cy, a.len - 14, f - a.half, ang, 8, 0.6 * (1 - p * 0.6));
-        if (Math.random() < 0.7) ElFx.spark(ds, x + Math.cos(ang) * (a.len - 14), cy + Math.sin(ang) * (a.len - 14));
-      } else {
-        g.strokeStyle = `rgba(255,240,200,${0.55 * (1 - p * 0.6)})`; g.lineWidth = 8;
-        g.beginPath(); g.arc(x, cy, a.len - 14, f - a.half, ang); g.stroke();
-      }
+      // 휩쓸기 범위: 잔상 일격과 같은 푸른 도트 베기 그림을 더 크게, 좌우를 뒤집어 (휘두르는 방향 쪽으로) 그린다 (2026-10-18, 굵은 호 선 → 도트)
+      const ds = ElFx.slot('dash'), im = tintedBy(ART.img.slash, ds ? EL_STYLE[ds.el].main : ECHO_COLOR);
+      const sz = a.len * 1.5, fr = Math.min(3, Math.floor(p * 4));
+      g.save(); g.globalAlpha *= 0.95; g.translate(x, cy); g.rotate(f); g.scale(1, -1);
+      g.drawImage(im, fr * 32, 0, 32, 32, a.len * 0.5 - sz / 2, -sz / 2, sz, sz);
+      g.restore();
       spearSprite(g, x, cy, ang, 2);
     } else if (a && (a.kind === 'poke' || a.kind === 'pokeFin')) {
       const p = a.t / a.dur, e = p < 0.35 ? p / 0.35 : 1 - (p - 0.35) / 0.65;
       spearSprite(g, x, cy, f, -12 + e * 40);
-      if (e > 0.4) { // 찌르기 궤적
+      if (p > 0.2) { // 찌르기 궤적: 도트 베기 그림(FX/Attack/Cut)을 창 방향으로 (2026-10-18, 선 → 도트)
         const bs = ElFx.slot('basic');
-        if (bs) {
-          ElFx.line(g, bs, x + c * 30, cy + s * 30, x + c * a.len, cy + s * a.len, a.kind === 'pokeFin' ? 4 : 3, 0.8 * e);
-          if (Math.random() < 0.5) ElFx.spark(bs, x + c * a.len, cy + s * a.len);
-        } else {
-          g.strokeStyle = `rgba(255,255,255,${0.7 * e})`; g.lineWidth = a.kind === 'pokeFin' ? 3 : 2;
-          g.beginPath(); g.moveTo(x + c * 30, cy + s * 30); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
-        }
+        cutFx(g, x + c * 18, cy + s * 18, f, a.len - 12, a.kind === 'pokeFin' ? 16 : 12, (p - 0.2) / 0.8, bs ? EL_STYLE[bs.el].main : null);
+        if (bs && Math.random() < 0.5) ElFx.spark(bs, x + c * a.len, cy + s * a.len);
       }
     } else if (a && a.kind === 'spearBeam') {
       const p = clamp(a.t / a.dur0, 0, 1), e = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85;
       spearSprite(g, x, cy, f, -12 + 30 * Math.min(1, p / 0.15));
+      // 창기: 길게 늘인 도트 베기 그림 (푸른빛, 차지 칸 속성 색). 선 → 도트 (2026-10-18)
       const L = a.len * Math.min(1, p / 0.12), cs = ElFx.slot('charge');
-      if (cs) ElFx.line(g, cs, x + c * 26, cy + s * 26, x + c * L, cy + s * L, 10, 0.8 * e);
-      else { g.strokeStyle = `rgba(127,224,255,${0.55 * e})`; g.lineWidth = 12; g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * L, cy + s * L); g.stroke(); }
-      g.strokeStyle = `rgba(255,255,255,${0.95 * e})`; g.lineWidth = 3;
-      g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * L, cy + s * L); g.stroke();
+      g.save(); g.globalAlpha *= Math.min(1, e * 1.5);
+      beamFx(g, x, cy, f, L, Math.min(0.99, 0.5 + p), cs ? EL_STYLE[cs.el].main : '#7fe0ff');
+      g.restore();
       if (Math.random() < 0.8 * e) G.particles.push({ x: x + c * rand(30, L), y: cy + s * rand(30, L), vx: rand(-20, 20), vy: rand(-30, -5), life: 0.3, max: 0.3, color: Math.random() < 0.5 ? '#bff4ff' : '#fff', size: 2, grav: 0 });
-      if (a.phantomAt !== undefined && a.t - a.phantomAt < 0.1) {
-        const q = 1 - (a.t - a.phantomAt) / 0.1;
-        g.strokeStyle = `rgba(127,224,255,${0.8 * q})`; g.lineWidth = 5; g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
+      if (a.phantomAt !== undefined && a.t - a.phantomAt < 0.1) { // 연환: 같은 줄을 한 번 더 (도트)
+        g.save(); g.globalAlpha *= 1 - (a.t - a.phantomAt) / 0.1;
+        beamFx(g, x, cy, f, a.len, 0.6, '#bff4ff');
+        g.restore();
       }
     } else if (a && a.kind === 'lunge') {
       const p = Math.min(1, a.t / (a.dur0 || a.dur)), e = p < 0.25 ? p / 0.25 : 1 - (p - 0.25) / 0.75;
@@ -310,21 +304,12 @@ extendPlayer({
         const q = (a.t - a.phantomAt) / 0.1, ga = g.globalAlpha;
         g.globalAlpha = ga * 0.65 * (1 - q);
         spearSprite(g, x, cy, f, -12 + 46 * (1 - q * 0.4));
-        g.strokeStyle = 'rgba(127,224,255,0.9)'; g.lineWidth = 3;
-        g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
+        cutFx(g, x + c * 20, cy + s * 20, f, a.len - 20, 14, 0.6, '#bff4ff');
         g.globalAlpha = ga;
       }
-      if (e > 0.2) { // 관통 궤적
+      if (p > 0.1) { // 관통 궤적: 도트 베기 그림, 기본 찌르기보다 굵고 길게 (2026-10-18, 선 → 도트)
         const cs = ElFx.slot('charge');
-        if (cs) {
-          ElFx.line(g, cs, x + c * 26, cy + s * 26, x + c * a.len, cy + s * a.len, 5, 0.85 * e);
-          if (Math.random() < 0.8) ElFx.spark(cs, x + c * rand(26, a.len), cy + s * rand(26, a.len), 2);
-        } else {
-          g.strokeStyle = `rgba(255,220,120,${0.8 * e})`; g.lineWidth = 5;
-          g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
-        }
-        g.strokeStyle = `rgba(255,255,255,${0.9 * e})`; g.lineWidth = 2;
-        g.beginPath(); g.moveTo(x + c * 26, cy + s * 26); g.lineTo(x + c * a.len, cy + s * a.len); g.stroke();
+        cutFx(g, x + c * 18, cy + s * 18, f, a.len - 12, 20, (p - 0.1) / 0.9, cs ? EL_STYLE[cs.el].main : null);
       }
     } else {
       spearSprite(g, x + c * 2, cy + 5, f - 0.45, -14);
@@ -434,12 +419,13 @@ Object.assign(FX, {
   onSpearApex(sh) {
     const atk = G.player.atk, x = sh.x, y = sh.y;
     const fs = this.lv('fire_special');
-    if (fs) this.explode(x, y, 60, atk * (0.8 + 0.4 * fs), '#ff7a3c', true);
+    if (fs) explodePix(x, y, 60, atk * (0.8 + 0.4 * fs), true); // 도트 폭발 (2026-10-18, 고리 → 도트)
     const es = this.lv('elec_special');
-    if (es) this.strike(x, y, 60, atk * (0.8 + 0.4 * es));
+    if (es) strikePix(x, y, 60, atk * (0.8 + 0.4 * es)); // 도트 번개
     const is = this.lv('ice_special'), ps = this.lv('poison_special');
     if (is || ps) {
       const kind = is ? 'ice' : 'poison', life = 2 + 0.5 * (is || ps);
+      if (is) G.projectiles.push(new SpriteFx('fxIce', 32, 32, 10, x, y - 6, 64, 0.5)); // 도트 얼음 터짐
       this.zone(x, y + 4, kind, life);
       for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; this.zone(x + Math.cos(a) * 24, y + 4 + Math.sin(a) * 18, kind, life); }
       if (is && ps) for (let i = 0; i < 6; i++) { const a = (i + 0.5) / 6 * Math.PI * 2; this.zone(x + Math.cos(a) * 30, y + 4 + Math.sin(a) * 22, 'poison', 2 + 0.5 * ps); }
@@ -458,6 +444,21 @@ Object.assign(FX, {
   },
 });
 
+// 창 이펙트: 에셋 팩 도트 베기(FX/Attack/Cut, 32x32 4장)를 방향 dir 로 len 길이 · thick 굵기로 늘여 그린다. q = 0~1 진행 (2026-10-18)
+function cutFx(g, x0, y0, dir, len, thick, q, tint, squash = 1) { // squash: 방향과 수직으로 눌러 폭을 좁힌다 (1 = 그대로)
+  if (len <= 2) return;
+  const im = tint ? tintedBy(ART.img.cut, tint) : ART.img.cut, fr = Math.min(3, Math.max(0, Math.floor(q * 4)));
+  g.save(); g.translate(x0, y0); g.rotate(dir); if (squash !== 1) g.scale(1, squash); g.rotate(Math.PI / 4); // 그림 속 베기는 왼쪽 아래 → 오른쪽 위 대각선(-45°) → 방향에 맞춘다
+  const k = len / Math.SQRT2;
+  g.drawImage(im, fr * 32, 0, 32, 32, 0, -k, k, k);
+  g.restore();
+}
+// 창기 일섬 그림: 실제 맞는 범위에 맞춘다 — 창 앞 10부터 len 까지, 폭은 줄에서 ±SPEAR_BEAM_WIDTH (2026-10-18)
+// 그림(Cut) 속 베기 자국은 대각선의 약 14.5%~94.5% 구간에 있고, 눌림 1일 때 폭이 대각선 길이의 약 15% 라서 거기에 맞춰 늘이고 누른다 (재서 맞춤)
+function beamFx(g, x, cy, f, len, q, tint) {
+  const S = 10, Ld = (len - S) / 0.8, o = S - 0.145 * Ld, W = SPEAR_BEAM_WIDTH * 2, sq = W / (0.1494 * Ld), sh = -0.1 * W; // sh: 그림 속 자국이 살짝 한쪽으로 치우친 만큼 되돌림
+  cutFx(g, x + Math.cos(f) * o - Math.sin(f) * sh, cy + Math.sin(f) * o + Math.cos(f) * sh, f, Ld, 0, q, tint, sq);
+}
 function spearSprite(g, x, y, a, ext) {
   const im = ART.img.spear, w = im.width * PIX, h = im.height * PIX;
   g.save();
@@ -505,14 +506,10 @@ class SpearShot {
     const c = Math.cos(this.dir), s = Math.sin(this.dir);
     const a = g.globalAlpha;
     if (this.phantom) g.globalAlpha = a * 0.6;
+    // 꼬리: 날아가는 쪽 반대로 도트 베기 그림 한 줄 (특수 칸 속성 색, 정령 창은 푸른빛). 선 → 도트 (2026-10-18)
     const ss = ElFx.slot('special');
-    if (ss) {
-      ElFx.line(g, ss, this.x - c * 30, this.y - s * 30, this.x + c * 10, this.y + s * 10, 3, this.phantom ? 0.5 : 0.7);
-      if (Math.random() < 0.6) ElFx.spark(ss, this.x - c * 12, this.y - s * 12);
-    } else {
-      g.strokeStyle = this.phantom ? 'rgba(127,224,255,0.6)' : 'rgba(255,255,255,0.35)'; g.lineWidth = 3;
-      g.beginPath(); g.moveTo(this.x - c * 30, this.y - s * 30); g.lineTo(this.x + c * 10, this.y + s * 10); g.stroke();
-    }
+    cutFx(g, this.x - c * 34, this.y - s * 34, this.dir, 40, 12, 0.6, ss ? EL_STYLE[ss.el].main : this.phantom ? '#7fe0ff' : null);
+    if (ss && Math.random() < 0.6) ElFx.spark(ss, this.x - c * 12, this.y - s * 12);
     spearSprite(g, this.x, this.y, this.dir, -14);
     g.globalAlpha = a;
   }

@@ -365,6 +365,12 @@ class Player {
     // 대시 잔상
     const ds = ElFx.slot('dash');
     for (const t of this.trail) {
+      if (t.ghost) { // 쌍검 그림자 분신 (2026-10-18)
+        const s = PIX, w = 16 * s, cs = ElFx.slot('charge');
+        g.globalAlpha = 0.55 * t.life / t.max;
+        g.drawImage(tintedBy(ART.img.hero, t.color || (cs ? EL_STYLE[cs.el].main : SAI_SHADOW)), t.col * 16, 5 * 16, 16, 16, Math.round(t.x - w / 2), Math.round(t.y + 13 - w), w, w);
+        continue;
+      }
       g.globalAlpha = t.life / 0.18 * (ds && ds.max ? 0.5 : 0.35);
       g.fillStyle = ds ? EL_STYLE[ds.el].main : '#9cc4ff';
       g.beginPath(); g.arc(t.x, t.y - 3, 9, 0, Math.PI * 2); g.fill();

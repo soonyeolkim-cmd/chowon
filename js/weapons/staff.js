@@ -107,7 +107,7 @@ BOON_FORMS.staff = {
   poison_basic:   { name: '독 마법봉' },
   poison_charge:  { name: '독안개 마법진', desc: lv => `마법진이 터진 자리에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 마력탄', desc: lv => `마력탄에 맞은 적에게 독 ${1 + Math.floor(lv / 2)}중첩.` },
-  atk_combo:      { name: '잔상 휘두르기', desc: lv => `2타째를 잔상이 ${lv}번 더 친다 (잔상 한 번에 2타째 피해의 ${pct(ECHO_MULT)}).` },
+  atk_combo:      { name: '잔상 휘두르기', desc: lv => `2타째를 잔상이 ${COMBO_ECHO_HITS}번 더 친다 (잔상 한 번에 2타째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 2타째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
   atk_spin:       { name: '마법진 강화', desc: lv => `차지 시간 -${15 * lv}%, 마법진 범위 +${15 * lv}%.` },
   atk_multispin:  { name: '연쇄 마법진', desc: lv => `마법진이 터진 뒤 주변에 작은 마법진 ${lv}개가 이어서 터진다 (피해 ${pct(MULTISPIN_MULT)}).` },
   atk_wave:       { name: '마력 증폭', desc: lv => `마력 구슬 최대 개수 +${lv} (기본 ${ORB_BASE}개).` },
@@ -172,7 +172,7 @@ extendPlayer({
     this.act = { kind: 'pulse', t: 0, dur: 0.22, hit: new Set() };
     this.atkCd = 0.4; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
     this.hitArc(this.act, this.pulseR, Math.PI);
-    G.fxRing(this.x, this.y, '#cfe8ff', this.pulseR);
+    // (퍼지는 동그라미 고리는 뺐다 — 그림은 drawStaff 의 도트 둥근 베기, 2026-10-18)
     G.text(this.x, this.y - 24, '마력 파동', '#9cdcff', 11, 0.5);
     Sfx.wave(false);
   },
@@ -206,9 +206,9 @@ extendPlayer({
     } else if (a && a.kind === 'pulse') {
       const pr = a.t / a.dur;
       wandSprite(g, x, cy, -Math.PI / 2, 2);
-      const ds = ElFx.slot('dash');
-      if (ds) ElFx.arc(g, ds, x, cy, this.pulseR * pr, 0, Math.PI * 2, 4, 0.8 * (1 - pr));
-      else { g.strokeStyle = `rgba(207,232,255,${0.8 * (1 - pr)})`; g.lineWidth = 4; g.beginPath(); g.arc(x, cy, this.pulseR * pr, 0, Math.PI * 2); g.stroke(); }
+      // 퍼지는 동그라미 선은 뺐다 (2026-10-18). 대신 도트 둥근 베기 그림(다단히트와 같은 것)으로
+      const ds = ElFx.slot('dash'), im = tintedBy(ART.img.circSlash, ds ? EL_STYLE[ds.el].main : ECHO_COLOR), sz = this.pulseR * 2, fr = Math.min(3, Math.floor(pr * 4)) * 32;
+      g.drawImage(im, fr, 0, 32, 32, Math.round(x - sz / 2), Math.round(cy - sz / 2), sz, sz);
     } else wandSprite(g, x + c * 3, cy + 5, f + 0.9, -2);
     // 마력 구슬: 머리 위에 떠서 천천히 돈다 (빈 자리는 흐리게, 차오르는 자리는 커지며)
     const n = this.orbMax;
@@ -368,7 +368,7 @@ class MagicCircle {
         if (d > this.r + t.r) continue;
         p.deal(t, 'circle', dx / d, dy / d, { mult, kb: this.small ? 60 : undefined });
       }
-      G.fxRing(this.x, this.y, '#cfe8ff', this.r);
+      pixRing(this.x, this.y, '#cfe8ff', this.r); // 마법진 폭발: 도트 고리 (2026-10-18)
       G.burst(this.x, this.y, this.small ? 8 : 16, ['#cfe8ff', '#fff', '#aaf0ff'], 170);
       G.shake = Math.max(G.shake, this.small ? 2 : 5); Sfx.boom();
       if (!this.small) FX.onCircle(p, this.x, this.y, this.r);

@@ -100,6 +100,15 @@ Object.assign(WEAPONS.sai, {
     special(g, s, line) { g.beginPath(); g.arc(0, 0.25 * s, 0.75 * s, -2.5, -0.65); g.stroke(); line(-0.45, 0.6, 0.45, -0.2); line(0.45, 0.6, -0.45, -0.2); }, // 받아치기
   },
 });
+// 쌍검 그림자 빛깔 · 길게 늘인 도트 베기 (그림자 베기 · 잔영 베기 길, 2026-10-18)
+const SAI_SHADOW = '#9a8cff';
+const SAI_COUNTER = '#7fe0ff'; // 반격(받아치기) 길 · 분신 빛깔
+function rushSlash(g, x0, y0, x1, y1, col, al, fr) {
+  const L = Math.hypot(x1 - x0, y1 - y0); if (L < 6 || al <= 0) return;
+  g.save(); g.globalAlpha = al; g.translate(x0, y0); g.rotate(Math.atan2(y1 - y0, x1 - x0));
+  g.drawImage(tintedBy(ART.img.slash, col), fr * 32, 0, 32, 32, 0, -10, L, 20);
+  g.restore();
+}
 // 쌍검: 기본 = 3연타, 차지 = 그림자 베기, 특수 = 받아치기, 대시 공격 = 선풍 베기
 BOON_FORMS.sai = {
   fire_basic:     { name: '불꽃 쌍검' },
@@ -175,7 +184,7 @@ extendPlayer({
       else if (!a.freed) {
         this.invuln = Math.max(this.invuln, RUSH_TIME + RUSH_HIT_INV); // 맞히면 지나간 뒤에도 잠깐 무적 // 첫 적중: 반짝 + 푸른 원, 받아치기 무료
         a.freed = true; this.freeSpecialT = RUSH_FREE_T;
-        G.fxRing(this.x, this.y, '#7fe0ff', 40); G.fxRing(this.x, this.y, '#ffffff', 22);
+        pixRing(this.x, this.y, '#7fe0ff', 40);
         G.burst(this.x, this.y - 4, 14, ['#ffffff', '#bff4ff', '#7fe0ff'], 200);
         G.text(this.x, this.y - 34, '반격 준비!', '#7fe0ff', 12, 0.8); Sfx.charged();
       }
@@ -204,7 +213,7 @@ extendPlayer({
     this.invuln = Math.max(this.invuln, RUSH_TIME + RIPOSTE_SAFE);
     this.atkBuffer = 0; this.atkCd = 0.3 + 0.1 * ms; this.comboT = 0; this.finisherT = 0;
     G.text(this.x, this.y - 30, '잔영 베기!', '#c8b4ff', 16, 0.9);
-    G.fxRing(this.x, this.y, '#ffffff', 22); G.burst(this.x, this.y - 4, 12, ['#ffffff', '#c8b4ff', '#7fe0ff'], 200);
+    pixRing(this.x, this.y, '#c8b4ff', 24); G.burst(this.x, this.y - 4, 12, ['#ffffff', '#c8b4ff', '#7fe0ff'], 200);
     G.shake = Math.max(G.shake, 4); Sfx.dash(); Input.rumble(0.5, 120);
   },
   parry(src) {
@@ -223,7 +232,7 @@ extendPlayer({
     else this.specialCd = 0; // 한 칸짜리: 쿨타임을 바로 풀어 준다 (쌍검 충전 2 → 1, 2026-10-17)
     this.parryChain = G.time - (this.parryLastT ?? -99) < PARRY_CHAIN_T ? (this.parryChain || 1) + 1 : 1; this.parryLastT = G.time;
     G.text(this.x, this.y - 30, this.parryChain > 1 ? '연속 반격 ×' + this.parryChain + '!' : '받아치기!', this.parryChain > 1 ? '#ffe18a' : '#7fe0ff', 16 + Math.min(6, this.parryChain - 1), 0.9);
-    G.fxRing(this.x, this.y, '#ffffff', 26); G.fxRing(this.x, this.y, '#7fe0ff', this.parryWide ? PARRY_WIDE_R : 44);
+    pixRing(this.x, this.y, '#7fe0ff', this.parryWide ? PARRY_WIDE_R : 44);
     G.burst(this.x, this.y - 4, 18, ['#ffffff', '#bff4ff', '#7fe0ff'], 220);
     G.hitstop = Math.max(G.hitstop, 0.08); G.shake = Math.max(G.shake, 6);
     Sfx.guardBreak(); Sfx.dodge(); Input.rumble(0.7, 160);
@@ -263,7 +272,7 @@ extendPlayer({
     const slashFx = (key, fwd, k, frac, flip) => { // 에셋 베기 효과 (32x32 4장)
       const bs = ElFx.slot(key === 'circSlash' ? 'dash' : 'basic'), base = ART.img[key];
       const img = bs ? ElFx.tinted(base, bs.el) : base, fr = Math.min(3, Math.floor(frac * 4)) * 32;
-      g.save(); g.translate(x + c * fwd, cy + s * fwd); g.rotate(f); if (flip) g.scale(1, -1);
+      g.save(); g.translate(x + c * fwd, cy + s * fwd); if (key !== 'circSlash') g.rotate(f); if (flip) g.scale(1, -1); // 둥근 베기는 방향과 상관없이 같은 원 (2026-10-18)
       g.drawImage(img, fr, 0, 32, 32, -16 * k, -16 * k, 32 * k, 32 * k); g.restore();
     };
     if (a && a.kind === 'saiJab') {
@@ -285,13 +294,11 @@ extendPlayer({
       if (!a.ended) { for (const side of [-1, 1]) { const [hx, hy] = at(8, side * 5); saiSprite(g, hx, hy, f + side * 0.15, 4); } }
       else { idle(1); idle(-1); }
       // 지나간 길: 베인 자국
-      const x0 = a.x0, y0 = a.y0 - 1, x1 = a.ended ? a.x1 : x, y1 = a.ended ? a.y1 - 1 : cy, fade = clamp(1 - (a.t - a.dur0) / 0.3, 0, 1);
-      if (cs) ElFx.line(g, cs, x0, y0, x1, y1, 5, 0.8 * fade);
-      else { g.strokeStyle = `rgba(207,232,255,${0.75 * fade})`; g.lineWidth = 4; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
-      if (a.cutAt !== undefined && a.t - a.cutAt < 0.1) { // 그림자 분신이 다시 벤다
-        const q = 1 - (a.t - a.cutAt) / 0.1;
-        g.strokeStyle = `rgba(127,224,255,${0.9 * q})`; g.lineWidth = 3; g.beginPath(); g.moveTo(a.x0, a.y0 - 1); g.lineTo(a.x1, a.y1 - 1); g.stroke();
-      }
+      // 지나간 길: 도트 베기 그림(SlashCurved)을 길을 따라 길게 늘여 그린다. 그림자 빛깔 (2026-10-18, 선 → 도트)
+      const x0 = a.x0, y0 = a.y0 - 1, x1 = a.ended ? a.x1 : x, y1 = a.ended ? a.y1 - 1 : cy, fade = clamp(1 - (a.t - a.dur0) / 0.25, 0, 1);
+      const col = cs ? EL_STYLE[cs.el].main : SAI_SHADOW;
+      rushSlash(g, x0, y0, x1, y1, col, 0.9 * fade, 2);
+      if (a.cutAt !== undefined && a.t - a.cutAt < 0.1) rushSlash(g, a.x0, a.y0 - 1, a.x1, a.y1 - 1, col, 1 - (a.t - a.cutAt) / 0.1, 3); // 그림자 분신이 다시 벤다
     } else if (a && a.kind === 'parry') {
       // 막는 자세: 쌍검을 앞으로 교차 + 푸른 빛
       for (const side of [-1, 1]) { const [hx, hy] = at(7, side * 3); saiSprite(g, hx, hy, f - side * 0.7, 2); }
@@ -301,15 +308,9 @@ extendPlayer({
     } else if (a && a.kind === 'riposte') {
       const moving = !a.ended, fade = moving ? 1 : clamp(1 - (a.t - a.dash) / 0.3, 0, 1);
       for (const side of [-1, 1]) { const [hx, hy] = at(moving ? 10 : 6, side * 4); saiSprite(g, hx, hy, f + side * (moving ? 0.12 : 0.9), moving ? 6 : 0); }
-      // 베고 지나간 길: 넓은 빛 + 가운데 흰 선
+      // 베고 지나간 길: 그림자 베기와 같은 늘인 도트 베기 그림, 색만 받아치기 푸른빛 (2026-10-18, 굵은 빛 선 → 도트)
       const x0 = a.x0, y0 = a.y0 - 1, x1 = moving ? x : a.x1, y1 = moving ? cy : a.y1 - 1, ss = ElFx.slot('special');
-      g.lineCap = 'round';
-      g.strokeStyle = ss ? ElFx.rgba(ss.el, 0.35 * fade) : `rgba(127,224,255,${0.35 * fade})`; g.lineWidth = 14;
-      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
-      g.strokeStyle = ss ? ElFx.rgba(ss.el, 0.8 * fade) : `rgba(191,244,255,${0.8 * fade})`; g.lineWidth = 6;
-      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
-      g.strokeStyle = `rgba(255,255,255,${fade})`; g.lineWidth = 2;
-      g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke();
+      rushSlash(g, x0, y0, x1, y1, ss ? EL_STYLE[ss.el].main : SAI_COUNTER, 0.95 * fade, 2);
       if (ss && Math.random() < 0.8) { const k = Math.random(); ElFx.spark(ss, x0 + (x1 - x0) * k, y0 + (y1 - y0) * k, 2); }
       // 맞은 자리마다 X자 베기
       for (const m of a.marks) {
@@ -346,7 +347,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       if (a.t <= a.dur0 + dt) { // 지나가는 중
         const sp = a.len / a.dur0;
         World.move(this, fx * sp * dt, fy * sp * dt);
-        this.trail.push({ x: this.x, y: this.y, life: 0.22 });
+        if (!a.lastGhost || Math.hypot(this.x - a.lastGhost.x, this.y - a.lastGhost.y) > 14) { a.lastGhost = { x: this.x, y: this.y }; this.trail.push({ x: this.x, y: this.y, life: 0.26, max: 0.26, ghost: true, col: dirCol(this.facing) }); } // 도트 그림자 분신 (2026-10-18)
         this.hitPath(a, a.px, a.py, this.x, this.y, 1 + MOMENTUM_RUSH * a.mom);
         a.px = this.x; a.py = this.y;
       } else if (!a.ended) { a.ended = true; a.x1 = this.x; a.y1 = this.y; FX.onRush(this, a.x0, a.y0, a.x1, a.y1); }
@@ -366,7 +367,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       if (a.t <= a.dash + dt) {
         const sp = a.len / a.dash;
         World.move(this, fx * sp * dt, fy * sp * dt);
-        this.trail.push({ x: this.x, y: this.y, life: 0.3 });
+        if (!a.lastGhost || Math.hypot(this.x - a.lastGhost.x, this.y - a.lastGhost.y) > 14) { const ss = ElFx.slot('special'); a.lastGhost = { x: this.x, y: this.y }; this.trail.push({ x: this.x, y: this.y, life: 0.26, max: 0.26, ghost: true, col: dirCol(this.facing), color: ss ? EL_STYLE[ss.el].main : SAI_COUNTER }); } // 도트 분신 (반격 푸른빛)
         const x0 = a.px, y0 = a.py, x1 = this.x, y1 = this.y, ddx = x1 - x0, ddy = y1 - y0, L2 = ddx * ddx + ddy * ddy || 1;
         for (const t of G.targets()) {
           const k = clamp(((t.x - x0) * ddx + (t.y - y0) * ddy) / L2, 0, 1);
@@ -375,7 +376,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.px = this.x; a.py = this.y;
       } else if (!a.ended) { // 도착: 한 번 더 번쩍
         a.ended = true; a.x1 = this.x; a.y1 = this.y;
-        G.fxRing(this.x, this.y, '#bff4ff', 30); G.burst(this.x, this.y - 4, 10, ['#ffffff', '#7fe0ff'], 160);
+        pixRing(this.x, this.y, '#bff4ff', 30); G.burst(this.x, this.y - 4, 10, ['#ffffff', '#7fe0ff'], 160);
         G.slowT = Math.max(G.slowT, 0.2); // 도착한 순간 잠깐 느리게
         Sfx.swing(true);
       }
