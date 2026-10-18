@@ -25,8 +25,8 @@ Object.assign(MOVES, {
 // 창
 poke:     { mult: 1.15, kb: 140, guardBreak: false, role: 'basic', light: true },
 pokeFin:  { mult: 1.75, kb: 340, guardBreak: true, role: 'fin' },
-lunge:    { mult: 2.6, kb: 320, guardBreak: true, role: 'charge' },
-spearBeam: { mult: 3.0, kb: 280, guardBreak: true, role: 'charge' }, // 창기 일섬 (차지 2단): 멀리 한 줄 전부 관통   // 관통 찌르기 (차지): 한 줄만 맞히는 대신 회전베기(2.2)보다 세다
+lunge:    { mult: 2.86, kb: 320, guardBreak: true, role: 'charge' },
+spearBeam: { mult: 3.3, kb: 280, guardBreak: true, role: 'charge' }, // (2.6 → 2.86 · 3.0 → 3.3, 차지 10% 상향 2026-10-18) 창기 일섬 (차지 2단): 멀리 한 줄 전부 관통   // 관통 찌르기 (차지): 한 줄만 맞히는 대신 회전베기(2.2)보다 세다
 spear:    { mult: 0.7, kb: 120, guardBreak: false, role: 'special', light: true, ranged: true },   // 창 투척 (갈 때 한 번 · 올 때 절반), 1.25 → 0.7 (2026-10-17)
 sweep:    { mult: 1.0, kb: 240, guardBreak: true, role: 'dash' },   // 후려치기 (창 대시 공격)
 });
