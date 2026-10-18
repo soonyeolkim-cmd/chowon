@@ -52,6 +52,7 @@ addWeapon('sai', {
   skillCd: 0,
   basic: (p, mag) => p.freeSpecialT > 0 ? p.startPursuit(mag) : p.startJab(mag), // 그림자 베기 적중 뒤엔 잔영 베기
   basicAfterDash: p => p.startWhirl(),
+  dashEcho: p => ({ x: p.x, y: p.y, dir: p.facing, shape: { range: p.whirlR, half: Math.PI } }), // 선풍 베기 다단히트: 한 바퀴 더
   charged: (p, mag) => p.startRush(mag),
   special: (p, mag) => p.startParry(mag),
   skill: null,
@@ -116,11 +117,11 @@ BOON_FORMS.sai = {
   poison_basic:   { name: '독날 쌍검' },
   poison_charge:  { name: '독안개 그림자', desc: lv => `그림자 베기 · 잔영 베기가 지나간 길에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 받아치기', desc: lv => `받아치면 주변 적에게 독 ${1 + lv}중첩.` },
-  atk_combo:      { name: '연속 베기' },
+  atk_combo:      { name: '잔상 교차 베기' },
   atk_spin:       { name: '그림자 베기 강화', desc: lv => `차지 시간 -${15 * lv}%, 그림자 베기 · 잔영 베기 거리 +${15 * lv}%.` },
   atk_multispin:  { name: '그림자 분신', desc: lv => `그림자 베기 · 잔영 베기 뒤 그림자가 같은 길을 ${lv}번 더 벤다. 분신의 베기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_wave:       { name: '받아치기 강화', desc: lv => `막는 시간 +${(0.1 * lv).toFixed(1)}초, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
-  atk_thrust:     { name: '선풍 강화', desc: lv => `선풍 베기 피해 +${Math.round(THRUST_DMG * 100 * lv)}%, 범위 +${10 * lv}%.` },
+  atk_thrust:     { name: '선풍 강화', desc: lv => `선풍 베기 범위 +${10 * lv}%.` },
   sharp:          { name: '날카로운 쌍검' },
   lifesteal:      { name: '흡혈 쌍검' },
   guard_spin:     { name: '수호의 그림자', desc: lv => `그림자 베기 · 잔영 베기가 끝난 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },

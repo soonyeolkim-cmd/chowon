@@ -26,7 +26,7 @@ const SHIELD_QUAKE_R = 72;      // 방패 강타 충격파 거리
 const SHIELD_QUAKE_HALF = 0.8;  // 충격파 부채꼴 반각 (약 ±46°)
 const SHIELD_QUAKE_STUN = 0.6;
 const QUAKE_WAVE_SPEED = 380;   // 충격파가 부채꼴로 퍼져 나가는 속도 (2026-10-17)
-const QUAKE_WAVE_REACH = 1.7;   // 충격파가 가는 거리 = 강타 거리 × 이 값 (약 120)
+const QUAKE_WAVE_REACH = 1.35;  // 충격파가 가는 거리 = 강타 거리 × 이 값 (1.7 → 1.35, 약 120 → 97, 2026-10-18)
 const QUAKE_NEAR = 30;          // 내려친 바로 앞은 그 자리에서 맞는다  // 강타에 맞은 적 기절 (보스 제외)
 const SHIELD_SLAM_R = 40;       // 후려치기 범위
 const SHIELD_SLAM_STUN = 0.5;
@@ -70,13 +70,14 @@ addWeapon('shield', {
   skillCd: 0,
   basic: (p, mag) => p.startBash(mag),
   basicAfterDash: p => p.startShieldSlam(),
+  dashEcho: p => ({ x: p.x + Math.cos(p.facing) * 14, y: p.y + Math.sin(p.facing) * 10, dir: p.facing, shape: { range: SHIELD_SLAM_R * (1 + 0.1 * FX.lv('atk_thrust')), half: Math.PI } }), // 후려치기 다단히트: 땅이 한 번 더 울린다
   charged: (p, mag) => p.startQuake(mag),
   special: (p, mag) => (p.postDashT > 0 ? p.startShieldCharge(mag) : p.startShieldSpin(mag)), // 대시 직후면 방패 돌진
   specialInDash: p => p.startShieldCharge(0), // 대시 중 특수 → 방패 돌진 (돌려치기와 쿨타임 같이 씀)
   skill: null,
   rows: (A, P, D) => [
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
-    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 120까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
+    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 95까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
     ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
@@ -156,11 +157,11 @@ BOON_FORMS.shield = {
   poison_basic:   { name: '독 방패' },
   poison_charge:  { name: '독안개 강타', desc: lv => `충격파가 지나간 땅에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 돌려치기', desc: lv => `돌려치기에 맞은 적에게 독 ${1 + lv}중첩.` },
-  atk_combo:      { name: '연속 밀치기' },
+  atk_combo:      { name: '잔상 밀치기' },
   atk_spin:       { name: '강타 강화', desc: lv => `차지 시간 -${15 * lv}%, 강타 거리 +${10 * lv}%.` },
   atk_multispin:  { name: '여진', desc: lv => `방패 강타 뒤 땅이 ${lv}번 더 울린다. 여진은 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_wave:       { name: '돌려치기 강화', desc: lv => `돌려치기 범위 +${10 * lv}%, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
-  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${Math.round(THRUST_DMG * 100 * lv)}%, 범위 +${10 * lv}%.` },
+  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 범위 +${10 * lv}%.` },
   sharp:          { name: '날 선 방패' },
   ambush:         { name: '벽치기', desc: lv => `벽꿍 피해 +${60 * lv}%, 벽꿍 기절 +${(0.3 * lv).toFixed(1)}초.` }, // 기습 대신
   lifesteal:      { name: '흡혈 방패' },
@@ -488,13 +489,13 @@ class QuakeWave {
   }
   draw(g) {
     const k = 1 - clamp((this.r - QUAKE_NEAR) / (this.maxR - QUAKE_NEAR), 0, 1), f = this.dir, cs = ElFx.slot('charge');
-    const col = this.after ? '127,224,255' : '255,220,140';
-    const vis = 0.35 + 0.65 * k; // 끝까지 잘 보이게, 멀어질수록 조금 흐리게
-    for (const [rr, w, al, white] of [[this.r, 7, vis], [this.r - 10, 4, vis * 0.55], [this.r, 2, vis, true]]) {
+    const col = this.after ? '170,210,230' : '200,170,120';
+    const vis = 0.2 + 0.6 * k; // 멀어질수록 흐리게
+    for (const [rr, w, al, white] of [[this.r, 4, vis * 0.55], [this.r, 1.5, vis * 0.7, true]]) { // 흙빛 굵은 선 + 가는 밝은 선 (예전: 3겹 굵은 금빛)
       if (rr <= 0) continue;
       g.save(); g.translate(this.x, this.y); g.scale(1, 0.75); // 땅 위를 퍼지는 느낌으로 살짝 납작하게
       if (cs && !this.after && !white) ElFx.arc(g, cs, 0, 0, rr, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF, w, al);
-      else { g.strokeStyle = white ? `rgba(255,255,255,${al})` : `rgba(${col},${al})`; g.lineWidth = w; g.beginPath(); g.arc(0, 0, rr, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF); g.stroke(); }
+      else { g.strokeStyle = white ? `rgba(255,240,210,${al})` : `rgba(${col},${al})`; g.lineWidth = w; g.beginPath(); g.arc(0, 0, rr, f - SHIELD_QUAKE_HALF, f + SHIELD_QUAKE_HALF); g.stroke(); }
       g.restore();
     }
   }

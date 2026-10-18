@@ -25,6 +25,8 @@ addWeapon('sword', {
   skillCd: 0,
   basic: (p, mag) => p.startAttack(mag),
   basicAfterDash: p => p.startThrust(),
+  // 대시 찌르기 다단히트: 돌진해 지나간 길을 칼바람이 다시 벤다
+  dashEcho: (p, e) => { const dx = p.x - e.x0, dy = p.y - e.y0, L = Math.hypot(dx, dy); return { x: e.x0, y: e.y0, dir: L > 4 ? Math.atan2(dy, dx) : e.dir, shape: { line: Math.max(46, L + 30) } }; },
   charged: (p, mag) => p.startSpin(mag),
   special: (p, mag) => p.castWave(mag),
   skill: null,

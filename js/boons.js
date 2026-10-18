@@ -43,10 +43,16 @@ const ICE_CRACK_STAGGER = 0.5; // 얼음 균열: 보스가 잠깐 멈춘다
 const freezeTime = lv => 1 + 0.25 * Math.max(1, lv);
 const iceBig = lv => 1 + Math.ceil(lv / 2);
 // 공격 축복 개편 (2026-10-18): 슬롯마다 공격 축복 하나 — 기본 = 연격, 차지 = 회전 연참(일섬 회전 합침), 특수 = 거대 검기, 대시 = 돌진 강화
-const COMBO_SPEED = 0.12;   // 연격: 레벨마다 기본공격 속도 (0.15 → 0.1 → 0.12, 회전 연참이 너무 좋아서 나머지를 조금씩 올림 2026-10-18)
-const COMBO_FIN = 0.3;      // 연격: 레벨마다 마지막 타 피해 (0.3 → 0.25 → 0.3)
+// 연격 → '잔상 일격' (2026-10-18): 숫자 대신 콤보 마지막 타를 잔상이 레벨마다 한 번씩 더 친다. 속도 · 마지막 타 배율은 없앴다 (0)
+const COMBO_SPEED = 0;
+const COMBO_FIN = 0;
+const ECHO_MULT = 0.5;      // 잔상 한 번의 피해 (마지막 타의 50%)
+const ECHO_DELAY = 0.16;    // 처음 잔상이 치기까지 · 잔상 사이 간격 (초)
+const ECHO_FLASH = 0.1;     // 잔상이 친 자국이 보이는 시간 (짧게 반짝하고 사라진다)
 const WAVE_DMG = 0.1;       // 거대 검기(무기마다 특수 강화): 레벨마다 특수공격 피해 +10% (2026-10-18 추가)
-const THRUST_DMG = 0.5;     // 돌진 강화(무기마다 대시 공격 강화): 레벨마다 대시 공격 피해 (0.4 → 0.5)
+// 돌진 강화(무기마다 대시 공격 강화) = 다단히트 (2026-10-18): 1레벨부터 2번 더 몰아친다(고정), 2 · 3레벨은 대시 공격 피해만 조금씩
+const DASH_ECHO_HITS = 2;
+const THRUST_DMG = 0.15;    // 2레벨부터 레벨마다 대시 공격 피해 +15%
 const POISON_MAX = 8;       // 독 최대 중첩
 const POISON_TIME = 5;      // 마지막으로 독을 건 뒤 사라지기까지
 const POISON_RAMP_MAX = 2;  // 독이 계속 걸려 있으면 피해가 최대 2배까지 가속
@@ -117,13 +123,13 @@ const BOONS = [
     desc: lv => `독이 최대 중첩에 닿으면 터져 주변에 공격력의 ${pct(1 + 0.5 * lv)} 피해 (독은 절반 남음).` },
 
   // ── ⚔ 공격: 누적 패시브 (위력 · 범위 · 속도) ──
-  { id: 'atk_combo', el: 'might', name: '연격', desc: lv => `기본공격 속도 +${Math.round(COMBO_SPEED * 100 * lv)}%, 3타째 피해 +${Math.round(COMBO_FIN * 100 * lv)}%.` },
+  { id: 'atk_combo', el: 'might', name: '잔상 일격', desc: lv => `3타째를 잔상이 ${lv}번 더 친다 (잔상 한 번에 3타째 피해의 ${pct(ECHO_MULT)}).` },
   // 일섬 회전: 따로 나오지 않는다. 효과는 회전 연참 레벨을 그대로 따른다 (mergedInto, 2026-10-18)
   { id: 'atk_spin', el: 'might', name: '일섬 회전', mergedInto: 'atk_multispin', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${15 * lv}%.` },
   { id: 'atk_multispin', el: 'might', name: '회전 연참',
     desc: lv => `회전베기가 ${1 + lv}번 몰아쳐 벤다. 추가 타격은 피해 ${pct(MULTISPIN_MULT)}, 마지막 타격에만 넉백.` },
   { id: 'atk_wave', el: 'might', name: '거대 검기', desc: lv => `검기 크기·사거리 +${25 * lv}%, 특수공격 쿨타임 -${(0.6 * lv).toFixed(1)}초.` },
-  { id: 'atk_thrust', el: 'might', name: '돌진 강화', desc: lv => `대시 찌르기 피해 +${Math.round(THRUST_DMG * 100 * lv)}%, 돌진 거리 +${15 * lv}%.` },
+  { id: 'atk_thrust', el: 'might', name: '돌진 강화', desc: lv => `돌진 거리 +${15 * lv}%.` },
   { id: 'sharp', el: 'might', name: '날카로운 검', desc: lv => `모든 피해 +${10 * lv}%.` },
   { id: 'vital', el: 'might', name: '급소 찌르기', desc: lv => `치명타 확률 +${8 * lv}%, 치명타 피해 +${20 * lv}%.` },
   { id: 'ambush', el: 'might', name: '기습', desc: lv => `적의 옆이나 등 뒤에서 때리면 피해 +${10 + 20 * lv}%. 기절 · 빙결된 적도 무방비로 친다.` },
@@ -177,6 +183,8 @@ const BOON_BY_ID = Object.fromEntries(BOONS.map(b => [b.id, b]));
 // 특수 강화 축복: 무기마다 설명이 달라도 '특수공격 피해 +n%' 를 이어 붙인다 (2026-10-18)
 { const w = BOON_BY_ID.atk_wave, g = Object.getOwnPropertyDescriptor(w, 'desc').get;
   Object.defineProperty(w, 'desc', { get: () => { const a = g(); return lv => a(lv) + ` 특수공격 피해 +${Math.round(WAVE_DMG * 100 * lv)}%.`; } }); }
+{ const w = BOON_BY_ID.atk_thrust, g = Object.getOwnPropertyDescriptor(w, 'desc').get;
+  Object.defineProperty(w, 'desc', { get: () => { const a = g(); return lv => `다단히트: 대시 공격이 ${DASH_ECHO_HITS}번 더 몰아친다 (추가 타격 피해 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 대시 공격 피해 +${Math.round(THRUST_DMG * 100 * (lv - 1))}%.` : '') + ' ' + a(lv); } }); }
 // 합쳐진 축복: 설명에 합쳐진 쪽 효과를 이어 붙인다 (회전 연참 = 회전 연참 + 일섬 회전)
 for (const b of BOONS) if (b.mergedInto) {
   const host = BOON_BY_ID[b.mergedInto], hostDesc = Object.getOwnPropertyDescriptor(host, 'desc').get;
@@ -190,6 +198,43 @@ const boonMaxLv = b => b.maxLv || (b.duo ? 1 : (b.slot || b.needs) ? 5 : 3);
 const SLOT_LOCK_LV = 3;
 // 다른 속성이 차지한 슬롯을 바꾸는 카드가 나올 확률 가중치 (낮을수록 덜 나온다)
 const REPLACE_WEIGHT = 0.35;
+
+// ── 잔상 일격: 잠시 뒤 같은 자리에서 같은 모양으로 한 번 더 친다 (2026-10-18) ──
+class EchoStrike {
+  // o.dash: 칠 때 자리 · 모양을 정하는 함수 (대시 공격 다단히트: 그때 플레이어 자리 기준)
+  constructor(p, kind, shape, delay, o = {}) {
+    Object.assign(this, { x: p.x, y: p.y, dir: p.facing, kind, shape, delay, t: 0, done: false, fired: false, hit: new Set(), o });
+  }
+  update(dt) {
+    this.t += dt;
+    if (!this.fired && this.t >= this.delay) {
+      this.fired = true;
+      if (this.o.dash) Object.assign(this, this.o.dash(G.player, this));
+      const p = G.player, c = Math.cos(this.dir), s = Math.sin(this.dir), S = this.shape;
+      for (const t of G.targets()) {
+        const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
+        if (S.line) { const along = dx * c + dy * s, perp = Math.abs(dx * s - dy * c); if (along < 0 || along > S.line + t.r || perp > t.r + 10) continue; }
+        else { if (d > S.range + t.r) continue; if (S.half < Math.PI && d > t.r + 6 && Math.abs(angDiff(Math.atan2(dy, dx), this.dir)) > S.half) continue; }
+        p.deal(t, this.kind, dx / d, dy / d, { mult: ECHO_MULT, kb: 80 });
+      }
+      Sfx.swing(false);
+    }
+    if (this.t >= this.delay + ECHO_FLASH) this.done = true;
+  }
+  draw(g) {
+    if (!this.fired || !this.shape) return;
+    const k = clamp((this.t - this.delay) / ECHO_FLASH, 0, 1), al = 1 - k, S = this.shape, cy = this.y - 4;
+    g.save(); g.lineCap = 'round';
+    if (S.line) {
+      const c = Math.cos(this.dir), s = Math.sin(this.dir);
+      for (const [w, a] of [[5, 0.3], [2, 0.9]]) { g.strokeStyle = `rgba(255,240,210,${a * al})`; g.lineWidth = w; g.beginPath(); g.moveTo(this.x + c * 14, cy + s * 14); g.lineTo(this.x + c * S.line, cy + s * S.line); g.stroke(); }
+    } else {
+      const r = S.range - 6, a0 = this.dir - S.half * 0.85, a1 = this.dir + S.half * 0.85;
+      for (const [w, a] of [[5, 0.3], [2, 0.9]]) { g.strokeStyle = `rgba(255,240,210,${a * al})`; g.lineWidth = w; g.beginPath(); g.arc(this.x, cy, r, a0, a1); g.stroke(); }
+    }
+    g.restore();
+  }
+}
 
 // ── 축복이 쏘는 발사체 (화염구 · 얼음 파편) ─────────────────────
 class FxShot {
@@ -488,8 +533,22 @@ const FX = {
     if (st && !t.dead && Math.random() < 0.08 + 0.04 * st) this.skyBolt(t, atk * 1.5);
   },
 
+  // 잔상 일격: 마지막 타를 그 자리 · 그 방향으로 잔상이 다시 친다 (레벨 수만큼)
+  queueEcho(p) {
+    const n = this.lv('atk_combo'), a = p.act;
+    if (!n || !a) return;
+    const shape = a.len ? { line: a.len } : { range: a.range, half: a.half };
+    for (let k = 1; k <= n; k++) G.projectiles.push(new EchoStrike(p, a.kind, shape, ECHO_DELAY * k));
+  },
+  // 대시 공격 다단히트 (돌진 강화): 대시 공격이 끝난 뒤 같은 곳을 레벨 수만큼 더 친다. 모양은 무기마다 weapon.dashEcho
+  queueDashEcho(p) {
+    const lv = this.lv('atk_thrust'), a = p.act, sh = p.weapon.dashEcho;
+    if (!lv || !a || !sh) return;
+    for (let k = 1; k <= DASH_ECHO_HITS; k++) G.projectiles.push(new EchoStrike(p, a.kind, null, (a.dur || 0.2) + ECHO_DELAY * (k - 1) + 0.04, { dash: sh, x0: p.x, y0: p.y }));
+  },
   // 기본공격을 휘두를 때
   onSwing(p, fin) {
+    if (fin) this.queueEcho(p);
     if (enhanceSlot() !== 'basic') return; // 강화 축복이 다른 칸에 붙는 무기 (마법봉: 마력탄)
     const atk = p.atk, f = p.facing;
     const fb = this.lv('fire_bolt');
@@ -631,7 +690,7 @@ const FX = {
     const role = MOVES[kind] && MOVES[kind].role;
     if (role === 'fin') m *= (1 + COMBO_FIN * this.lv('atk_combo')) * (1 + 0.15 * p.mastery('combo'));
     if (role === 'special') m *= 1 + WAVE_DMG * this.lv('atk_wave'); // 특수 강화 축복: 특수공격 피해도 조금
-    if (role === 'dash') m *= (1 + THRUST_DMG * this.lv('atk_thrust')) * (1 + 0.2 * p.mastery('thrust'));
+    if (role === 'dash') m *= (1 + THRUST_DMG * Math.max(0, this.lv('atk_thrust') - 1)) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);
     const am = p.weapon.slamBoon === 'ambush' ? 0 : this.lv('ambush'); // 방패: 기습 대신 벽꿍 강화 (FX.wallSlam)
     if (am && t && offGuard(t, p)) { m *= 1 + 0.1 + 0.2 * am; t.ambushHit = true; } // 기습: 옆 · 뒤에서, 또는 무방비

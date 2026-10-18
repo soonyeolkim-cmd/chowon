@@ -49,6 +49,7 @@ addWeapon('spear', {
   dashCdMult: 0.85 / DASH_CD, // 대시 1칸 충전 0.85초 (검 0.7초 · 예전 1.05초)
   skillCd: 0,
   basic: (p, mag) => p.startPoke(mag),
+  dashEcho: p => ({ x: p.x, y: p.y, dir: p.facing, shape: { range: p.sweepLen, half: SWEEP_HALF } }), // 후려치기 다단히트: 같은 부채꼴을 다시
   basicAfterDash: p => p.startSweep(),
   charged: (p, mag, full2) => (full2 ? p.startSpearBeam(mag) : p.startLunge(mag)), // 2단까지 모으면 창기 일섬
   charge2Time: 0.45, // 차지 2단: 1단을 다 모은 뒤 0.45초 더
@@ -144,11 +145,11 @@ BOON_FORMS.spear = {
   poison_spray:   { name: '독 창끝', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
   poison_charge:  { name: '독안개 꿰뚫기', desc: lv => `찌른 줄을 따라 ${2 + 0.5 * lv}초간 독안개가 남는다. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독창', desc: lv => `창에 맞은 적에게 독 ${1 + lv}중첩, 반환점에 ${2 + 0.5 * lv}초간 독 웅덩이가 생긴다.` },
-  atk_combo:      { name: '연속 찌르기', desc: lv => `기본공격 속도 +${Math.round(COMBO_SPEED * 100 * lv)}%, 2타째 피해 +${Math.round(COMBO_FIN * 100 * lv)}%.` },
+  atk_combo:      { name: '잔상 찌르기', desc: lv => `2타째를 잔상이 ${lv}번 더 친다 (잔상 한 번에 2타째 피해의 ${pct(ECHO_MULT)}).` },
   atk_multispin:  { name: '연환 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 뒤 정령의 창이 같은 줄을 ${lv}번 더 찌른다. 추가 찌르기는 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_spin:       { name: '꿰뚫기 강화', desc: lv => `차지 시간 -${15 * lv}%, 관통 찌르기 · 창기 일섬 길이 +${10 * lv}%.` },
   atk_wave:       { name: '투척 강화', desc: lv => `창 비거리·속도 +${20 * lv}%, 투척 쿨타임 -${(0.15 * lv).toFixed(2)}초 (최소 0.5초).` },
-  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 피해 +${Math.round(THRUST_DMG * 100 * lv)}%, 범위 +${10 * lv}%.` },
+  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 범위 +${10 * lv}%.` },
   sharp:          { name: '날카로운 창' },
   lifesteal:      { name: '흡혈 창날' },
   guard_spin:     { name: '수호의 자세', desc: lv => `관통 찌르기 · 창기 일섬 중과 찌른 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50% (무적은 아님).` },
@@ -169,6 +170,7 @@ extendPlayer({
     this.atkBuffer = 0;
     Sfx.thrust();
     this.finisherT = fin ? 0.6 : 0; // 이 안에 바로 특수공격 → 삼연 투척 (다른 행동을 하면 끊긴다)
+    if (fin) FX.queueEcho(this); // 잔상 일격
     FX.onPoke(this, fin);
   },
   // 관통 찌르기 (차지): 제자리에서 기본공격보다 조금 더 길게 찔러 줄 위의 적을 모두 관통

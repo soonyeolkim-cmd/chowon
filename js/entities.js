@@ -162,7 +162,7 @@ class Player {
       FX.onDashMove(this);
       if (this.weapon.dashMove && this.weapon.dashMove(this)) { this.dashT = 0; this.postDashT = INPUT_BUFFER; FX.onDashEnd(this); }
       const farEnough = this.dashT < DASH_TIME * 0.4; // 대시 거리를 대부분 간 뒤에 찌르기로 연결
-      if (this.atkBuffer > 0 && farEnough && G.has('thrust') && this.weapon.basicAfterDash && !this.spearOut) { this.dashT = 0; FX.onDashEnd(this); this.weapon.basicAfterDash(this); }
+      if (this.atkBuffer > 0 && farEnough && G.has('thrust') && this.weapon.basicAfterDash && !this.spearOut) { this.dashT = 0; FX.onDashEnd(this); this.weapon.basicAfterDash(this); FX.queueDashEcho(this); }
       // 대시 중 특수: 무기가 받으면 대시를 끊고 그 기술로 (방패: 방패 돌진 밀어붙이기). 쿨타임은 특수와 같이 쓴다
       else if (this.specialBuffer > 0 && this.weapon.specialInDash && this.specialCd <= 0) { this.dashT = 0; FX.onDashEnd(this); this.specialBuffer = 0; this.specialCd = this.specialCdBase; this.weapon.specialInDash(this); }
       else if (this.dashT <= 0) { this.postDashT = INPUT_BUFFER; FX.onDashEnd(this); }
@@ -193,7 +193,7 @@ class Player {
         W.special(this, mag);
       } else if (this.atkBuffer > 0 && this.atkCd <= 0 && !this.act && !this.spearOut) {
         // 기본공격. 대시 직후엔 대시 공격.
-        if (this.postDashT > 0 && G.has('thrust') && W.basicAfterDash) W.basicAfterDash(this);
+        if (this.postDashT > 0 && G.has('thrust') && W.basicAfterDash) { W.basicAfterDash(this); FX.queueDashEcho(this); }
         else W.basic(this, mag);
       }
     }
