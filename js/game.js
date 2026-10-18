@@ -2687,15 +2687,91 @@ function profileLayout() {
   const n = SAVE_SLOTS, gap = 12, avail = W - inset.l - inset.r - 32;
   const w = Math.min(230, (avail - gap * (n - 1)) / n), h = Math.min(250, H - inset.t - inset.b - 120);
   const x0 = (W - (w * n + gap * (n - 1))) / 2, y = Math.max(inset.t + 64, (H - h) / 2);
-  const cards = Array.from({ length: n }, (_, i) => ({ x: x0 + i * (w + gap), y, w, h, del: { x: x0 + i * (w + gap) + w - 28, y: y + 6, w: 22, h: 22 } }));
+  const cards = Array.from({ length: n }, (_, i) => ({ x: x0 + i * (w + gap), y, w, h, del: { x: x0 + i * (w + gap) + w - 28, y: y + 6, w: 22, h: 22 }, code: { x: x0 + i * (w + gap) + 6, y: y + 6, w: 40, h: 22 } }));
   const bw = 120, by = H / 2 + 20;
   cards.ask = [{ x: W / 2 - bw - 8, y: by, w: bw, h: 38, name: '지우기' }, { x: W / 2 + 8, y: by, w: bw, h: 38, name: '취소' }];
   cards.back = { x: W / 2 - 70, y: y + h + 12, w: 140, h: 30 };
   return cards;
 }
 const fmtPlay = t => (t < 60 ? '1분 미만' : t < 3600 ? `${Math.floor(t / 60)}분` : `${Math.floor(t / 3600)}시간 ${Math.floor((t % 3600) / 60)}분`);
+// ── 저장 코드 (2026-10-18): 프로필 저장을 글자 코드로 바꿔 다른 기기에 옮긴다 ──
+// 코드 = 'SEAL1.' + (압축한) 저장 JSON 의 base64url + '.' + 확인용 해시. 압축이 안 되는 브라우저는 'SEAL0.' (압축 없음)
+const b64url = bytes => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64url = str => { const s = atob(str.replace(/-/g, '+').replace(/_/g, '/')); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; };
+const codeHash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+async function zipBytes(bytes, mode) {
+  const st = new Blob([bytes]).stream().pipeThrough(mode === 'in' ? new CompressionStream('deflate-raw') : new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(st).arrayBuffer());
+}
+async function makeSaveCode(slot) {
+  const d = store.get(slotKey(slot));
+  if (!d) return null;
+  const json = JSON.stringify(d), raw = new TextEncoder().encode(json);
+  if (typeof CompressionStream !== 'undefined') { try { return 'SEAL1.' + b64url(await zipBytes(raw, 'in')) + '.' + codeHash(json); } catch (_) {} }
+  return 'SEAL0.' + b64url(raw) + '.' + codeHash(json);
+}
+async function readSaveCode(code) {
+  const m = String(code || '').replace(/\s+/g, '').match(/^SEAL([01])\.([A-Za-z0-9_-]+)\.([0-9a-z]+)$/);
+  if (!m) throw new Error('코드 모양이 맞지 않아요. 처음부터 끝까지 빠짐없이 붙여 넣어 주세요');
+  let bytes = unb64url(m[2]);
+  if (m[1] === '1') { if (typeof DecompressionStream === 'undefined') throw new Error('이 브라우저에서는 이 코드를 풀 수 없어요'); bytes = await zipBytes(bytes, 'out'); }
+  const json = new TextDecoder().decode(bytes);
+  if (codeHash(json) !== m[3]) throw new Error('코드 일부가 빠졌거나 바뀌었어요');
+  const d = JSON.parse(json);
+  if (!d || typeof d !== 'object' || !Array.isArray(d.unlocked)) throw new Error('저장 코드가 아니에요');
+  return d;
+}
+// 코드 창: 게임 화면 위에 HTML 로 띄운다 (글자 입력 · 복사가 필요해서)
+function openCodePanel(slot) {
+  const m = G.pf; if (!m || m.code) return;
+  m.code = true; Sfx.pickup();
+  const has = !!Meta.summary(slot);
+  const el = document.createElement('div');
+  el.id = 'save-code';
+  el.style.cssText = 'position:fixed;inset:0;z-index:50;background:rgba(6,8,12,0.82);display:flex;align-items:center;justify-content:center;padding:16px;font-family:inherit';
+  el.innerHTML = '<div style="background:#141a24;border:1px solid rgba(255,224,138,.45);border-radius:6px;padding:14px;width:min(560px,100%);max-height:100%;overflow:auto;color:#e8e8e8;font-size:13px;line-height:1.5">'
+    + '<div style="font-size:17px;font-weight:900;color:#ffe08a;margin-bottom:6px">프로필 ' + slot + ' · 저장 코드</div>'
+    + '<div style="color:#aab4c0;margin-bottom:8px">' + (has ? '이 코드를 복사해서 다른 기기의 같은 화면에 붙여 넣으면 진행을 그대로 옮길 수 있어요. 다른 코드를 붙여 넣고 불러오면 이 프로필을 그 진행으로 바꿔요.' : '다른 기기에서 만든 저장 코드를 붙여 넣고 불러오기를 누르세요.') + '</div>'
+    + '<textarea spellcheck="false" style="width:100%;height:110px;box-sizing:border-box;background:#0b0f16;color:#cfe8ff;border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:8px;font-family:monospace;font-size:12px;word-break:break-all;resize:vertical" placeholder="여기에 저장 코드를 붙여 넣으세요"></textarea>'
+    + '<div data-msg style="min-height:20px;margin:6px 0;color:#ffb07a;font-weight:700"></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">'
+    + (has ? '<button data-act="copy">복사하기</button>' : '')
+    + '<button data-act="load">이 코드로 불러오기</button><button data-act="close">닫기</button></div></div>';
+  for (const b of el.querySelectorAll('button')) b.style.cssText = 'font:inherit;font-weight:800;font-size:14px;padding:9px 14px;border-radius:4px;border:1px solid rgba(255,255,255,.3);background:#28304a;color:#fff;cursor:pointer';
+  const ta = el.querySelector('textarea'), msg = el.querySelector('[data-msg]');
+  const say = (t, ok) => { msg.textContent = t; msg.style.color = ok ? '#8ff0b0' : '#ffb07a'; };
+  let mine = '';
+  if (has) makeSaveCode(slot).then(c => { mine = c || ''; ta.value = mine; });
+  const stop = e => e.stopPropagation(); // 글자를 치는 동안 게임 키가 먹지 않게
+  for (const ev of ['keydown', 'keyup']) el.addEventListener(ev, stop);
+  let armed = false;
+  const close = () => { el.remove(); m.code = false; m.t = 0; };
+  el.addEventListener('click', async e => {
+    const act = e.target && e.target.dataset && e.target.dataset.act;
+    if (act === 'close' || e.target === el) { close(); return; }
+    if (act === 'copy') {
+      ta.value = mine; ta.select();
+      try { await navigator.clipboard.writeText(mine); say('복사했어요! 다른 기기에서 붙여 넣으세요', true); }
+      catch (_) { try { document.execCommand('copy'); say('복사했어요! 다른 기기에서 붙여 넣으세요', true); } catch (__) { say('복사가 안 되면 코드를 길게 눌러 전체 선택 후 복사해 주세요'); } }
+      return;
+    }
+    if (act === 'load') {
+      const code = ta.value.trim();
+      if (!code || code === mine) { say('다른 기기에서 복사한 코드를 붙여 넣어 주세요'); return; }
+      let d; try { d = await readSaveCode(code); } catch (err) { say(err.message || '코드를 읽지 못했어요'); armed = false; return; }
+      if (has && !armed) { armed = true; e.target.textContent = '정말 덮어쓰기'; say('지금 프로필 ' + slot + '의 진행이 이 코드의 진행으로 바뀌어요. 한 번 더 누르면 덮어써요'); return; }
+      store.set(slotKey(slot), d);
+      if (slot === Meta.slot) Meta.load(slot);
+      Sfx.level(); m.msg = '프로필 ' + slot + '에 저장 코드를 불러왔어요'; m.sel = slot - 1;
+      close();
+    }
+  });
+  document.body.appendChild(el);
+  if (!has) ta.focus();
+}
 function handleProfileInput(dt, inp) {
   const m = G.pf;
+  if (m.code) return; // 저장 코드 창이 열려 있는 동안
   m.t += dt;
   if (m.t < 0.2) return;
   const { dx, dy } = menuAxis(m, inp, dt);
@@ -2715,6 +2791,8 @@ function handleProfileInput(dt, inp) {
   let pick = null;
   if (inp.tap) {
     if (inRectPt(inp.tap, L.back)) { G.state = 'title'; G.titleT = 0; Sfx.pickup(); return; }
+    const ci = L.findIndex(r => inRectPt(inp.tap, r.code));
+    if (ci >= 0) { m.sel = ci; openCodePanel(ci + 1); return; }
     const di = L.findIndex(r => inRectPt(inp.tap, r.del));
     if (di >= 0 && Meta.summary(di + 1)) { askDel(di); return; }
     const i = L.findIndex(r => inRectPt(inp.tap, r));
@@ -2734,6 +2812,10 @@ function drawProfiles(blink) {
     ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.2)'; ctx.lineWidth = sel ? 2 : 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     label(`프로필 ${i + 1}`, cx, r.y + 20, 16, sel ? '#ffd24a' : '#fff', 'center', '900');
     const foot = (t, c) => label(t, cx, r.y + r.h - 18, 13, sel && blink ? '#ffd24a' : c, 'center', '800');
+    const cb = r.code; // 저장 코드 버튼 (내보내기 · 불러오기)
+    ctx.fillStyle = 'rgba(40,60,90,0.8)'; ctx.fillRect(cb.x, cb.y, cb.w, cb.h);
+    ctx.strokeStyle = 'rgba(160,200,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(cb.x + 0.5, cb.y + 0.5, cb.w - 1, cb.h - 1);
+    label('코드', cb.x + cb.w / 2, cb.y + cb.h / 2 + 1, 11, '#cfe8ff', 'center', '800');
     if (!s) { label('비어 있음', cx, r.y + r.h / 2, 14, '#8a96a0', 'center', '700'); foot('새 모험 시작', '#ccd'); return; }
     const stageLabel = i => (i > STAGES_PER_WORLD * FINAL_STAGE ? '완주' : stageLabelRaw(i)); // 31 = 끝까지 깸
     const db = r.del; // 지우기 버튼
