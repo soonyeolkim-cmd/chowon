@@ -1574,6 +1574,14 @@ function drawHome(r, sel) {
   // 프로필 화면의 '← 처음 화면' 버튼과 같은 글씨
   label('← 처음 화면', r.x + r.w / 2, r.y + r.h / 2 + 1, 12, sel ? '#ffd24a' : '#ccd', 'center', '700');
 }
+// 마을의 '축복 도감' 버튼: ⚙ 왼쪽 (2026-10-18, 탭에서 옮김). 패드 · 키보드: ⚙ 에서 ← 로
+function villageBook() { const g = villageGear(); return { x: g.x - 108, y: g.y, w: 100, h: g.h }; }
+function drawBookBtn(r, sel) {
+  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.85)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
+  else { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
+  label('📖 축복 도감', r.x + r.w / 2, r.y + r.h / 2 + 1, 12, sel ? '#ffd24a' : '#ccd', 'center', '700');
+}
 function villageGoTitle() { Meta.save(); G.state = 'title'; G.titleT = 0; G.titleHeard = true; Sfx.pickup(); }
 
 // 마을의 설정 버튼 (톱니)
@@ -2025,8 +2033,8 @@ function villageLayout() {
     return r;
   });
   const contentH = y;
-  const tw = rw / 3;
-  const tabs = [0, 1, 2].map(i => ({ x: x0 + i * tw, y: inset.t + 58, w: tw - 4, h: 28 })); // 세 번째 = 축복 도감
+  const tw = rw / 2;
+  const tabs = [0, 1].map(i => ({ x: x0 + i * tw, y: inset.t + 58, w: tw - 4, h: 28 }));
   const start = { x: W / 2 - 110, y: H - inset.b - 48, w: 220, h: 38 };
   const mode = { x: start.x - 152, y: start.y, w: 140, h: 38 };
   const tier = { x: start.x + start.w + 12, y: start.y, w: 132, h: 38 };
@@ -2040,7 +2048,8 @@ function drawVillage(blink) {
   label(`◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}`, W / 2, inset.t + 43, 13, '#c8a0ff', 'center', '800');
   label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
   drawHome(villageHome(), v.sel === -2);
-  ['공통 강화', '무기 해금 · 선택', '📖 축복 도감'].forEach((name, i) => {
+  drawBookBtn(villageBook(), v.sel === -3);
+  ['공통 강화', '무기 해금 · 선택'].forEach((name, i) => {
     const t = L.tabs[i], on = v.tab === i;
     ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(30,34,44,0.85)';
     ctx.fillRect(t.x, t.y, t.w, t.h);
@@ -2351,6 +2360,7 @@ function villageAct(i) {
   const v = G.village, items = villageItems(v.tab);
   if (i === -1) { openSettings('village'); return; } // ⚙ 설정
   if (i === -2) { villageGoTitle(); return; }        // 처음 화면
+  if (i === -3) { openBoonBook('village'); return; } // 축복 도감
   if (i === items.length) { G.startRun(); return; }
   if (i === items.length + 2) { openTierView(); return; } // 봉인 등급 창 (목록 + 내역, 2026-10-17)
   if (i === items.length + 1) { // 난이도 바꾸기
@@ -2402,7 +2412,7 @@ function handleVillageInput(dt, inp) {
   const n = L.items.length;
   const inRect = (pt, r) => pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h;
   const selectable = i => i === n || i === n + 1 || i === n + 2 || (L.items[i] && !L.items[i].header);
-  const setTab = t => { if (t === 2) { openBoonBook('village'); return; } if (t !== v.tab) { v.tab = t; v.sel = villageItems(t).length; v.scroll = 0; v.msg = null; Sfx.pickup(); } };
+  const setTab = t => { if (t !== v.tab) { v.tab = t; v.sel = villageItems(t).length; v.scroll = 0; v.msg = null; Sfx.pickup(); } };
 
   // 휠 스크롤
   if (Input.wheel) { v.scroll = clamp(v.scroll + Input.wheel * 0.6, 0, L.maxScroll); Input.wheel = 0; }
@@ -2428,6 +2438,7 @@ function handleVillageInput(dt, inp) {
   if (inp.tap) {
     if (inRect(inp.tap, villageGear())) { openSettings('village'); return; }
     if (inRect(inp.tap, villageHome())) { villageGoTitle(); return; }
+    if (inRect(inp.tap, villageBook())) { openBoonBook('village'); return; }
     const ti = L.tabs.findIndex(r => inRect(inp.tap, r));
     if (ti >= 0) { setTab(ti); return; }
     if (inRect(inp.tap, L.start)) { villageAct(n); return; }
@@ -2457,13 +2468,14 @@ function handleVillageInput(dt, inp) {
   };
   // B(취소): 위쪽(목록 · ⚙)에 있으면 아래 버튼 줄의 '모험 떠나기'로 내려간다
   if (inp.back && !inBar) { v.sel = n; v.msg = null; Sfx.pickup(); return; }
-  const nextTab = d => (v.tab + d + 3) % 3; // 탭도 끝에서 반대쪽 끝으로 (2 = 축복 도감 열기)
+  const nextTab = d => (v.tab + d + 2) % 2; // 탭도 끝에서 반대쪽 끝으로
   if (inp.lb || inp.rb) { const d = inp.rb ? 1 : -1; if (inBar) barMove(d); else tabTo(nextTab(d)); return; }
   // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
   if (hx && hx !== v.axisX) {
-    if (v.sel === -1 && hx < 0) { v.sel = -2; Sfx.pickup(); }      // ⚙ → 처음 화면
-    else if (v.sel === -2) { if (hx > 0) { v.sel = -1; Sfx.pickup(); } }
+    // 위쪽 줄 (왼쪽부터): 처음 화면(-2) · 축복 도감(-3) · ⚙(-1)
+    const TOP = [-2, -3, -1];
+    if (TOP.includes(v.sel)) { const k = clamp(TOP.indexOf(v.sel) + hx, 0, 2); if (TOP[k] !== v.sel) { v.sel = TOP[k]; Sfx.pickup(); } }
     else if (inBar) barMove(hx); else tabTo(nextTab(hx));
   }
   v.axisX = hx;
