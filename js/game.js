@@ -147,6 +147,7 @@ const SPAWN_MIN_FROM_PLAYER = 100; // 웨이브 마물이 생기는 자리: 플�
 const RANGED_CUT = [2, 3, 4, 5, 5, 6];
 const BOSS_MINION = ['slime', 'racoon', 'flam', 'kappa', 'lizard', 'babydragon']; // 보스가 부르는 졸개 · 웨이브 남은 점수 채우기 (1점짜리)
 // 루미의 조언: 같은 조언은 한 판에 한 번, 모두 합쳐 이 횟수까지만 (익숙해지면 그만 말한다)
+const OWNED_EL_CHANCE = 0.6; // 스테이지를 깨고 나오는 정령: 이 확률로 이미 가진 속성 (2026-10-19)
 const HINT_MAX = 1; // 같은 조언은 한 번만 (3 → 1, 너무 자주 나온다는 의견 2026-10-17)
 const MONSTER_HINTS = {
   orc: "외눈이는 '!' 표시 뒤에 돌진해요. 부딪히기 직전에 대시해서 피해요!",
@@ -269,8 +270,14 @@ const G = {
   has(k) { return !(k in UNLOCK_LV) || (!!this.player && this.player.lv >= UNLOCK_LV[k]); },
 
   // ── 정령의 축복 ──
+  // 가진 속성 정령이 더 자주 나온다 (2026-10-19, "빌드가 매번 달라 이어 받기 힘들다"는 의견):
+  //   OWNED_EL_CHANCE 확률로 이미 축복을 가진 속성 중에서 (아직 더 받을 축복이 남은 것만). 바로 앞 속성은 되도록 피한다
   pickElement() {
-    const els = Object.keys(ELEMENTS).filter(e => !this.recentEls.includes(e));
+    const left = e => BOONS.some(b => b.el === e && !b.mergedInto && (this.boons[b.id] || 0) < boonMaxLv(b));
+    const owned = Object.keys(ELEMENTS).filter(e => FX.hasEl(e) && left(e));
+    const last = this.recentEls[this.recentEls.length - 1];
+    let els = Object.keys(ELEMENTS).filter(e => !this.recentEls.includes(e));
+    if (owned.length && Math.random() < OWNED_EL_CHANCE) els = owned.length > 1 ? owned.filter(e => e !== last) : owned;
     const el = els[(Math.random() * els.length) | 0];
     this.recentEls = [...this.recentEls, el].slice(-2);
     return el;
