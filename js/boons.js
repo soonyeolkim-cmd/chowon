@@ -103,7 +103,7 @@ const BOONS = [
 
   // ── ❄ 얼음: 냉기 (중첩당 이동 속도 -10% · 받는 피해 +5%, 4중첩이면 빙결 · 보스는 얼음 균열) ──
   { id: 'ice_basic', el: 'frost', slot: 'basic', name: '서리 칼날',
-    desc: lv => `기본공격이 냉기를 1중첩 건다. 냉기 1중첩마다 받는 피해 +${FROSTBITE_VULN * 100}%, ${FREEZE_AT}중첩이면 빙결 (보스는 얼음 균열: 잠깐 멈추고 받는 피해 +${ICE_CRACK_VULN * 100}%). 빙결 시간 ${freezeTime(lv)}초.` },
+    desc: lv => `기본공격이 냉기 1중첩. 중첩마다 받는 피해 +${FROSTBITE_VULN * 100}%, ${FREEZE_AT}중첩이면 ${freezeTime(lv)}초 빙결 (보스는 얼음 균열: 받는 피해 +${ICE_CRACK_VULN * 100}%).` },
   { id: 'ice_shard', el: 'frost', needs: 'ice_basic', name: '얼음 파편 베기',
     desc: lv => `휘두를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
   { id: 'ice_charge', el: 'frost', slot: 'charge', name: '빙결 회오리',
@@ -211,7 +211,7 @@ const BOON_BY_ID = Object.fromEntries(BOONS.map(b => [b.id, b]));
 { const w = BOON_BY_ID.atk_wave, g = Object.getOwnPropertyDescriptor(w, 'desc').get;
   Object.defineProperty(w, 'desc', { get: () => { const a = g(); return lv => a(lv) + ` 특수공격 피해 +${Math.round(WAVE_DMG * 100 * lv)}%.`; } }); }
 { const w = BOON_BY_ID.atk_thrust, g = Object.getOwnPropertyDescriptor(w, 'desc').get;
-  Object.defineProperty(w, 'desc', { get: () => { const a = g(); return lv => `다단히트: 대시 공격이 ${DASH_ECHO_HITS}번 더 몰아친다 (추가 타격 피해 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 대시 공격 피해 +${Math.round(THRUST_DMG * 100 * (lv - 1))}%.` : '') + ' ' + a(lv); } }); }
+  Object.defineProperty(w, 'desc', { get: () => { const a = g(); return lv => ((curWeaponDef().dashEcho ? `다단히트: 대시 공격이 ${DASH_ECHO_HITS}번 더 몰아친다 (추가 타격 피해 ${pct(ECHO_MULT)}).` : '') + (lv > 1 ? ` 대시 공격 피해 +${Math.round(THRUST_DMG * 100 * (lv - 1))}%.` : '') + ' ' + a(lv)).trim(); } }); } // 다단히트 문구는 dashEcho 가 있는 무기만 (활은 없음)
 // 합쳐진 축복: 설명에 합쳐진 쪽 효과를 이어 붙인다 (회전 연참 = 회전 연참 + 일섬 회전)
 for (const b of BOONS) if (b.mergedInto) {
   const host = BOON_BY_ID[b.mergedInto], hostDesc = Object.getOwnPropertyDescriptor(host, 'desc').get;
