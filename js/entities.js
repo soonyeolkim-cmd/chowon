@@ -336,7 +336,9 @@ class Player {
     let dmg = this.atk * m.mult * (o.mult || 1) * rand(0.9, 1.1) * (1 + G.chainBonus()) * FX.damageMult(this, kind, t);
     const kb = o.kb !== undefined ? o.kb : m.kb;
     let crit = Math.random() < FX.critChance(), counter = false;
-    if (this.counterT > 0) { crit = true; counter = true; this.counterT = 0; }
+    // 반격 치명타: 저스트 회피 뒤 '내가 새로 한 공격'에만 (2026-10-20 활 버그: 깔아 둔 덫 · 회피 전에 쏜 화살이 반격을 써 버려 엉뚱하게 '반격!'이 떴다)
+    const oldShot = o.src && o.src.born !== undefined && this.counterAt !== undefined && o.src.born < this.counterAt;
+    if (this.counterT > 0 && !m.passive && !oldShot) { crit = true; counter = true; this.counterT = 0; }
     if (crit) dmg *= FX.critMult();
     if (counter) dmg *= 1.3;
     G.hit(t, { dmg: Math.round(dmg), nx, ny, kb, guardBreak: m.guardBreak, crit, counter, kind, tip: o.tip, back: o.back, src: o.src }); // src: 이 피해를 낸 투사체 (회복 축복을 한 번만 주려고)

@@ -654,7 +654,7 @@ const G = {
 
   perfectDodge() {
     const p = this.player;
-    p.dodgeT = 0; p.counterT = 1.8;
+    p.dodgeT = 0; p.counterT = 1.8; p.counterAt = G.time; // counterAt: 이보다 먼저 쏜 투사체는 반격을 안 쓴다
     p.invuln = Math.max(p.invuln, 0.5);
     p.skillCd = 0; p.specialCd = 0; p.dashStock = p.dashMax; p.specStock = p.specMax; // 저스트 회피 보상: 쿨타임 초기화
     this.slowT = 0.6;
