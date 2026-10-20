@@ -37,6 +37,7 @@ addWeapon('bow', {
   unlockCost: 1,
   moves: { basic: '연사', charged: '꿰뚫는 화살', special: '덫 놓기', dashAttack: '대시 사격' },
   chargeTime: 0.6,
+  dashSpeed: 225,     // 대시 거리 36 (기본 340 · 약 54): 대시 사격을 노리기 쉽게 짧게 (2026-10-20, 42 → 36)
   specialCd: 3.5,
   cdPerLv: 0, cdPerMastery: 0.3, cdFloor: 2.0,
   comboLen: 3,

@@ -90,6 +90,8 @@ const TEST_BUILDS = {
   // 사냥꾼의 활 (2026-10-20): ?build=bow (축복 없음) · bow_trap (덫 유인 3 · 대시 사격 강화 3 · 잔상 · 연환) — 속성은 ?build=el_fire&w=bow 처럼
   bow: { weapon: 'bow', mastery: {}, all: true, boons: {} },
   bow_trap: { weapon: 'bow', mastery: {}, all: true, boons: { atk_wave: 3, atk_thrust: 3, atk_combo: 3, atk_multispin: 3 } },
+  // 검의 정령 축복 전부 만렙 + 무기 숙련 전부 만렙 (?build=bow_max, 2026-10-20). 다른 무기는 &w=sword 처럼
+  bow_max: { weapon: 'bow', mastery: { combo: 3, spin: 3, wave: 3, thrust: 3 }, all: true, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3, sharp: 3, vital: 3, ambush: 3 } },
   // 방패 첫 손맛 (?build=shield)
   shield: { weapon: 'shield', mastery: {}, boons: {} },
   // 체인라이트닝 도사: 벼락 마력탄 · 연쇄 번개 마력탄 Lv5 · 고전압 · 날벼락 · 마력 증폭 (+ 마력탄 숙련 3)
