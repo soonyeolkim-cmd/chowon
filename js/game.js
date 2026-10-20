@@ -239,6 +239,7 @@ const G = {
   // 무기의 정수 (모든 무기 공통)
   // at: 이 정수를 주는 지점 (스테이지 번호 1~30, 완주 31). 이 등급에서 이미 넘은 지점이면 주지 않는다
   earnEssence(n, x, y, at) {
+    if ((this.tierInfo || tierInfo(1)).n > ESSENCE_TIER_MAX) return; // 등급 6 부터는 정수 없음 (각성의 불씨 구간)
     if (at !== undefined) {
       const best = Meta.data.essBest[(this.tierInfo || tierInfo(1)).n] || 0;
       if (at <= best) { if (x !== undefined) this.text(x, y, '⚔ 이미 받음', '#8a8f99', 10, 0.9); return; }
@@ -2337,7 +2338,7 @@ function drawTierView() {
   if (ti.emblem) label(`✦ 영웅의 증표: ${cleared ? '받음' : '처음 완주하면 1개'}`, I.x, y, 11, cleared ? '#8ff0b0' : '#ffd24a', 'left', '600');
   else label('◈ 봉인의 핵: 무기 각성 재료 (각성과 함께 추가 예정)', I.x, y, 11, '#c8a0ff', 'left', '600');
   y += 16;
-  label(`⚔ 무기의 정수: ${eb > STAGES_PER_WORLD * FINAL_STAGE ? '모두 받음' : eb ? `${stageLabel(eb)}까지 받음` : '아직 안 받음'}`, I.x, y, 11, '#ccd', 'left', '600'); y += 22;
+  label(n > ESSENCE_TIER_MAX ? '⚔ 무기의 정수: 이 등급은 없음 (등급 0~5 에서만)' : `⚔ 무기의 정수: ${eb > STAGES_PER_WORLD * FINAL_STAGE ? '모두 받음' : eb ? `${stageLabel(eb)}까지 받음` : '아직 안 받음'}`, I.x, y, 11, '#ccd', 'left', '600'); y += 22;
   label(ti.curses.length ? `봉인의 반발 ${ti.curses.length}개` : '봉인의 반발 없음', I.x, y, 12, ti.curses.length ? '#ff9a7a' : '#8a96a0', 'left', '800'); y += 18;
   ti.curses.forEach((id, k) => {
     const isNew = k === ti.curses.length - 1 && n > 1;

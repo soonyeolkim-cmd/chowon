@@ -29,6 +29,8 @@ const TIER_MAX = 1 + CURSE_ORDER.length; // 11 (화면 번호 0 ~ 10)
 // 영웅의 증표는 봉인 등급 0~4 (안에서 세는 1~5) 첫 완주에서만: 모두 5개 = 무기 5종 해금에 딱 맞게 (2026-10-18)
 // 그보다 높은 등급의 첫 완주 보상은 무기 각성 재료 '봉인의 핵' (각성과 함께 넣을 예정 — 그때 tierCleared 를 보고 이미 깬 등급 몫을 소급해서 준다)
 const EMBLEM_TIER_MAX = 5;
+// 무기의 정수는 봉인 등급 0~5 (안에서 세는 1~6) 에서만: 등급당 58 × 6 = 348 = 무기 6종 숙련 전부, 남는 정수 0 (2026-10-20)
+const ESSENCE_TIER_MAX = 6;
 function tierInfo(n) {
   const curses = CURSE_ORDER.slice(0, n - 1);
   return { n, route: 'all', curses, emblem: n <= EMBLEM_TIER_MAX, bonusShards: 0, rewardMult: 1 + 0.3 * (n - 1) };
