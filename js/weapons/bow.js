@@ -321,6 +321,8 @@ class BowTrap {
   update(dt) {
     this.t += dt; this.life -= dt;
     if (this.t > 0.25) this.armed = true;
+    // 연쇄 폭발: 옆 덫의 폭발에 휘말리면 잠깐 뒤 같은 크기로 터진다 (2026-10-20)
+    if (this.chainT !== undefined) { this.chainT -= dt; if (this.chainT <= 0) this.boom(this.chainShot, null, true); return; }
     if (this.life <= 0) { this.done = true; return; }
     if (!this.armed) return;
     // 덫 유인 (특수 강화): 둘레의 마물을 천천히 끌어당긴다 (보스 · 단단히 선 적 제외)
@@ -336,7 +338,7 @@ class BowTrap {
   spring(victim) { this.boom(false, victim); }
   // 화살로 쏴서 터뜨리면 더 큰 폭발 (반경 TRAP_SHOT_R, 피해 더 큼) — 활의 연계 보너스
   detonate() { this.boom(true, null); }
-  boom(shot, victim) {
+  boom(shot, victim, chained) {
     if (this.done) return;
     this.done = true;
     const p = G.player, kind = shot ? 'trapBoom' : 'trap', R = shot ? TRAP_SHOT_R : TRAP_BOOM_R, cx = this.x, cy = this.y - 4;
@@ -348,11 +350,19 @@ class BowTrap {
       p.deal(t, kind, dx / d, dy / d);
       first = first || t;
     }
-    trapFx(this.x, this.y, this.slot, shot ? 90 : 56);
-    if (shot) pixRing(this.x, this.y, slotCol(this.slot, FX_WHITE), R);
+    trapFx(this.x, this.y, this.slot, shot ? (chained ? 72 : 90) : 56);
+    if (shot && !chained) pixRing(this.x, this.y, slotCol(this.slot, FX_WHITE), R); // 큰 흰 고리는 처음 터진 덫에만 (연쇄 때 화면을 덮지 않게, 2026-10-20)
     FX.onTrap(p, this, first, shot);
     G.shake = Math.max(G.shake, shot ? 6 : 4); Sfx.boom();
-    if (shot) G.text(this.x, this.y - 20, '덫 폭발!', '#ffd24a', 12, 0.6);
+    if (shot && !chained) G.text(this.x, this.y - 20, '덫 폭발!', '#ffd24a', 12, 0.6);
+    // 폭발 범위 안의 다른 덫도 터진다 (깔린 지 얼마 안 된 덫 포함). 화살로 쏴서 시작한 연쇄는 끝까지 큰 폭발
+    let n = 0;
+    for (const tr of bowTraps()) {
+      if (tr === this || tr.chainT !== undefined) continue;
+      if (Math.hypot(tr.x - this.x, tr.y - this.y) > R + 6) continue;
+      tr.chainT = 0.12 + 0.06 * n++; tr.chainShot = shot;
+    }
+    if (n && !chained) G.text(this.x, this.y - 32, '연쇄!', '#ffb84a', 12, 0.6);
   }
   // 그림: 바닥에 놓인 도트 덫 (이빨 달린 고리) + 가운데 빛. 사라질 때가 되면 깜빡인다
   draw(g) {
