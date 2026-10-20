@@ -15,7 +15,9 @@ const TRAP_BOOM_R = 40;         // 마물이 밟으면 바로 터지는 범위
 const TRAP_SHOT_R = 64;         // 화살로 쏴서 터뜨리면 더 크게 (연계 보너스)
 const TRAP_FRONT = 28;          // 덫을 놓는 거리 (발밑 ~ 바로 앞)
 const TRAP_ARROW_RANGE = 110;   // 덫 던지기 덫 화살 사거리 (기본 연사 150 보다 짧게, 2026-10-20)
-const DASH_SHOT_SLIDE = 22;     // 덫 던지기 (예전 이름 대시 사격, 2026-10-20 이름만 바꿈: 화살에 덫을 달아 날린다): 대시하던 쪽으로 조금 더 미끄러진다 (물러서기는 적응이 어렵다는 의견으로 바꿈, 2026-10-20)
+const DASH_SHOT_RECOIL = 15;    // 덫 던지기 반동: 쏘는 순간 화살 반대쪽으로 튕겨난다 (2026-10-20, 예전엔 앞으로 22 미끄러짐 → 들어가서 박고 빠지기)
+const DASH_SHOT_AIM = 45 * Math.PI / 180; // 덫 던지기 조준: 대시 방향 좌우 45° 안의 적 쪽으로 꺾여 나간다 (옆으로 스치며 박기)
+const DASH_SHOT_SLIDE_OLD = 22;     // 덫 던지기 (예전 이름 대시 사격, 2026-10-20 이름만 바꿈: 화살에 덫을 달아 날린다): 대시하던 쪽으로 조금 더 미끄러진다 (물러서기는 적응이 어렵다는 의견으로 바꿈, 2026-10-20)
 const LURE_R = [0, 60, 80, 100]; // 덫 유인 (특수 강화) 레벨별 끌어당기는 범위
 const LURE_PULL = 55;           // 끌어당기는 속도 (초당 거리, 마물 걸음보다 조금 느리게)
 const BOW_AIM = { range: 160, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
@@ -159,13 +161,32 @@ extendPlayer({
   // 덫 던지기 (대시 공격): 대시하던 쪽으로 덫 화살. 맞으면 그 적을 덫이 바로 물고, 빗나가면 떨어진 곳에 덫이 꽂힌다 (2026-10-20)
   startBackShot() {
     this.finisherT = 0;
-    this.aim(Math.hypot(Input.state.mx, Input.state.my), BOW_AIM);
-    const tl = FX.lv('atk_thrust'); // 덫 던지기 강화: 사거리 +10%/레벨 · 1레벨 1명 관통 · 2레벨 맞히면 대시 1회 충전 · 3레벨 2명 관통 (피해는 공통 대시 공격 배율)
-    G.projectiles.push(new BowArrow(this, this.facing, { kind: 'backShot', slot: 'dash', trapArrow: true, range: TRAP_ARROW_RANGE * (1 + 0.1 * tl), pierce: tl >= 3 ? 2 : tl >= 1 ? 1 : 0, dashRefund: tl >= 2 }));
-    this.act = { kind: 'backShot', t: 0, dur: 0.18, hit: new Set(), dir: this.dashDir };
+    const tl = FX.lv('atk_thrust'), range = TRAP_ARROW_RANGE * (1 + 0.1 * tl);
+    this.trapShotAim(range); // 덫 던지기 강화: 사거리 +10%/레벨 · 1레벨 1명 관통 · 2레벨 맞히면 대시 1회 충전 · 3레벨 2명 관통 (피해는 공통 대시 공격 배율)
+    G.projectiles.push(new BowArrow(this, this.facing, { kind: 'backShot', slot: 'dash', trapArrow: true, range, pierce: tl >= 3 ? 2 : tl >= 1 ? 1 : 0, dashRefund: tl >= 2 }));
+    this.act = { kind: 'backShot', t: 0, dur: 0.18, hit: new Set(), dir: this.facing + Math.PI }; // dir = 반동으로 밀려나는 쪽 (화살 반대)
     this.atkCd = 0.3; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
     G.text(this.x, this.y - 24, '덫 던지기', '#9cdcff', 11, 0.5);
     Sfx.swing(false); Sfx.block();
+  },
+  // 덫 던지기 조준: 마우스 조준이면 커서 쪽. 아니면 누르는 방향(없으면 대시 방향) 좌우 DASH_SHOT_AIM 안에서 가까운 적 (정면에 가까울수록 우선)
+  trapShotAim(range) {
+    const ms = Input.state;
+    if (ms.mouseAim && ms.mouse && G.view) { this.aim(0, BOW_AIM); return; }
+    // 기준 방향: 지금 누르는 방향 (대시 중 반대로 꺾어 뒤로 쏘기 가능, 2026-10-20 사용자), 안 누르면 대시 방향
+    const im = Input.state, held = Math.hypot(im.mx, im.my) >= 0.2;
+    const base = held ? Math.atan2(im.my, im.mx) : this.dashDir != null ? this.dashDir : this.facing;
+    let best = null, bs = Infinity;
+    for (const t of G.targets()) {
+      if (t.dead || t.spawnT > 0.2) continue;
+      const d = Math.hypot(t.x - this.x, t.y - this.y) - (t.r || 8);
+      if (d > range + 10) continue;
+      const off = Math.abs(angDiff(Math.atan2(t.y - this.y, t.x - this.x), base));
+      if (off > DASH_SHOT_AIM) continue;
+      const score = d + 40 * off / DASH_SHOT_AIM;
+      if (score < bs) { bs = score; best = t; }
+    }
+    this.facing = best ? Math.atan2(best.y - this.y, best.x - this.x) : base;
   },
   // 활 그림: 보는 쪽으로 활을 들고, 쏠 때 시위를 당겼다 놓는다
   drawBow(g, x, y) {
@@ -183,8 +204,8 @@ extendPlayer({
 
 ACT_HANDLERS.push(function (a, dt, fx, fy) {
   if (a.bowShot || a.pierceCast || a.trapCast) return true;
-  if (a.kind === 'backShot') { // 대시하던 쪽으로 미끄러지며 멈춘다
-    const k = 2 * (1 - a.t / a.dur), sp = DASH_SHOT_SLIDE / a.dur;
+  if (a.kind === 'backShot') { // 쏘는 순간 화살 반대쪽으로 튕겨난다 (반동, 처음에 세게 · 점점 약하게)
+    const k = 2 * (1 - a.t / a.dur), sp = DASH_SHOT_RECOIL / a.dur;
     World.move(this, Math.cos(a.dir) * sp * k * dt, Math.sin(a.dir) * sp * k * dt);
     if (Math.random() < 0.4) G.dust(this.x, this.y + 8);
     return true;
