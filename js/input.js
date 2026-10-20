@@ -24,32 +24,37 @@ const Input = (() => {
   let lastPad = null;
 
   // 조작 설정 (설정 화면에서 바꿀 수 있고, 이 기기에 저장된다)
-  //  키보드: 방향키/WASD 이동 · Z/왼쪽 Ctrl 공격(길게 = 차지) · X/Space 대시 · C/왼쪽 Alt 특수 · Esc/P 일시정지
+  //  키보드: 방향키/WASD 이동 · X/왼쪽 Ctrl 공격(길게 = 차지) · C/Space 대시 · Z/왼쪽 Alt 특수 · Esc/P 일시정지
   //  마우스: 왼쪽 클릭 공격(길게 = 차지) · 오른쪽 클릭 특수, 공격은 커서 쪽으로
   //  게임패드 (엑스박스 기준 버튼 위치, 스위치는 같은 위치): X 공격 · A 특수 · RB 대시 · START 일시정지 (이동은 왼쪽 스틱 · 십자키 고정)
   const DEFAULT_BINDS = {
-    kb: { up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'], left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'],
-          attack: ['KeyZ', 'ControlLeft'], dash: ['KeyX', 'Space'], special: ['KeyC', 'AltLeft'], pause: ['Escape', 'KeyP'] },
+    // 조작 방식마다 키를 따로 둔다 (2026-10-20, 겹치지 않게): 키보드만 = 방향키 · X 공격 · Z 특수 · C 대시 / 키보드+마우스 = WASD · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시
+    kb: { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'],
+          attack: ['KeyX'], dash: ['KeyC'], special: ['KeyZ'], pause: ['Escape', 'KeyP'] },
+    km: { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], attack: [], dash: ['Space'], special: [], pause: ['Escape', 'KeyP'] }, // 공격 · 특수는 마우스 클릭
     pad: { attack: [2], dash: [5], special: [0], pause: [9] },
   };
   const copy = o => JSON.parse(JSON.stringify(o));
   const load = (k, def) => { try { const v = JSON.parse(localStorage.getItem('swordsman.' + k)); return v || def; } catch (_) { return def; } };
   const save = (k, v) => { try { localStorage.setItem('swordsman.' + k, JSON.stringify(v)); } catch (_) {} };
   const binds = (() => { const b = load('binds', null), d = copy(DEFAULT_BINDS); if (!b) return d;
-    for (const dev of ['kb', 'pad']) for (const a in d[dev]) if (b[dev] && Array.isArray(b[dev][a]) && b[dev][a].length) d[dev][a] = b[dev][a];
-    // 예전에 저장한 설정에도 WASD 이동을 얹는다 (다른 행동이 쓰는 키가 아니면)
-    for (const [a, k] of [['up', 'KeyW'], ['down', 'KeyS'], ['left', 'KeyA'], ['right', 'KeyD']])
-      if (!Object.values(d.kb).some(l => l.includes(k))) d.kb[a] = d.kb[a].concat(k);
+    for (const dev of ['kb', 'km', 'pad']) for (const a in d[dev]) if (b[dev] && Array.isArray(b[dev][a]) && b[dev][a].length) d[dev][a] = b[dev][a];
+    // 예전 저장에 섞여 있던 WASD 이동은 키보드만 방식에서 뺀다 (WASD 는 키보드+마우스 전용, 2026-10-20)
+    for (const k of ['up', 'down', 'left', 'right']) { const f = d.kb[k].filter(c => !['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(c)); d.kb[k] = f.length ? f : copy(DEFAULT_BINDS.kb[k]); }
     return d; })();
-  // kbMode: 컴퓨터 조작 방식 'mouse' = 키보드+마우스 (WASD · 클릭 · 커서 조준) / 'keys' = 키보드만 (방향키 · Z X C)
+  // kbMode: 컴퓨터 조작 방식 'mouse' = 키보드+마우스 (WASD · 클릭 · 커서 조준) / 'keys' = 키보드만 (방향키 · Z 특수 · X 공격 · C 대시)
   const pcFine = !!(window.matchMedia && matchMedia('(pointer: fine)').matches);
   const settings = Object.assign({ sfx: true, bgm: true, rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys', cursorAim: false, padLayout: 'xbox', padAlpha: 0.55 }, load('settings', {}));
-  const kbHas = (action, code) => binds.kb[action].includes(code);
+  // 휴대폰(터치)에서는 키보드+마우스 방식을 쓰지 않는다 → 늘 키보드만 (2026-10-20 사용자)
+  const phone = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) && !pcFine;
+  if (phone) settings.kbMode = 'keys';
+  const kbSet = () => (settings.kbMode === 'mouse' ? binds.km : binds.kb); // 지금 조작 방식의 키
+  const kbHas = (action, code) => kbSet()[action].includes(code);
   // 패드 종류: 버튼 '위치'는 같고 이름만 다르다. 엑박 = 아래 A · 오른쪽 B, 스위치 = 오른쪽 A · 아래 B
   // 메뉴 선택은 언제나 그 패드의 'A', 취소는 'B' (버튼 번호: 0 아래 · 1 오른쪽)
   const padOk = () => (settings.padLayout === 'switch' ? 1 : 0);
   const padNo = () => (settings.padLayout === 'switch' ? 0 : 1);
-  const isGameKey = code => Object.values(binds.kb).some(list => list.includes(code));
+  const isGameKey = code => Object.values(kbSet()).some(list => list.includes(code));
 
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) state.device = 'touch';
 
@@ -243,7 +248,7 @@ const Input = (() => {
 
   function update() {
     const has = c => keys.has(c);
-    const held = a => binds.kb[a].some(has);
+    const held = a => kbSet()[a].some(has);
     let mx = (held('right') ? 1 : 0) - (held('left') ? 1 : 0);
     let my = (held('down') ? 1 : 0) - (held('up') ? 1 : 0);
 
@@ -271,8 +276,8 @@ const Input = (() => {
     state.padA = padHeldA;
     state.mouseMode = settings.kbMode === 'mouse' && state.device === 'keyboard';
     state.mouseAim = state.mouseMode && settings.cursorAim;
-    state.attackHeld = binds.kb.attack.some(has) || (state.mouseMode && !!(mouseBtns & 1)) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
-    state.specialHeld = binds.kb.special.some(has) || (state.mouseMode && !!(mouseBtns & 2)) || !!(buttons.special && buttons.special.held) || padHeldSpecial;
+    state.attackHeld = kbSet().attack.some(has) || (state.mouseMode && !!(mouseBtns & 1)) || !!(buttons.attack && buttons.attack.held) || padHeldAttack;
+    state.specialHeld = kbSet().special.some(has) || (state.mouseMode && !!(mouseBtns & 2)) || !!(buttons.special && buttons.special.held) || padHeldSpecial;
     queued.attack = queued.special = queued.dash = queued.skill = queued.start = queued.pause = queued.confirm = queued.back = queued.reroll = false;
   }
 
@@ -305,6 +310,6 @@ const Input = (() => {
 
   const api = { init, update, state, joy, buttons, pointers, setButton, rumble, onUi: null, onPadConnect: null,
     rot: false, physW: innerWidth, viewW: innerWidth, wheel: 0,
-    binds, settings, bind, resetBinds, saveSettings, capture: null, clearKeys: () => keys.clear(), padInfo: null, padOk, padNo, captureDev: null, lastKey: null };
+    binds, settings, bind, resetBinds, saveSettings, phone, kbDev: () => (settings.kbMode === 'mouse' ? 'km' : 'kb'), capture: null, clearKeys: () => keys.clear(), padInfo: null, padOk, padNo, captureDev: null, lastKey: null };
   return api;
 })();

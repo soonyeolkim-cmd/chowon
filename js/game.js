@@ -1502,9 +1502,10 @@ function closeSettings() {
 }
 function settingsRows(tab) {
   const B = Input.binds, S = Input.settings;
-  if (tab === 0) return [{ kind: 'mode', name: '조작 방식', value: S.kbMode === 'mouse' ? '키보드+마우스' : '키보드만' },
-    ...(S.kbMode === 'mouse' ? [{ kind: 'toggle', key: 'cursorAim', name: '마우스 조준 (공격이 커서 쪽으로)', value: S.cursorAim ? '켜짐' : '꺼짐' }] : []), ...KB_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'kb', action: a, name: n, value: B.kb[a].map(kbName).join(' / ') })),
-    { kind: 'reset', dev: 'kb', name: '키보드 기본값으로 되돌리기', value: '' }];
+  const kd = Input.kbDev(), mouse = kd === 'km';
+  if (tab === 0) return [...(Input.phone ? [] : [{ kind: 'mode', name: '조작 방식', value: mouse ? '키보드+마우스' : '키보드만' }]), // 휴대폰은 키보드만 (모드 고르기 없음)
+    ...(mouse ? [{ kind: 'toggle', key: 'cursorAim', name: '마우스 조준 (공격이 커서 쪽으로)', value: S.cursorAim ? '켜짐' : '꺼짐' }] : []), ...KB_ACTIONS.filter(([a]) => !(mouse && (a === 'attack' || a === 'special'))).map(([a, n]) => ({ kind: 'key', dev: kd, action: a, name: n, value: B[kd][a].map(kbName).join(' / ') })),
+    { kind: 'reset', dev: kd, name: mouse ? '키보드+마우스 기본값으로 되돌리기' : '키보드 기본값으로 되돌리기', value: '' }];
   if (tab === 1) return [{ kind: 'padlayout', name: '패드 레이아웃', value: S.padLayout === 'switch' ? '스위치  ·  A 선택 (오른쪽) · B 취소 (아래)' : 'Xbox  ·  A 선택 (아래) · B 취소 (오른쪽)' }, ...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
   return [{ kind: 'toggle', key: 'sfx', name: '효과음', value: S.sfx ? '켜짐' : '꺼짐' },
@@ -1535,7 +1536,7 @@ function settingsAct(row) {
   }
   if (row.kind === 'mode') {
     Input.settings.kbMode = Input.settings.kbMode === 'mouse' ? 'keys' : 'mouse'; Input.saveSettings(); Sfx.pickup();
-    s.msg = Input.settings.kbMode === 'mouse' ? '키보드+마우스: WASD 이동 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시' : '키보드만: 방향키 이동 · Z 공격 · X 대시 · C 특수';
+    s.msg = Input.settings.kbMode === 'mouse' ? '키보드+마우스: WASD 이동 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시' : '키보드만: 방향키 이동 · X 공격 · Z 특수 · C 대시';
     return;
   }
   s.waiting = row; s.msg = null; s.wt = 0; Sfx.pickup();
@@ -1640,7 +1641,7 @@ function keyNames() {
   const d = Input.state.device, B = Input.binds;
   if (d === 'touch') return { A: '공격', P: '특수', D: '대시', move: '왼쪽 조이스틱' };
   if (d === 'gamepad') return { A: padName(B.pad.attack[0]), P: padName(B.pad.special[0]), D: padName(B.pad.dash[0]), move: '왼쪽 스틱' };
-  if (Input.state.mouseMode) return { A: '왼쪽 클릭', P: '오른쪽 클릭', D: kbName(B.kb.dash.includes('Space') ? 'Space' : B.kb.dash[0]), move: B.kb.up.includes('KeyW') ? 'WASD' : kbName(B.kb.up[0]) + kbName(B.kb.left[0]) + kbName(B.kb.down[0]) + kbName(B.kb.right[0]) };
+  if (Input.state.mouseMode) return { A: '왼쪽 클릭', P: '오른쪽 클릭', D: kbName(B.km.dash[0]), move: B.km.up.includes('KeyW') && B.km.left.includes('KeyA') ? 'WASD' : kbName(B.km.up[0]) + kbName(B.km.left[0]) + kbName(B.km.down[0]) + kbName(B.km.right[0]) };
   const arrows = B.kb.up.includes('ArrowUp') && B.kb.left.includes('ArrowLeft');
   return { A: kbName(B.kb.attack[0]), P: kbName(B.kb.special[0]), D: kbName(B.kb.dash[0]), move: arrows ? '방향키' : [B.kb.up, B.kb.left, B.kb.down, B.kb.right].map(l => kbName(l[0])).join('') };
 }
