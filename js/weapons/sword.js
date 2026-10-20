@@ -150,7 +150,7 @@ extendPlayer({
       g.rotate(this.facing);
       if (a.swingDir < 0) g.scale(1, -1);
       g.globalAlpha *= 0.95;
-      const bs = ElFx.slot('basic'), img = bs ? ElFx.tinted(ART.img.slash, bs.el) : ART.img.slash, fr = Math.min(3, Math.floor(p * 4)) * 32;
+      const bs = ElFx.slot('basic'), img = bs ? ElFx.tinted(ART.img.slash, bs.el) : whiteFx(ART.img.slash), fr = Math.min(3, Math.floor(p * 4)) * 32;
       if (bs && bs.max) { const a0 = g.globalAlpha; g.globalAlpha = a0 * 0.35; g.drawImage(img, fr, 0, 32, 32, -19 * k, -19 * k, 38 * k, 38 * k); g.globalAlpha = a0; }
       g.drawImage(img, fr, 0, 32, 32, -16 * k, -16 * k, 32 * k, 32 * k);
       g.restore();
@@ -159,7 +159,7 @@ extendPlayer({
       const p = a.t / a.dur, ang = this.facing + p * Math.PI * 2.2;
       const sr = this.spinRange, cs = ElFx.slot('charge');
       // 회전베기: 굵은 호 선 대신 도트 둥근 베기 그림(쌍검 선풍 베기와 같은 FX/Attack/CircularSlash). 차지 칸 속성이면 그 색 (2026-10-18)
-      const im = slimRing(cs ? tintedBy(ART.img.circSlash, EL_STYLE[cs.el].main) : ART.img.circSlash), sz = (sr + 10) * 2 / 0.94, fr = Math.min(3, Math.floor(p * 4)); // 그림 속 고리 반지름 = 칸의 94%. 실제로 맞는 거리(범위 + 적 몸 반지름 약 10)에 맞춘다
+      const im = slimRing(tintedBy(ART.img.circSlash, cs ? EL_STYLE[cs.el].main : FX_WHITE)), sz = (sr + 10) * 2 / 0.94, fr = Math.min(3, Math.floor(p * 4)); // 그림 속 고리 반지름 = 칸의 94%. 실제로 맞는 거리(범위 + 적 몸 반지름 약 10)에 맞춘다
       g.save(); g.globalAlpha *= 0.95; g.translate(x, cy); // 방향에 따라 돌리지 않는다: 늘 같은 모양의 원 (바라보는 쪽마다 좌우로 길어 보여 헷갈렸다, 2026-10-18)
       g.drawImage(im, fr * 32, 0, 32, 32, -sz / 2, -sz / 2, sz, sz);
       g.restore();
@@ -168,7 +168,7 @@ extendPlayer({
       const p = a.t / a.dur;
       // 찌르기 궤적: 채운 삼각형 → 도트 베기 그림(FX/Attack/Cut)을 길게, 대시 칸 속성 색 (없으면 다른 대시 공격처럼 푸른빛). 2026-10-18
       const c = Math.cos(this.facing), s = Math.sin(this.facing);
-      cutFx(g, x - c * 4, cy - s * 4, this.facing, 58, 16, Math.min(0.999, p * 1.6), slotCol('dash', ECHO_COLOR)); // 창 관통 찌르기와 같은 모양
+      cutFx(g, x - c * 4, cy - s * 4, this.facing, 58, 16, Math.min(0.999, p * 1.6), slotCol('dash', FX_WHITE)); // 창 관통 찌르기와 같은 모양
       this.blade(g, x, cy, this.facing);
     } else {
       this.blade(g, x + Math.cos(this.facing) * 4, cy + 6, this.facing + 1.1);
@@ -227,7 +227,7 @@ class Wave {
     this.x += c * 360 * dt; this.y += s * 360 * dt;
     this.life -= dt;
     if (this.life <= 0) this.done = true;
-    if (World.shotBlockedAt(this.x, this.y + 6)) { this.done = true; G.burst(this.x, this.y, 8, slotBurst('special', ['#bff4ff', '#fff']), 120); return; } // 나무 · 바위에 막힌다 (물 위로는 날아간다)
+    if (World.shotBlockedAt(this.x, this.y + 6)) { this.done = true; G.burst(this.x, this.y, 8, slotBurst('special', ['#ffffff', '#e8e8e8']), 120); return; } // 나무 · 바위에 막힌다 (물 위로는 날아간다)
     FX.onWaveMove(this);
     clearShotsNear(this.x, this.y, this.size);
     for (const t of G.targets()) {
@@ -241,7 +241,7 @@ class Wave {
   // 그림: 칼을 휘두를 때와 같은 베기 그림(ART.img.slash, FX/Attack/SlashCurved 32x32 4장)이 그대로 날아간다 (2026-10-18)
   // 날아가는 동안은 꽉 찬 3번째 장으로 고정(깜빡이지 않게), 사라질 때 4번째 장. 속성 축복이 있으면 그 색으로
   draw(g) {
-    const ss = ElFx.slot('special'), img = ss ? tintedBy(ART.img.slash, EL_STYLE[ss.el].main) : ART.img.slash;
+    const ss = ElFx.slot('special'), img = tintedBy(ART.img.slash, ss ? EL_STYLE[ss.el].main : FX_WHITE);
     const left = this.life / this.max, fi = left < 0.2 ? 3 : 2, s = this.size * 2.6;
     g.save(); g.globalAlpha = clamp(left * 4, 0, 1); g.translate(this.x, this.y); g.rotate(this.dir); // 그림의 볼록한 쪽(오른쪽)이 날아가는 쪽
     g.drawImage(img, fi * 32, 0, 32, 32, -s * 0.62, -s / 2, s, s);

@@ -333,7 +333,7 @@ extendPlayer({
       const p = clamp(a.t / a.dur, 0, 1), ang = a.a0 + Math.PI * 2 * p;
       // 방패 테두리가 몸 둘레를 휩쓸고 지나가는 도트 선 (2026-10-18): 2픽셀 네모를 호 따라 찍는다.
       // 방패 쪽(앞)은 굵고 밝게, 꼬리로 갈수록 가늘고 흐리게. 바깥 줄은 방패 테두리 금빛, 안쪽은 밝은 크림색
-      const ss = ElFx.slot('special'), edge = ss ? EL_STYLE[ss.el].main : '#ffc65a', core = '#fff4d8', R = a.r * 0.6, P = 2;
+      const ss = ElFx.slot('special'), edge = ss ? EL_STYLE[ss.el].main : '#d8dce8', core = '#ffffff', R = a.r * 0.6, P = 2;
       const tail = Math.min(2.2, p * Math.PI * 2), fadeOut = p > 0.85 ? (1 - p) / 0.15 : 1;
       g.save();
       for (let d = 0; d <= tail * R; d += P) {
@@ -470,7 +470,7 @@ Object.assign(FX, {
 
 // 밀치기 이펙트: 방패 앞(각도 offs)에 도트 흙먼지(FX/Smoke)가 피어오른다. 기본공격 칸 속성이 있으면 그 색으로 (2026-10-18)
 function bashPuffs(g, x, cy, f, R, offs, q, sz, tint) { // tint: 다른 칸 색으로 그릴 때 (undefined = 기본공격 칸)
-  const col = tint === undefined ? slotCol('basic', null) : tint, img = col ? tintedBy(ART.img.smoke, col) : ART.img.smoke;
+  const col = tint === undefined ? slotCol('basic', null) : tint, img = tintedBy(ART.img.smoke, col || FX_WHITE); // 기본 흰색 (2026-10-20)
   const fr = Math.min(5, Math.floor(q * 6)) * 32;
   g.save(); g.globalAlpha = 0.95 - q * 0.35;
   for (const o of offs) { const px = x + Math.cos(f + o) * R, py = cy + Math.sin(f + o) * R * 0.8 + 3; g.drawImage(img, fr, 0, 32, 32, Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz); }
@@ -483,7 +483,7 @@ class DustRing {
   draw(g) {
     const q = clamp(this.t / DUST_RING_T, 0, 0.999), fr = Math.floor(q * 6) * 32, R = this.r * (0.45 + 0.55 * q), sz = 15;
     g.save(); g.globalAlpha = 0.9 - q * 0.3;
-    const img = this.tint ? tintedBy(ART.img.smoke, this.tint) : ART.img.smoke;
+    const img = tintedBy(ART.img.smoke, this.tint || FX_WHITE);
     for (let i = 0; i < this.n; i++) {
       const a = i / this.n * Math.PI * 2 + 0.3, px = this.x + Math.cos(a) * R, py = this.y + 4 + Math.sin(a) * R * 0.7;
       g.drawImage(img, fr, 0, 32, 32, Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz);
@@ -522,7 +522,7 @@ class QuakeWave {
   // 그림: 선 대신 에셋 팩 도트 흙먼지(FX/Smoke)가 충격파 앞머리를 따라 퍼진다 (2026-10-18, 막기 이펙트처럼 도트 그림으로)
   draw(g) {
     const q = clamp((this.r - QUAKE_NEAR) / (this.maxR - QUAKE_NEAR), 0, 1), f = this.dir, cs = ElFx.slot('charge');
-    const img = this.after ? tintedBy(ART.img.smoke, '#9fdcff') : cs ? tintedBy(ART.img.smoke, EL_STYLE[cs.el].main) : ART.img.smoke;
+    const img = this.after ? tintedBy(ART.img.smoke, '#9fdcff') : tintedBy(ART.img.smoke, cs ? EL_STYLE[cs.el].main : FX_WHITE);
     const fr = Math.min(5, Math.floor(q * 6)) * 32, sz = 20 - q * 4;
     g.save(); g.globalAlpha = 0.9 - q * 0.4;
     for (const o of [-0.6, 0, 0.6]) {

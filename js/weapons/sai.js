@@ -101,8 +101,9 @@ Object.assign(WEAPONS.sai, {
   },
 });
 // 쌍검 그림자 빛깔 · 길게 늘인 도트 베기 (그림자 베기 · 잔영 베기 길, 2026-10-18)
-const SAI_SHADOW = '#9a8cff';
-const SAI_COUNTER = '#7fe0ff'; // 반격(받아치기) 길 · 분신 빛깔
+// 기본 색은 다른 무기와 같은 흰색으로 통일 (보라 · 하늘 → 흰색, 2026-10-20). 속성을 받으면 그 칸 속성 색
+const SAI_SHADOW = FX_WHITE;
+const SAI_COUNTER = FX_WHITE; // 반격(받아치기) 길 · 분신 빛깔
 function rushSlash(g, x0, y0, x1, y1, col, al, fr) {
   const L = Math.hypot(x1 - x0, y1 - y0); if (L < 6 || al <= 0) return;
   g.save(); g.globalAlpha = al; g.translate(x0, y0); g.rotate(Math.atan2(y1 - y0, x1 - x0));
@@ -188,7 +189,7 @@ extendPlayer({
         G.burst(this.x, this.y - 4, 14, ['#ffffff', '#bff4ff', '#7fe0ff'], 200);
         G.text(this.x, this.y - 34, '반격 준비!', '#7fe0ff', 12, 0.8); Sfx.charged();
       }
-      G.burst(t.x, t.y - 4, 6, slotBurst(a.echo ? 'special' : 'charge', ['#fff', '#cfe8ff']), 140);
+      G.burst(t.x, t.y - 4, 6, slotBurst(a.echo ? 'special' : 'charge', ['#fff', '#e8e8e8']), 140);
     }
   },
   // 받아치기 (특수): 잠깐 막는 자세. 그 사이 공격을 받으면 G.hurtPlayer 가 parry() 를 부른다
@@ -213,7 +214,7 @@ extendPlayer({
     this.invuln = Math.max(this.invuln, RUSH_TIME + RIPOSTE_SAFE);
     this.atkBuffer = 0; this.atkCd = 0.3 + 0.1 * ms; this.comboT = 0; this.finisherT = 0;
     G.text(this.x, this.y - 30, '잔영 베기!', '#c8b4ff', 16, 0.9);
-    pixRing(this.x, this.y, slotCol('special', '#c8b4ff'), 24); G.burst(this.x, this.y - 4, 12, slotBurst('special', ['#ffffff', '#c8b4ff', '#7fe0ff']), 200);
+    pixRing(this.x, this.y, slotCol('special', FX_WHITE), 24); G.burst(this.x, this.y - 4, 12, slotBurst('special', ['#ffffff', '#e8e8e8']), 200);
     G.shake = Math.max(G.shake, 4); Sfx.dash(); Input.rumble(0.5, 120);
   },
   parry(src) {
@@ -232,8 +233,8 @@ extendPlayer({
     else this.specialCd = 0; // 한 칸짜리: 쿨타임을 바로 풀어 준다 (쌍검 충전 2 → 1, 2026-10-17)
     this.parryChain = G.time - (this.parryLastT ?? -99) < PARRY_CHAIN_T ? (this.parryChain || 1) + 1 : 1; this.parryLastT = G.time;
     G.text(this.x, this.y - 30, this.parryChain > 1 ? '연속 반격 ×' + this.parryChain + '!' : '받아치기!', this.parryChain > 1 ? '#ffe18a' : '#7fe0ff', 16 + Math.min(6, this.parryChain - 1), 0.9);
-    pixRing(this.x, this.y, slotCol('special', '#7fe0ff'), this.parryWide ? PARRY_WIDE_R : 44); // 특수 칸 속성 색 (2026-10-18)
-    G.burst(this.x, this.y - 4, 18, slotBurst('special', ['#ffffff', '#bff4ff', '#7fe0ff']), 220);
+    pixRing(this.x, this.y, slotCol('special', FX_WHITE), this.parryWide ? PARRY_WIDE_R : 44); // 특수 칸 속성 색 (2026-10-18)
+    G.burst(this.x, this.y - 4, 18, slotBurst('special', ['#ffffff', '#e8e8e8']), 220);
     G.hitstop = Math.max(G.hitstop, 0.08); G.shake = Math.max(G.shake, 6);
     Sfx.guardBreak(); Sfx.dodge(); Input.rumble(0.7, 160);
     FX.onParry(this);
@@ -247,7 +248,7 @@ extendPlayer({
     this.deal(t, 'riposte', dx / d, dy / d);
     if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, PARRY_STUN);
     a.marks.push({ x: t.x, y: t.y - 4, t: a.t, ang: this.facing + rand(-0.5, 0.5) });
-    G.burst(t.x, t.y - 4, 12, slotBurst('special', ['#ffffff', '#bff4ff', '#ffe18a']), 200);
+    G.burst(t.x, t.y - 4, 12, slotBurst('special', ['#ffffff', '#e8e8e8']), 200);
   },
   // 선풍 베기 (대시 직후 공격): 쌍검으로 한 바퀴 돌며 주변을 벤다
   get whirlR() { return WHIRL_R * (1 + 0.1 * FX.lv('atk_thrust')); },
@@ -271,7 +272,7 @@ extendPlayer({
     const idle = side => { const [hx, hy] = at(3, side * 7); saiSprite(g, hx, hy, f + side * 0.9 + (side > 0 ? 0.4 : -0.4), 0); };
     const slashFx = (key, fwd, k, frac, flip) => { // 에셋 베기 효과 (32x32 4장)
       const bs = ElFx.slot(key === 'circSlash' ? 'dash' : 'basic'), base = ART.img[key];
-      const img = bs ? ElFx.tinted(base, bs.el) : base, fr = Math.min(3, Math.floor(frac * 4)) * 32;
+      const img = bs ? ElFx.tinted(base, bs.el) : whiteFx(base), fr = Math.min(3, Math.floor(frac * 4)) * 32;
       g.save(); g.translate(x + c * fwd, cy + s * fwd); if (key !== 'circSlash') g.rotate(f); if (flip) g.scale(1, -1); // 둥근 베기는 방향과 상관없이 같은 원 (2026-10-18)
       g.drawImage(img, fr, 0, 32, 32, -16 * k, -16 * k, 32 * k, 32 * k); g.restore();
     };
@@ -305,7 +306,7 @@ extendPlayer({
       for (const side of [-1, 1]) { const [hx, hy] = at(7, side * 3); saiSprite(g, hx, hy, f - side * 0.7, 2); }
       const k = 0.55 + Math.sin(G.time * 30) * 0.15, ss = ElFx.slot('special');
       if (ss) ElFx.arc(g, ss, x, cy, 16, f - 1.1, f + 1.1, 3, k);
-      else { g.strokeStyle = `rgba(127,224,255,${k})`; g.lineWidth = 3; g.beginPath(); g.arc(x, cy, 16, f - 1.1, f + 1.1); g.stroke(); }
+      else { g.strokeStyle = `rgba(255,255,255,${k})`; g.lineWidth = 3; g.beginPath(); g.arc(x, cy, 16, f - 1.1, f + 1.1); g.stroke(); }
     } else if (a && a.kind === 'riposte') {
       const moving = !a.ended, fade = moving ? 1 : clamp(1 - (a.t - a.dash) / 0.3, 0, 1);
       for (const side of [-1, 1]) { const [hx, hy] = at(moving ? 10 : 6, side * 4); saiSprite(g, hx, hy, f + side * (moving ? 0.12 : 0.9), moving ? 6 : 0); }
@@ -317,7 +318,7 @@ extendPlayer({
       for (const m of a.marks) {
         const q = (a.t - m.t) / 0.28;
         if (q < 0 || q >= 1) continue;
-        const img = ss ? ElFx.tinted(ART.img.cutX, ss.el) : ART.img.cutX, fr = Math.min(3, Math.floor(q * 4)) * 32;
+        const img = ss ? ElFx.tinted(ART.img.cutX, ss.el) : whiteFx(ART.img.cutX), fr = Math.min(3, Math.floor(q * 4)) * 32;
         g.save(); g.translate(m.x, m.y); g.rotate(m.ang); g.drawImage(img, fr, 0, 32, 32, -40, -40, 80, 80); g.restore();
       }
     } else if (a && a.kind === 'whirl') {
@@ -377,7 +378,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.px = this.x; a.py = this.y;
       } else if (!a.ended) { // 도착: 한 번 더 번쩍
         a.ended = true; a.x1 = this.x; a.y1 = this.y;
-        pixRing(this.x, this.y, slotCol('special', '#bff4ff'), 30); G.burst(this.x, this.y - 4, 10, slotBurst('special', ['#ffffff', '#7fe0ff']), 160);
+        pixRing(this.x, this.y, slotCol('special', FX_WHITE), 30); G.burst(this.x, this.y - 4, 10, slotBurst('special', ['#ffffff', '#e8e8e8']), 160);
         G.slowT = Math.max(G.slowT, 0.2); // 도착한 순간 잠깐 느리게
         Sfx.swing(true);
       }

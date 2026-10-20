@@ -186,12 +186,12 @@ extendPlayer({
       // (휘두른 호 선은 뺐다 — 구체 꼬리만, 2026-10-18)
       wandSprite(g, x, cy, ang, 4);
       // 봉 끝의 마법 구체: 휘두르는 길을 따라 작은 빛 구슬이 꼬리를 끌며 지나간다 (2026-10-18)
-      const R = a.range - 8, main = bs ? EL_STYLE[bs.el].main : '#7fe0ff', fin = a.kind === 'bonkFin';
+      const R = a.range - 8, main = bs ? EL_STYLE[bs.el].main : FX_WHITE, fin = a.kind === 'bonkFin';
       for (let k = 4; k >= 0; k--) {
         const q = ang - a.swingDir * k * 0.22; if ((q - a0) * a.swingDir < 0) continue;
         const ox = x + Math.cos(q) * R, oy = cy + Math.sin(q) * R * 0.85, rr = (fin ? 4.5 : 3.6) * (1 - k * 0.17);
         g.globalAlpha = (1 - k * 0.2) * (1 - pr * 0.5);
-        g.fillStyle = bs ? ElFx.rgba(bs.el, 0.35) : 'rgba(127,224,255,0.35)'; g.beginPath(); g.arc(ox, oy, rr + 2.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = bs ? ElFx.rgba(bs.el, 0.35) : 'rgba(255,255,255,0.35)'; g.beginPath(); g.arc(ox, oy, rr + 2.5, 0, Math.PI * 2); g.fill();
         g.fillStyle = main; g.beginPath(); g.arc(ox, oy, rr, 0, Math.PI * 2); g.fill();
         if (k === 0) { g.fillStyle = '#fff'; g.beginPath(); g.arc(ox - 1, oy - 1, rr * 0.4, 0, Math.PI * 2); g.fill(); }
       }
@@ -199,29 +199,29 @@ extendPlayer({
     } else if (a && a.kind === 'cast' && a.orbCast) {
       wandSprite(g, x, cy, f, 6);
       const tx = x + c * 22, ty = cy + s * 22 - 4, ss = ElFx.slot('special');
-      g.fillStyle = ss ? ElFx.rgba(ss.el, 0.6) : 'rgba(170,240,255,0.6)'; g.beginPath(); g.arc(tx, ty, 5 * (1 - a.t / a.dur) + 2, 0, Math.PI * 2); g.fill();
+      g.fillStyle = ss ? ElFx.rgba(ss.el, 0.6) : 'rgba(255,255,255,0.6)'; g.beginPath(); g.arc(tx, ty, 5 * (1 - a.t / a.dur) + 2, 0, Math.PI * 2); g.fill();
     } else if (a && a.kind === 'cast' && a.circleCast) {
       wandSprite(g, x + 2, cy - 4, -Math.PI / 2 + 0.25, 2); // 높이 든다
     } else if (a && a.kind === 'pulse') {
       const pr = a.t / a.dur;
       wandSprite(g, x, cy, -Math.PI / 2, 2);
       // 퍼지는 동그라미 선은 뺐다 (2026-10-18). 대신 도트 둥근 베기 그림(다단히트와 같은 것)으로
-      const ds = ElFx.slot('dash'), im = tintedBy(ART.img.circSlash, ds ? EL_STYLE[ds.el].main : ECHO_COLOR), sz = this.pulseR * 2, fr = Math.min(3, Math.floor(pr * 4)) * 32;
+      const ds = ElFx.slot('dash'), im = tintedBy(ART.img.circSlash, ds ? EL_STYLE[ds.el].main : FX_WHITE), sz = this.pulseR * 2, fr = Math.min(3, Math.floor(pr * 4)) * 32;
       g.drawImage(im, fr, 0, 32, 32, Math.round(x - sz / 2), Math.round(cy - sz / 2), sz, sz);
     } else wandSprite(g, x + c * 3, cy + 5, f + 0.9, -2);
     // 마력 구슬: 머리 위에 떠서 천천히 돈다 (빈 자리는 흐리게, 차오르는 자리는 커지며)
     const n = this.orbMax;
     for (let i = 0; i < n; i++) {
       const q = G.time * 1.6 + i / n * Math.PI * 2, bx = x + Math.cos(q) * 11, by = y - 27 + Math.sin(q) * 3;
-      const ss = ElFx.slot('special'), col = ss ? EL_STYLE[ss.el].main : '#7fe0ff';
+      const ss = ElFx.slot('special'), col = ss ? EL_STYLE[ss.el].main : FX_WHITE;
       if (i < this.orbs) {
-        g.fillStyle = ss ? ElFx.rgba(ss.el, 0.3) : 'rgba(127,224,255,0.3)'; g.beginPath(); g.arc(bx, by, 4, 0, Math.PI * 2); g.fill();
+        g.fillStyle = ss ? ElFx.rgba(ss.el, 0.3) : 'rgba(255,255,255,0.3)'; g.beginPath(); g.arc(bx, by, 4, 0, Math.PI * 2); g.fill();
         g.fillStyle = col; g.beginPath(); g.arc(bx, by, 2.4, 0, Math.PI * 2); g.fill();
         g.fillStyle = '#fff'; g.beginPath(); g.arc(bx - 0.7, by - 0.7, 0.9, 0, Math.PI * 2); g.fill();
       } else {
         const k = i === this.orbs ? 1 - clamp(this.orbT / this.orbRecharge, 0, 1) : 0;
         g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.arc(bx, by, 2.2, 0, Math.PI * 2); g.fill();
-        if (k > 0) { g.fillStyle = 'rgba(127,224,255,0.7)'; g.beginPath(); g.arc(bx, by, 2.2 * k, 0, Math.PI * 2); g.fill(); }
+        if (k > 0) { g.fillStyle = 'rgba(255,255,255,0.7)'; g.beginPath(); g.arc(bx, by, 2.2 * k, 0, Math.PI * 2); g.fill(); }
       }
     }
   },
@@ -340,10 +340,10 @@ class MagicOrb {
   pop() {
     this.done = true;
     const ss = ElFx.slot('special');
-    if (ss) ElFx.spark(ss, this.x, this.y, 3); else G.burst(this.x, this.y, 5, ['#aaf0ff', '#fff'], 90);
+    if (ss) ElFx.spark(ss, this.x, this.y, 3); else G.burst(this.x, this.y, 5, ['#ffffff', '#e8e8e8'], 90);
   }
   draw(g) {
-    const ss = ElFx.slot('special'), base = ART.img.orb, img = ss ? ElFx.tinted(base, ss.el) : base, fr = (Math.floor(this.t * 14) % 4) * 16;
+    const ss = ElFx.slot('special'), base = ART.img.orb, img = ss ? ElFx.tinted(base, ss.el) : whiteFx(base), fr = (Math.floor(this.t * 14) % 4) * 16;
     g.save(); g.translate(this.x, this.y); g.rotate(this.dir + Math.PI / 2);
     g.drawImage(img, fr, 0, 16, 16, -10, -10, 20, 20);
     g.restore();
@@ -367,8 +367,8 @@ class MagicCircle {
         if (d > this.r + t.r) continue;
         p.deal(t, 'circle', dx / d, dy / d, { mult, kb: this.small ? 60 : undefined });
       }
-      pixRing(this.x, this.y, slotCol('charge', '#cfe8ff'), this.r); // 마법진 폭발: 도트 고리, 차지 칸 속성 색 (2026-10-18)
-      G.burst(this.x, this.y, this.small ? 8 : 16, slotBurst('charge', ['#cfe8ff', '#fff', '#aaf0ff']), 170);
+      pixRing(this.x, this.y, slotCol('charge', FX_WHITE), this.r); // 마법진 폭발: 도트 고리, 차지 칸 속성 색 (2026-10-18)
+      G.burst(this.x, this.y, this.small ? 8 : 16, slotBurst('charge', ['#ffffff', '#e8e8e8']), 170);
       G.shake = Math.max(G.shake, this.small ? 2 : 5); Sfx.boom();
       if (!this.small) FX.onCircle(p, this.x, this.y, this.r);
       for (let i = 0; i < this.chain; i++) { // 연쇄 마법진
@@ -380,7 +380,7 @@ class MagicCircle {
     if (this.boomT >= 0 && (this.boomT += dt) > 0.25) this.done = true;
   }
   draw(g) {
-    const cs = ElFx.slot('charge'), base = ART.img.magicCircle, img = cs ? ElFx.tinted(base, cs.el) : base;
+    const cs = ElFx.slot('charge'), base = ART.img.magicCircle, img = cs ? ElFx.tinted(base, cs.el) : whiteFx(base);
     const k = clamp(this.t / this.delay, 0, 1), fade = this.boomT >= 0 ? 1 - this.boomT / 0.25 : 0.5 + 0.5 * k;
     const fr = this.boomT >= 0 ? 3 : Math.min(2, Math.floor(k * 3)), size = this.r * 2 * (this.boomT >= 0 ? 1 + this.boomT : 0.6 + 0.4 * k);
     const a0 = g.globalAlpha; g.globalAlpha = a0 * fade;

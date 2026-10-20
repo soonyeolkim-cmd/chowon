@@ -54,7 +54,21 @@ const ECHO_FLASH = 0.12;    // 잔상 그림(도트 4장)이 넘어가는 시간
 const ECHO_COLOR = '#8fd8ff'; // 잔상 색: 방패 막기 이펙트 같은 푸른빛
 // 그림을 한 색으로 물들여 둔다 (그림 · 색마다 한 번만 만든다)
 const _tintCache = new Map();
+// 속성이 없을 때 무기 이펙트의 기본 색 = 흰색 (2026-10-20): 에셋 그림 원래 색(흰색 → 노랑 · 주황)은 번개 · 불과 헷갈려서,
+//   색을 빼고 밝힌 흰색 그림으로 모든 무기 · 모든 칸을 통일한다. 속성을 받으면 그 칸의 속성 색으로 바뀐다. (잔상 · 다단히트의 푸른빛은 그대로)
+const FX_WHITE = '#ffffff';
+function whiteFx(img) {
+  const key = img.src + '#white'; let cv = _tintCache.get(key);
+  if (cv || !img.width) return cv || img;
+  cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+  const x = cv.getContext('2d'); x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, cv.width, cv.height), p = d.data;
+  for (let i = 0; i < p.length; i += 4) { const v = Math.min(255, (p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11) * 0.85 + 60); p[i] = p[i + 1] = p[i + 2] = v; } // 명암은 남기고 밝게
+  x.putImageData(d, 0, 0);
+  _tintCache.set(key, cv); return cv;
+}
 function tintedBy(img, color) {
+  if (color === FX_WHITE) return whiteFx(img);
   const key = img.src + color; let cv = _tintCache.get(key);
   if (cv || !img.width) return cv || img;
   cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;

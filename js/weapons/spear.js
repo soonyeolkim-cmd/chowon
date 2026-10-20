@@ -269,7 +269,7 @@ extendPlayer({
       const p = clamp(a.t / (a.dur * 0.7), 0, 1), e = 1 - Math.pow(1 - p, 2);
       const ang = f - a.half + 2 * a.half * e;
       // 휩쓸기 범위: 잔상 일격과 같은 푸른 도트 베기 그림을 더 크게, 좌우를 뒤집어 (휘두르는 방향 쪽으로) 그린다 (2026-10-18, 굵은 호 선 → 도트)
-      const ds = ElFx.slot('dash'), im = tintedBy(ART.img.slash, ds ? EL_STYLE[ds.el].main : ECHO_COLOR);
+      const ds = ElFx.slot('dash'), im = tintedBy(ART.img.slash, ds ? EL_STYLE[ds.el].main : FX_WHITE);
       const sz = a.len * 1.5, fr = Math.min(3, Math.floor(p * 4));
       g.save(); g.globalAlpha *= 0.95; g.translate(x, cy); g.rotate(f); g.scale(1, -1);
       g.drawImage(im, fr * 32, 0, 32, 32, a.len * 0.5 - sz / 2, -sz / 2, sz, sz);
@@ -289,9 +289,9 @@ extendPlayer({
       // 창기: 길게 늘인 도트 베기 그림 (푸른빛, 차지 칸 속성 색). 선 → 도트 (2026-10-18)
       const L = a.len * Math.min(1, p / 0.12), cs = ElFx.slot('charge');
       g.save(); g.globalAlpha *= Math.min(1, e * 1.5);
-      beamFx(g, x, cy, f, L, Math.min(0.99, 0.5 + p), cs ? EL_STYLE[cs.el].main : '#7fe0ff');
+      beamFx(g, x, cy, f, L, Math.min(0.99, 0.5 + p), cs ? EL_STYLE[cs.el].main : FX_WHITE);
       g.restore();
-      if (Math.random() < 0.8 * e) G.particles.push({ x: x + c * rand(30, L), y: cy + s * rand(30, L), vx: rand(-20, 20), vy: rand(-30, -5), life: 0.3, max: 0.3, color: Math.random() < 0.5 ? (cs ? EL_STYLE[cs.el].light : '#bff4ff') : '#fff', size: 2, grav: 0 });
+      if (Math.random() < 0.8 * e) G.particles.push({ x: x + c * rand(30, L), y: cy + s * rand(30, L), vx: rand(-20, 20), vy: rand(-30, -5), life: 0.3, max: 0.3, color: Math.random() < 0.5 ? (cs ? EL_STYLE[cs.el].light : '#e8e8e8') : '#fff', size: 2, grav: 0 });
       if (a.phantomAt !== undefined && a.t - a.phantomAt < 0.1) { // 연환: 같은 줄을 한 번 더 (도트)
         g.save(); g.globalAlpha *= 1 - (a.t - a.phantomAt) / 0.1;
         beamFx(g, x, cy, f, a.len, 0.6, '#bff4ff');
@@ -332,7 +332,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.stabs++; a.hit = new Set(); a.phantomAt = a.t;
         a.opts = { mult: MULTISPIN_MULT, kb: a.stabs < a.extra ? 40 : undefined };
         this.hitSpear(a, a.len, SPEAR_WIDTH + 2, 0);
-        G.burst(this.x + fx * a.len, this.y - 1 + fy * a.len, 5, slotBurst('charge', ['#7fe0ff', '#fff']), 120); Sfx.thrust();
+        G.burst(this.x + fx * a.len, this.y - 1 + fy * a.len, 5, slotBurst('charge', ['#ffffff', '#e8e8e8']), 120); Sfx.thrust();
       }
       return true;
     }
@@ -344,7 +344,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         if (wb >= 0) a.len = Math.max(30, wb + 6); // 나무 · 바위에 막히면 거기까지 (2026-10-18)
         this.hitSpear(a, a.len, SPEAR_BEAM_WIDTH, 0);
         G.shake = Math.max(G.shake, 6); G.hitstop = Math.max(G.hitstop, 0.05); Input.rumble(0.7, 160);
-        G.burst(this.x + fx * a.len, this.y - 2 + fy * a.len, 12, slotBurst('charge', ['#bff4ff', '#fff', '#7fe0ff']), 200);
+        G.burst(this.x + fx * a.len, this.y - 2 + fy * a.len, 12, slotBurst('charge', ['#ffffff', '#e8e8e8']), 200);
         FX.onLungeEnd(this, a.len); // 벼락 꿰뚫기: 끝 쪽 벼락
       }
       if (a.fired && a.stabs < (a.extra || 0) && a.t >= 0.06 + 0.1 * (a.stabs + 1)) { // 연환: 창기가 다시 뻗는다
@@ -447,7 +447,7 @@ Object.assign(FX, {
 // 창 이펙트: 에셋 팩 도트 베기(FX/Attack/Cut, 32x32 4장)를 방향 dir 로 len 길이 · thick 굵기로 늘여 그린다. q = 0~1 진행 (2026-10-18)
 function cutFx(g, x0, y0, dir, len, thick, q, tint, squash = 1) { // squash: 방향과 수직으로 눌러 폭을 좁힌다 (1 = 그대로)
   if (len <= 2) return;
-  const im = tint ? tintedBy(ART.img.cut, tint) : ART.img.cut, fr = Math.min(3, Math.max(0, Math.floor(q * 4)));
+  const im = tintedBy(ART.img.cut, tint || FX_WHITE), fr = Math.min(3, Math.max(0, Math.floor(q * 4))); // 색이 없으면 기본 흰색 (2026-10-20)
   g.save(); g.translate(x0, y0); g.rotate(dir); if (squash !== 1) g.scale(1, squash); g.rotate(Math.PI / 4); // 그림 속 베기는 왼쪽 아래 → 오른쪽 위 대각선(-45°) → 방향에 맞춘다
   const k = len / Math.SQRT2;
   g.drawImage(im, fr * 32, 0, 32, 32, 0, -k, k, k);
