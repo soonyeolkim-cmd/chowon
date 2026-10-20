@@ -530,8 +530,10 @@ const G = {
     const mv = MOVES[info.kind] || {}, big = !mv.light, ranged = !!mv.ranged;
     this.hitstop = Math.max(this.hitstop, ranged ? 0.02 : info.crit || big || info.tip ? 0.065 : 0.04);
     this.shake = Math.max(this.shake, big ? 5 : 3);
-    const label = info.counter ? '반격! ' + dmg : String(dmg);
-    this.text(t.x, t.y - t.r - 6, label, info.counter ? '#7fe0ff' : info.crit ? '#ffd24a' : info.tip ? '#ffe18a' : '#fff', info.crit ? 16 : info.tip ? 14 : 12);
+    // '반격!' 은 쌍검 받아치기 성공 때만 (2026-10-20 사용자). 저스트 회피 · 저스트 가드 · 잔영 베기의 확정 치명타는 보통 치명타처럼 보인다
+    const riposte = info.counter && info.kind === 'riposte';
+    const label = riposte ? '반격! ' + dmg : String(dmg);
+    this.text(t.x, t.y - t.r - 6, label, riposte ? '#7fe0ff' : info.crit ? '#ffd24a' : info.tip ? '#ffe18a' : '#fff', info.crit ? 16 : info.tip ? 14 : 12);
     this.burst(t.x, t.y, 6, ['#fff', '#ffe9a8'], 140);
     Sfx.hit(info.crit); Input.rumble(big ? 0.5 : 0.25, big ? 90 : 50);
 

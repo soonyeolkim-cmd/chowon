@@ -64,7 +64,7 @@ addWeapon('sai', {
     ['특수 · 받아치기', `${P} (쿨타임 3초)`, '0.4초 막는 자세 · 그 사이 맞으면 막고 반격 치명타 + 기절 + 기세 +2 · 성공하면 쿨타임이 바로 풀려 연속 반격'],
     ['대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.sai.dashCdMult).toFixed(2)}초 · 3회)`, '짧고 빠른 연속 대시'],
     ['선풍 베기', `${D} → ${A}`, '한 바퀴 돌며 주변을 벤다', 'thrust'],
-    ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 반격 치명타', 'dodge'],
+    ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 확정 치명타', 'dodge'],
     ['교차 받아치기', `3타째 직후 ${P}`, '막는 시간 0.6초 · 반격이 주변 적 모두에게', 'triple'],
   ],
   notesTitle: '쌍검 특성 · 기세와 받아치기',
@@ -188,7 +188,7 @@ extendPlayer({
         a.freed = true; this.freeSpecialT = RUSH_FREE_T;
         pixRing(this.x, this.y, '#7fe0ff', 40);
         G.burst(this.x, this.y - 4, 14, ['#ffffff', '#bff4ff', '#7fe0ff'], 200);
-        G.text(this.x, this.y - 34, '반격 준비!', '#7fe0ff', 12, 0.8); Sfx.charged();
+        G.text(this.x, this.y - 34, '받아치기 준비!', '#7fe0ff', 12, 0.8); Sfx.charged();
       }
       G.burst(t.x, t.y - 4, 6, slotBurst(a.echo ? 'special' : 'charge', ['#fff', '#e8e8e8']), 140);
     }

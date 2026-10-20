@@ -63,7 +63,7 @@ addWeapon('bow', {
     ['특수 · 덫 놓기', `${P} (쿨타임 3.5초)`, `발밑에 덫 · 동시에 ${TRAP_MAX}개 · 밟으면 터짐 · 화살로 쏘면 더 크게 터짐`],
     ['대시', `${D} (쿨타임 ${DASH_CD}초)`, '짧은 무적 이동'],
     ['덫 던지기', `${D} → ${A}`, `덫 화살 (사거리 ${TRAP_ARROW_RANGE}) · 맞으면 그 자리에서 덫이 터지고, 빗나가면 떨어진 곳에 덫`, 'thrust'],
-    ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 반격 치명타', 'dodge'],
+    ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 확정 치명타', 'dodge'],
   ],
   shieldHint: '저 방패병은 정면 화살을 막아요! 꿰뚫는 화살이나 덫 폭발은 방패를 깨요.',
   mastery: [
@@ -76,7 +76,7 @@ addWeapon('bow', {
 
 Object.assign(WEAPONS.bow, {
   draw: (p, g, x, y) => p.drawBow(g, x, y),
-  dodgeText: '대시 · 반격 준비!',
+  dodgeText: '대시 · 덫 준비!',
   padIcon(b) { // 덫: 이빨 달린 고리
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.38, 0, Math.PI * 2); ctx.stroke();
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(b.x + Math.cos(a) * b.r * 0.38, b.y + Math.sin(a) * b.r * 0.38); ctx.lineTo(b.x + Math.cos(a) * b.r * 0.2, b.y + Math.sin(a) * b.r * 0.2); ctx.stroke(); }

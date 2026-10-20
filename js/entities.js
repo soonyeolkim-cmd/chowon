@@ -1244,10 +1244,11 @@ class Boss {
     if (i === 5) { // 삼룡: 용 셋이 체력을 나눠 가진다. 보스 자신은 맞지 않는다
       this.untargetable = true; this.each = Math.round(this.maxHp * 0.42); this.maxHp = this.hp = this.each * 3;
     }
-    if (curse('hp')) this.maxHp = this.hp = Math.round(this.hp * 1.2);
+    if (curse('hp')) { if (this.each) this.each = Math.round(this.each * 1.2); this.maxHp = this.hp = Math.round(this.hp * 1.2); } // 삼룡은 용 셋에게도 (2026-10-20 버그: 막대만 늘고 용은 그대로라 83%로 시작)
     if (curse('dmg')) this.dmg = Math.round(this.dmg * 1.15);
     if (curse('rage')) { this.enraged = true; this.speed *= 1.3; } // 분노한 주인: 처음부터 격노
     if (curse('guard')) { if (this.each) this.each = Math.round(this.each * 1.25); this.maxHp = this.hp = Math.round(this.hp * 1.25); } // 깨어난 수호자: 체력 +25%
+    if (this.each) this.maxHp = this.hp = this.each * 3; // 삼룡: 막대 = 용 셋 체력 합 (반올림 차이도 없게)
   }
   get vulnerable() { return this.state === 'stun'; }
   get fast() { return (this.enraged ? 0.7 : 1) * BOSS_WIND * (curse('guard') ? 0.85 : 1); } // 예고 시간 배율 (작을수록 빨리 발동). 깨어난 수호자: -15%
