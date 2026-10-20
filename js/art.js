@@ -76,6 +76,8 @@ const ART_FILES = {
   slash:     'FX/Attack/SlashCurved/SpriteSheet.png',
   sai:       'Items/Weapons/Sai/Sprite.png',
   wand:      'Items/Weapons/MagicWand/Sprite.png',
+  bow:       'Items/Weapons/Bow/Sprite.png',          // 사냥꾼의 활 (15x7, 2026-10-20)
+  arrow:     'Items/Weapons/Bow/Arrow.png',           // 화살 (13x5, 촉이 오른쪽)
   orb:       'FX/Projectile/EnergyBall.png',           // 마력탄 (16x16 4장)
   magicCircle: 'FX/Magic/Circle/SpriteSheetWhite.png', // 마법진 (32x32 4장)
   cutX:      'FX/Attack/CutX/SpriteSheet.png',          // 쌍검 3타째 X자 베기 (32x32 4장)

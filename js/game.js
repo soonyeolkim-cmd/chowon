@@ -2047,7 +2047,7 @@ function villageItems(tab) {
       lv: () => Meta.lv(u.id), cost: () => Meta.nextCost(u), buy: () => Meta.buy(u),
     }));
   }
-  const list = WEAPON_ORDER.map(id => {
+  const list = weaponOrder().map(id => {
     const W0 = WEAPONS[id], m = W0.moves;
     return { key: 'w.' + id, weapon: id, name: W0.name,
       desc: () => `${W0.style}  |  ${m.basic} · ${m.charged} · ${m.special}`,
@@ -2396,7 +2396,7 @@ function bookList(tab) {
 function bookLayout() { return bookAs(bookLayoutRaw); }
 function bookLayoutRaw() {
   const w = Math.min(W - 24, 760), x = (W - w) / 2, y = inset.t + 8, h = H - inset.t - inset.b - 16;
-  const weapons = WEAPON_ORDER.map((id, i) => { const ww = (w - 24) / WEAPON_ORDER.length; return { id, x: x + 12 + i * ww, y: y + 38, w: ww - 4, h: 24 }; });
+  const wo = weaponOrder(), weapons = wo.map((id, i) => { const ww = (w - 24) / wo.length; return { id, x: x + 12 + i * ww, y: y + 38, w: ww - 4, h: 24 }; });
   const tabs = BOOK_TABS.map(([k], i) => { const tw = (w - 24) / BOOK_TABS.length; return { k, x: x + 12 + i * tw, y: y + 66, w: tw - 4, h: 26 }; });
   const view = { x: x + 12, y: y + 98, w: w - 24, h: h - 98 - 22 };
   const close = { x: x + w - 74, y: y + 8, w: 64, h: 26 };
@@ -2418,7 +2418,7 @@ function handleBoonBook(dt, inp) {
   const setTab = t => { t = (t + BOOK_TABS.length) % BOOK_TABS.length; if (t !== bk.tab) { bk.tab = t; bk.scroll = 0; Sfx.pickup(); } };
   const setWeapon = id => { if (id !== bk.weapon) { bk.weapon = id; bk.scroll = 0; Sfx.pickup(); } };
   // LB · RB = 무기 바꾸기, ←→ = 속성 바꾸기
-  if (inp.lb || inp.rb) { const n = WEAPON_ORDER.length, i = WEAPON_ORDER.indexOf(bk.weapon); setWeapon(WEAPON_ORDER[(i + (inp.rb ? 1 : -1) + n) % n]); return; }
+  if (inp.lb || inp.rb) { const wo = weaponOrder(), n = wo.length, i = wo.indexOf(bk.weapon); setWeapon(wo[(i + (inp.rb ? 1 : -1) + n) % n]); return; }
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
   if (hx && hx !== bk.axisX) setTab(bk.tab + hx);
   bk.axisX = hx;

@@ -23,8 +23,15 @@
 
 const WEAPONS = {};
 const WEAPON_ORDER = [];      // 마을 무기고에 보이는 순서 (addWeapon 순서)
-const UPCOMING_WEAPONS = [{ name: '사냥꾼의 활', cost: 1 }]; // 아직 만들지 않은 무기: { name, cost } → 무기고에 '차후 구현' (활, 2026-10-18)
+const UPCOMING_WEAPONS = []; // 아직 만들지 않은 무기: { name, cost } → 무기고에 '차후 구현' (활은 2026-10-20 완성)
 const ACT_HANDLERS = [];      // 기술 진행 처리기 (무기 파일들이 넣는다)
 function addWeapon(id, def) { WEAPONS[id] = def; WEAPON_ORDER.push(id); return def; }
+// 화면에 보이는 무기 순서 (2026-10-20): 해금한 순서대로(저장의 unlocked 순서), 그 뒤에 아직 안 연 무기는 원래 순서.
+//   무기고 · 축복 도감 무기 탭 · LB/RB 무기 넘기기가 모두 이 순서를 쓴다
+function weaponOrder() {
+  const got = ((typeof Meta !== 'undefined' && Meta.data && Meta.data.unlocked) || []).filter(id => WEAPONS[id]);
+  const seen = new Set(got);
+  return [...seen, ...WEAPON_ORDER.filter(id => !seen.has(id))];
+}
 // 플레이어에 기술 함수 · 계산값(get)을 붙인다
 function extendPlayer(obj) { Object.defineProperties(Player.prototype, Object.getOwnPropertyDescriptors(obj)); }
