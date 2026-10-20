@@ -28,7 +28,6 @@ pierceShot: { mult: 2.4, kb: 200, guardBreak: true, role: 'charge', ranged: true
 trap:       { mult: 1.6, kb: 0, guardBreak: true, role: 'special', passive: true },   // passive: 저절로 터지는 피해 → 저스트 회피 반격을 안 쓴다                               // 덫이 물었을 때
 trapBoom:   { mult: 1.4, kb: 200, guardBreak: false, role: 'special', passive: true },                            // 덫을 화살로 쏴서 터뜨렸을 때
 backShot:   { mult: 1.2, kb: 60, guardBreak: false, role: 'dash', ranged: true },                  // 대시 사격 덫 화살 (맞으면 그 자리에서 덫이 문다)
-trapDash:   { mult: 1.0, kb: 0, guardBreak: true, role: 'dash', passive: true },                                  // 대시 사격 때 발밑에 놓은 덫
 });
 
 addWeapon('bow', {
@@ -47,7 +46,8 @@ addWeapon('bow', {
     `연사 사거리는 ${BOW_RANGE}. 멀리 있는 원거리 마물(부엉이 · 해골 · 눈알 …)보다는 짧아서 다가가야 해요.`,
     `덫은 동시에 ${TRAP_MAX}개까지, ${TRAP_LIFE}초 동안 남아요. 밟은 마물은 ${TRAP_ROOT}초 묶여요 (보스는 피해만).`,
     `깔린 덫을 화살로 맞히면 그 자리에서 터져요 (범위 ${TRAP_BOOM_R}). 안 밟는 원거리 마물 · 보스에게 써요.`,
-    `대시 사격은 대시하던 쪽으로 덫 화살을 쏴요 (사거리 ${TRAP_ARROW_RANGE}). 맞은 적은 그 자리에서 덫이 물고, 빗나가면 떨어진 곳에 덫이 꽂혀요. 덫 놓기와 합쳐서 최대 개수를 세요.`,
+    `대시 사격은 대시하던 쪽으로 덫 화살을 쏴요 (사거리 ${TRAP_ARROW_RANGE}). 맞은 적은 그 자리에서 덫이 물고, 빗나가면 떨어진 곳에 덫이 꽂혀요.`,
+    '화살은 대시 쪽 축복(대시 사격 강화 · 숙련)으로, 그 덫은 덫 놓기와 똑같은 덫이라 특수 쪽 축복(덫 속성 · 덫 유인)으로 강해져요. 덫 개수도 함께 세요.',
   ],
   basic: (p, mag) => p.startShot(mag),
   basicAfterDash: p => p.startBackShot(),
@@ -67,7 +67,7 @@ addWeapon('bow', {
     { id: 'combo',  name: '연사 숙련',           max: 3, cost: [2, 4, 7], desc: lv => `3발째 피해 +${15 * lv}%` },
     { id: 'spin',   name: '꿰뚫는 화살 숙련',    max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 사거리 +${8 * lv}%` },
     { id: 'wave',   name: '덫 숙련',             max: 3, cost: [3, 5, 8], desc: lv => `덫 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 2초)` },
-    { id: 'thrust', name: '대시 사격 숙련',     max: 3, cost: [2, 4, 7], desc: lv => `대시 사격 (덫 화살 · 그 덫) 피해 +${20 * lv}%` },
+    { id: 'thrust', name: '대시 사격 숙련',     max: 3, cost: [2, 4, 7], desc: lv => `대시 사격 화살 피해 +${20 * lv}%` },
   ],
 });
 
@@ -90,7 +90,7 @@ BOON_FORMS.bow = {
   fire_basic:     { name: '불화살' },
   fire_charge:    { name: '불길 화살', desc: lv => `꿰뚫는 화살에 맞은 적에게 화상 2중첩, 지나간 줄에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
   fire_special:   { name: '불꽃 덫', desc: lv => `덫이 물거나 터지면 그 자리에 ${1.5 + 0.5 * lv}초간 불길 + 화상.` },
-  fire_dash:      { name: '불씨 걸음', desc: lv => `대시로 지나간 길에 ${1.5 + 0.5 * lv}초간 불길. 대시 사격 때 놓은 덫도 불꽃 덫이 된다.` },
+  fire_dash:      { name: '불씨 걸음', desc: lv => `대시로 지나간 길에 ${1.5 + 0.5 * lv}초간 불길.` },
   ice_basic:      { name: '서리 화살' },
   ice_charge:     { name: '빙결 화살', desc: lv => `꿰뚫는 화살에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
   ice_special:    { name: '얼음 덫', desc: lv => `덫이 물면 묶는 대신 얼린다 (냉기 ${iceBig(lv)}중첩, 묶는 시간 +0.5초).` },
@@ -103,7 +103,7 @@ BOON_FORMS.bow = {
   atk_combo:      { name: '잔상 사격', desc: lv => `3발째를 잔상 화살이 ${COMBO_ECHO_HITS}번 더 쏜다 (잔상 한 번에 3발째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 3발째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
   atk_multispin:  { name: '연환 관통', desc: lv => `꿰뚫는 화살 뒤 정령의 화살이 같은 줄을 ${lv}번 더 꿰뚫는다 (피해 ${pct(MULTISPIN_MULT)}).` },
   atk_wave:       { name: '덫 유인', desc: lv => `덫이 둘레 ${LURE_R[Math.min(lv, 3)]} 안의 마물을 천천히 끌어당긴다 (보스 제외).` + (lv >= 2 ? ` 동시에 깔 수 있는 덫 +1.` : '') },
-  atk_thrust:     { name: '대시 사격 강화', desc: lv => `덫 화살 사거리 +${10 * lv}%, 덫 화살이 문 적을 ${(0.3 * lv).toFixed(1)}초 더 묶는다.` + (lv > 1 ? ` 대시 사격 피해 +${Math.round(THRUST_DMG * 100 * (lv - 1))}%.` : '') },
+  atk_thrust:     { name: '대시 사격 강화', desc: lv => ['', '덫 화살 사거리 +10%, 덫을 박고도 뒤의 적 1명을 더 꿰뚫는다.', '덫 화살 사거리 +20%, 적 1명을 더 꿰뚫고, 맞히면 대시 1회가 바로 충전된다. 대시 사격 피해 +15%.', '덫 화살 사거리 +30%, 적 2명을 더 꿰뚫고, 맞히면 대시 1회가 바로 충전된다. 대시 사격 피해 +30%.'][Math.min(lv, 3)] + ' (화살이 놓는 덫은 덫 놓기 축복을 따른다)' },
   sharp:          { name: '예리한 화살촉' },
   lifesteal:      { name: '흡혈 화살' },
   guard_spin:     { name: '버티는 시위', desc: lv => `꿰뚫는 화살을 쏠 때 잠깐 무적, 그 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
@@ -155,7 +155,8 @@ extendPlayer({
   startBackShot() {
     this.finisherT = 0;
     this.aim(Math.hypot(Input.state.mx, Input.state.my), BOW_AIM);
-    G.projectiles.push(new BowArrow(this, this.facing, { kind: 'backShot', slot: 'dash', trapArrow: true, range: TRAP_ARROW_RANGE * (1 + 0.1 * FX.lv('atk_thrust')) }));
+    const tl = FX.lv('atk_thrust'); // 대시 사격 강화: 사거리 +10%/레벨 · 1레벨 1명 관통 · 2레벨 맞히면 대시 1회 충전 · 3레벨 2명 관통 (피해는 공통 대시 공격 배율)
+    G.projectiles.push(new BowArrow(this, this.facing, { kind: 'backShot', slot: 'dash', trapArrow: true, range: TRAP_ARROW_RANGE * (1 + 0.1 * tl), pierce: tl >= 3 ? 2 : tl >= 1 ? 1 : 0, dashRefund: tl >= 2 }));
     this.act = { kind: 'backShot', t: 0, dur: 0.18, hit: new Set(), dir: this.dashDir };
     this.atkCd = 0.3; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
     G.text(this.x, this.y - 24, '대시 사격', '#9cdcff', 11, 0.5);
@@ -212,7 +213,7 @@ function bowSprite(g, x, y, ang, pull) {
 // 화살 (연사 · 대시 사격): 곧게 날아가 처음 닿은 적에게 꽂힌다. 덫을 맞히면 덫이 터진다
 class BowArrow {
   constructor(p, dir, o) {
-    Object.assign(this, { dir, kind: o.kind, slot: o.slot, ghost: !!o.ghost, mult: o.mult || 1, delay: o.delay || 0, pierce: o.pierce || 0, hit: new Set(), born: G.time, t: 0, dist: 0, done: false, r: 4, range: o.range || BOW_RANGE, trapArrow: !!o.trapArrow });
+    Object.assign(this, { dir, kind: o.kind, slot: o.slot, ghost: !!o.ghost, mult: o.mult || 1, delay: o.delay || 0, pierce: o.pierce || 0, dashRefund: !!o.dashRefund, trapped: false, hit: new Set(), born: G.time, t: 0, dist: 0, done: false, r: 4, range: o.range || BOW_RANGE, trapArrow: !!o.trapArrow });
     this.x = p.x + Math.cos(dir) * 10; this.y = p.y - 4 + Math.sin(dir) * 10;
   }
   update(dt) {
@@ -220,19 +221,22 @@ class BowArrow {
     this.t += dt;
     const step = ARROW_SPEED * dt, c = Math.cos(this.dir), s = Math.sin(this.dir);
     this.x += c * step; this.y += s * step; this.dist += step;
-    if (this.dist > this.range) { this.done = true; if (this.trapArrow) placeTrap(this.x, this.y + 4, 'dash'); return; } // 덫 화살: 떨어진 곳에 덫
-    if (World.shotBlockedAt(this.x, this.y + 6)) { this.done = true; if (this.trapArrow) placeTrap(this.x - c * 8, this.y + 4 - s * 8, 'dash'); else G.burst(this.x, this.y, 4, ['#a88a52', '#fff'], 80); return; } // 나무 · 바위에 꽂힌다
+    if (this.dist > this.range) { this.done = true; if (this.trapArrow && !this.trapped) placeTrap(this.x, this.y + 4, 'special'); return; } // 덫 화살: 떨어진 곳에 덫 (덫 놓기와 같은 덫)
+    if (World.shotBlockedAt(this.x, this.y + 6)) { this.done = true; if (this.trapArrow && !this.trapped) placeTrap(this.x - c * 8, this.y + 4 - s * 8, 'special'); else G.burst(this.x, this.y, 4, ['#a88a52', '#fff'], 80); return; } // 나무 · 바위에 꽂힌다
     for (const tr of bowTraps()) if (tr.armed && Math.hypot(tr.x - this.x, tr.y - 4 - this.y) < 10) { tr.detonate(); this.done = true; return; }
     for (const t of G.targets()) {
       if (this.hit.has(t) || Math.hypot(t.x - this.x, t.y - this.y) > t.r + this.r) continue;
       this.hit.add(t);
       G.player.deal(t, this.kind, c, s, { mult: this.mult, src: this });
       G.burst(this.x, this.y, 3, slotBurst(this.slot, ['#ffffff', '#e8e8e8']), 70);
-      if (this.pierce-- > 0) continue;
-      if (this.trapArrow) { // 덫 화살: 맞은 적을 그 자리에서 덫이 문다
-        placeTrap(t.x, t.y + 4, 'dash');
-        const tr = bowTraps().pop(); if (tr && !t.dead) { tr.armed = true; tr.extraRoot = 0.3 * FX.lv('atk_thrust'); tr.spring(t); }
+      if (this.trapArrow && !this.trapped) { // 덫 화살: 처음 맞은 적을 그 자리에서 덫이 문다
+        this.trapped = true;
+        placeTrap(t.x, t.y + 4, 'special');
+        const tr = bowTraps().pop(); if (tr && !t.dead) { tr.armed = true; tr.spring(t); }
+        const p = G.player; // 대시 사격 강화 2레벨: 맞히면 대시 1회 바로 충전
+        if (this.dashRefund && p.dashStock < p.dashMax) { p.dashStock++; G.text(p.x, p.y - 30, '대시 +1', '#9cdcff', 11, 0.6); }
       }
+      if (this.pierce-- > 0) continue; // 대시 사격 강화: 덫을 박고도 뒤의 적까지 꿰뚫는다
       this.done = true; return;
     }
   }
@@ -247,7 +251,7 @@ class BowArrow {
       const mx = Math.round(this.x - c * 5), my = Math.round(this.y - s * 5);
       g.fillStyle = '#2a2d33'; g.fillRect(mx - 3, my - 3, 6, 6);
       g.fillStyle = '#c8ccd4'; g.fillRect(mx - 2, my - 2, 4, 4);
-      g.fillStyle = col; g.fillRect(mx - 1, my - 1, 2, 2);
+      g.fillStyle = slotCol('special', FX_WHITE); g.fillRect(mx - 1, my - 1, 2, 2);
     }
     g.globalAlpha = a0;
   }
@@ -300,7 +304,7 @@ class PierceArrow {
   }
 }
 
-// 덫: 놓은 지 0.25초 뒤부터 동작. 밟히면 물고(묶기), 화살에 맞으면 터진다. slot: 'special' (덫 놓기) · 'dash' (대시 사격 때 놓은 덫)
+// 덫: 놓은 지 0.25초 뒤부터 동작. 밟히면 물고(묶기), 화살에 맞으면 터진다. slot: 'special' (덫 놓기 · 덫 화살이 놓는 덫 모두)
 class BowTrap {
   constructor(x, y, slot) { Object.assign(this, { x, y, slot, t: 0, life: TRAP_LIFE, done: false, armed: false, seed: Math.random() * 10 }); }
   update(dt) {
@@ -320,12 +324,12 @@ class BowTrap {
   // 밟혔을 때: 문 적을 묶고, 바로 옆 적도 함께
   spring(victim) {
     this.done = true;
-    const p = G.player, kind = this.slot === 'dash' ? 'trapDash' : 'trap', el = ElFx.slot(this.slot);
+    const p = G.player, kind = 'trap', el = ElFx.slot(this.slot);
     if (victim.type !== 'boss' && !victim.superArmor && !victim.flying) { victim.x = this.x; victim.y = this.y - 4; victim.kvx = victim.kvy = 0; } // 문 적을 덫 한가운데로 (흙먼지가 그 둘레로 퍼지게)
     const hits = G.targets().filter(t => !t.dead && Math.hypot(t.x - this.x, t.y - (this.y - 4)) < 22 + (t.r || 8));
     for (const t of new Set([victim, ...hits])) {
       p.deal(t, kind, 0, 0, { kb: 0 });
-      if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, TRAP_ROOT + (this.extraRoot || 0) + (el && el.el === 'frost' ? 0.5 : 0));
+      if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, TRAP_ROOT + (el && el.el === 'frost' ? 0.5 : 0));
     }
     trapFx(this.x, this.y, this.slot, 34);
     FX.onTrap(p, this, victim, false);
@@ -335,7 +339,7 @@ class BowTrap {
   detonate() {
     if (this.done) return;
     this.done = true;
-    const p = G.player, kind = this.slot === 'dash' ? 'trapDash' : 'trapBoom';
+    const p = G.player, kind = 'trapBoom';
     let first = null;
     for (const t of G.targets()) {
       const dx = t.x - this.x, dy = t.y - (this.y - 4), d = Math.hypot(dx, dy) || 1;
@@ -406,7 +410,7 @@ Object.assign(FX, {
     const list = this.near(x, y, 110).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, 2 + ec);
     for (const e of list) this.skyBolt(e, p.atk * (0.8 + 0.3 * ec));
   },
-  // 덫이 물거나 터졌을 때: 그 칸(특수 = 덫 놓기, 대시 = 대시 사격 때 놓은 덫)에 붙은 속성
+  // 덫이 물거나 터졌을 때: 그 칸(특수 = 덫 놓기, 대시 사격 덫 화살이 놓는 덫도 특수)에 붙은 속성
   onTrap(p, trap, t, boom) {
     const s = ElFx.slot(trap.slot), atk = p.atk;
     if (trap.slot === 'special') { const hw = this.lv('heal_wave'); if (hw && p.alive && !boom) p.hp = Math.min(p.maxHp, p.hp + 0.5 + 0.5 * hw); }
