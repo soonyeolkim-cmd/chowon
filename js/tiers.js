@@ -18,9 +18,13 @@ const CURSES = {
   swift: { name: '성난 사수',     desc: '원거리 마물 공격 간격 -20%' },
   rage:  { name: '분노한 주인',   desc: '보스가 처음부터 격노' },
   heal:  { name: '메마른 숲',     desc: '회복량 절반' },
+  // 등급 8 ~ 10 (2026-10-20): 무기 6종 각성(봉인의 핵 6개)에 맞춰 3단계 추가. 조금씩만 어려워지게
+  fast:  { name: '재빠른 마물',   desc: '근접 마물 이동속도 +15%' },
+  elite: { name: '정예의 습격',   desc: '웨이브마다 정예 마물 1마리 (체력 2.5배)' },
+  guard: { name: '깨어난 수호자', desc: '보스 체력 +25% · 공격 예고 -15%' },
 };
-const CURSE_ORDER = ['hp', 'wave', 'dmg', 'volley', 'swift', 'rage', 'heal']; // volley 추가 2026-10-18
-const TIER_MAX = 1 + CURSE_ORDER.length; // 8
+const CURSE_ORDER = ['hp', 'wave', 'dmg', 'volley', 'swift', 'rage', 'heal', 'fast', 'elite', 'guard']; // volley 추가 2026-10-18 · fast · elite · guard 추가 2026-10-20 (등급 0 ~ 10)
+const TIER_MAX = 1 + CURSE_ORDER.length; // 11 (화면 번호 0 ~ 10)
 
 // 영웅의 증표는 봉인 등급 0~4 (안에서 세는 1~5) 첫 완주에서만: 모두 5개 = 무기 5종 해금에 딱 맞게 (2026-10-18)
 // 그보다 높은 등급의 첫 완주 보상은 무기 각성 재료 '봉인의 핵' (각성과 함께 넣을 예정 — 그때 tierCleared 를 보고 이미 깬 등급 몫을 소급해서 준다)

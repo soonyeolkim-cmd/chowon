@@ -556,6 +556,7 @@ const G = {
     }
     e.dead = true; this.stageKills++; this.runKills++;
     if (Math.random() < (SHARD_DROP[e.type] || 0.2) * KILL_DROP_MULT) this.earn(1, e.x, e.y);
+    if (e.elite) this.earn(2, e.x, e.y - 10); // 정예: 정령의 조각 2개 더
     this.burst(e.x, e.y, 14, [e.color, '#fff'], 180);
     Sfx.kill();
     FX.onKill(e);
@@ -731,7 +732,8 @@ const G = {
   // 웨이브의 마물은 플레이어에게서 SPAWN_MIN_FROM_PLAYER 이상 떨어진 곳에 나온다
   // 웨이브의 마물은 한꺼번에가 아니라 0.3초 간격으로 차례차례 나온다
   spawnWave(list) {
-    this.spawnQueue = list.map((type, i) => ({ type, t: i * WAVE_SPAWN_GAP }));
+    const ei = curse('elite') && list.length ? (Math.random() * list.length) | 0 : -1; // 정예의 습격: 웨이브마다 한 마리
+    this.spawnQueue = list.map((type, i) => ({ type, t: i * WAVE_SPAWN_GAP, elite: i === ei }));
     Sfx.roar();
   },
   updateSpawnQueue(dt) {
@@ -739,11 +741,13 @@ const G = {
     const c = this.totems[0] || World.totemSpots[0];
     for (const q of this.spawnQueue) q.t -= dt;
     while (this.spawnQueue.length && this.spawnQueue[0].t <= 0) {
-      const { type } = this.spawnQueue.shift();
+      const { type, elite } = this.spawnQueue.shift();
       const p = this.player, av = p ? { x: p.x, y: p.y, d: SPAWN_MIN_FROM_PLAYER } : undefined; // 플레이어와 최소 거리 (2026-10-17)
       const pos = World.findSpawn(c.x, c.y, 60, 170, 14, av) || World.findSpawn(c.x, c.y, 40, 300, 14, av) || World.findSpawn(c.x, c.y, 40, 260);
       if (!pos) continue;
-      this.enemies.push(new Enemy(type, pos.x, pos.y, this.diff, this.player.lv));
+      const e = new Enemy(type, pos.x, pos.y, this.diff, this.player.lv);
+      if (elite) { e.elite = true; e.maxHp = e.hp = Math.round(e.hp * ELITE_HP); e.r = Math.round(e.r * ELITE_SCALE); e.xp = Math.round(e.xp * 2); }
+      this.enemies.push(e);
       this.burst(pos.x, pos.y, 8, [sealTheme().hex, '#fff'], 90);
     }
   },

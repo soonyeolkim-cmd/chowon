@@ -509,6 +509,7 @@ class Enemy {
     this.color = d.color; this.flying = !!d.flying; this.heavy = !!d.heavy;
     this.maxHp = this.hp = Math.round(d.hp * ENEMY_HP_MULT * (1 + ENEMY_HP_STEP * routeLevel(stage)) * deepMult(stage, DEEP_HP_MULT) * (1 + 0.08 * (lv - 1)) * (curse('hp') ? 1.2 : 1));
     if (curse('dmg')) this.dmg = Math.round(this.dmg * 1.15);
+    if (curse('fast') && !d.ranged) this.speed *= 1.15; // 재빠른 마물: 근접 마물만
     this.flash = 0; this.stun = 0; this.kvx = 0; this.kvy = 0;
     this.t = Math.random() * 10; this.hop = 0;
     this.state = 'chase'; this.st = 0; this.lungeDir = 0; this.attacking = false;
@@ -1002,7 +1003,9 @@ class Enemy {
     const red = this.state === 'aim' || this.state === 'windup' || this.state === 'crouch' || this.state === 'tail' ? (((this.t * 16) | 0) % 2 ? 0.55 : 0.2)
       : this.state === 'rage' || this.state === 'boom' ? (((this.t * 20) | 0) % 2 ? 0.7 : 0.25) : 0;
     const puff = this.type === 'mushroom' && this.state === 'aim' ? 1 + (1 - this.st / this.def.wind) * 0.25 : 1;
-    drawCell(g, this.type, dir, row, x, y + 12, { white, red, scale: A.scale, sx: puff, sy: puff });
+    // 정예(정예의 습격): 더 크고, 붉게 맥박치듯 빛난다
+    const er = this.elite ? Math.max(red, 0.22 + 0.14 * Math.sin(this.t * 6)) : red;
+    drawCell(g, this.type, dir, row, x, y + 12, { white, red: er, scale: A.scale * (this.elite ? ELITE_SCALE : 1), sx: puff, sy: puff });
     if (this.state === 'windup' || this.state === 'boom') this.bang(g, x, y - this.r - 10);
   }
 
@@ -1012,6 +1015,9 @@ class Enemy {
   }
 }
 
+// 정예의 습격 (봉인 등급 9 반발, 2026-10-20): 웨이브마다 한 마리가 정예 — 체력 · 크기
+const ELITE_HP = 2.5;
+const ELITE_SCALE = 1.3;
 // 새 몬스터 그림 크기
 const MONSTER_ART = {
   mushroom: { scale: 2 }, mole: { scale: 2 }, racoon: { scale: 2 }, bear: { scale: 2.4 }, snake: { scale: 2 },
@@ -1239,9 +1245,10 @@ class Boss {
     if (curse('hp')) this.maxHp = this.hp = Math.round(this.hp * 1.2);
     if (curse('dmg')) this.dmg = Math.round(this.dmg * 1.15);
     if (curse('rage')) { this.enraged = true; this.speed *= 1.3; } // 분노한 주인: 처음부터 격노
+    if (curse('guard')) { if (this.each) this.each = Math.round(this.each * 1.25); this.maxHp = this.hp = Math.round(this.hp * 1.25); } // 깨어난 수호자: 체력 +25%
   }
   get vulnerable() { return this.state === 'stun'; }
-  get fast() { return (this.enraged ? 0.7 : 1) * BOSS_WIND; } // 예고 시간 배율 (작을수록 빨리 발동)
+  get fast() { return (this.enraged ? 0.7 : 1) * BOSS_WIND * (curse('guard') ? 0.85 : 1); } // 예고 시간 배율 (작을수록 빨리 발동). 깨어난 수호자: -15%
 
   // 다음 패턴 고르기
   choose(d) {
