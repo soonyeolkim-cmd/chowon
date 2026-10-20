@@ -92,14 +92,14 @@ const TEST_BUILDS = {
   bow_trap: { weapon: 'bow', mastery: {}, all: true, boons: { atk_wave: 3, atk_thrust: 3, atk_combo: 3, atk_multispin: 3 } },
   // 방패 첫 손맛 (?build=shield)
   shield: { weapon: 'shield', mastery: {}, boons: {} },
-  // 체인라이트닝 도사: 벼락 마력탄 · 연쇄 마력탄 Lv5 · 고전압 · 날벼락 · 마력 증폭 (+ 마력탄 숙련 3)
+  // 체인라이트닝 도사: 벼락 마력탄 · 연쇄 번개 마력탄 Lv5 · 고전압 · 날벼락 · 마력 증폭 (+ 마력탄 숙련 3)
   // 화염 마법사: 화염 마력탄 · 화염구 마력탄 Lv5 · 불씨 · 연쇄 폭발 · 마력 증폭 (+ 마력탄 숙련 3)
   flame: { weapon: 'staff', mastery: { wave: 3 }, boons: { fire_special: 5, fire_bolt: 5, kindling: 3, chain_burst: 3, atk_wave: 3, sharp: 3, vital: 3 } },
   // 얼음 마법사: 서리 마력탄 · 얼음 파편 마력탄 Lv5 · 파쇄 · 한기 · 마력 증폭 (+ 마력탄 숙련 3)
   frost: { weapon: 'staff', mastery: { wave: 3 }, boons: { ice_special: 5, ice_shard: 5, shatter: 3, frostbite: 3, atk_wave: 3, sharp: 3, vital: 3 } },
-  // 얼음 창: 서리 창날 · 빙결 관통 · 서리 꿰뚫기 · 서리 창 · 얼음 길 · 파쇄 · 한기
+  // 얼음 창: 서리 창날 · 빙결 찌르기 · 서리 꿰뚫기 · 서리 창 · 얼음 길 · 파쇄 · 한기
   icespear: { weapon: 'spear', mastery: { combo: 3, spin: 3 }, boons: { ice_basic: 5, ice_shard: 5, ice_charge: 5, ice_special: 5, ice_dash: 3, shatter: 3, frostbite: 3, sharp: 3 } },
-  // 화염 창: 불꽃 창날 · 화염 관통 · 불꽃 꿰뚫기 · 폭염 투척 · 화염 질주 · 불씨 · 연쇄 폭발
+  // 화염 창: 불꽃 창날 · 화염 찌르기 · 불꽃 꿰뚫기 · 폭염 투척 · 화염 질주 · 불씨 · 연쇄 폭발
   firespear: { weapon: 'spear', mastery: { combo: 3, spin: 3 }, boons: { fire_basic: 5, fire_bolt: 5, fire_charge: 5, fire_special: 5, fire_dash: 3, kindling: 3, chain_burst: 3, sharp: 3 } },
   // 얼음 쌍검: 서리 쌍검 · 얼음 파편 연타 · 빙결 연참 · 서리 받아치기 · 얼음 길 · 파쇄 · 한기
   icesai: { weapon: 'sai', mastery: { combo: 3, spin: 3 }, boons: { ice_basic: 5, ice_shard: 5, ice_charge: 5, ice_special: 5, ice_dash: 3, shatter: 3, frostbite: 3, sharp: 3 } },

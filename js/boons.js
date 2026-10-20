@@ -104,7 +104,7 @@ const BOONS = [
   // ── ❄ 얼음: 냉기 (중첩당 이동 속도 -10% · 받는 피해 +5%, 4중첩이면 빙결 · 보스는 얼음 균열) ──
   { id: 'ice_basic', el: 'frost', slot: 'basic', name: '서리 칼날',
     desc: lv => `기본공격이 냉기를 1중첩 건다. 냉기 1중첩마다 받는 피해 +${FROSTBITE_VULN * 100}%, ${FREEZE_AT}중첩이면 빙결 (보스는 얼음 균열: 잠깐 멈추고 받는 피해 +${ICE_CRACK_VULN * 100}%). 빙결 시간 ${freezeTime(lv)}초.` },
-  { id: 'ice_shard', el: 'frost', needs: 'ice_basic', name: '얼음 파편',
+  { id: 'ice_shard', el: 'frost', needs: 'ice_basic', name: '얼음 파편 베기',
     desc: lv => `휘두를 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
   { id: 'ice_charge', el: 'frost', slot: 'charge', name: '빙결 회오리',
     desc: lv => `회전베기에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
@@ -120,7 +120,7 @@ const BOONS = [
   // ── ⚡ 전기: 추가 대미지 (감전: 4초간 받는 피해 +20%) ──
   { id: 'elec_basic', el: 'thunder', slot: 'basic', name: '번개 칼날',
     desc: lv => `기본공격이 감전시킨다. 감전된 적은 4초 동안 받는 피해 +${20 + 10 * (lv - 1)}%. (번개가 튀는 건 연쇄 번개)` },
-  { id: 'elec_chain', el: 'thunder', needs: 'elec_basic', name: '연쇄 번개',
+  { id: 'elec_chain', el: 'thunder', needs: 'elec_basic', name: '연쇄 번개 베기',
     desc: lv => `기본공격이 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전.` },
   { id: 'elec_charge', el: 'thunder', slot: 'charge', name: '벼락 회오리',
     desc: lv => `회전베기 직후 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
@@ -134,9 +134,9 @@ const BOONS = [
     desc: lv => `감전된 적이 받는 피해가 ${15 * lv}% 더 늘어난다 (감전 기본 +20%에 더해서).` },
 
   // ── ☠ 독: 중첩될수록 가속되는 피해, 죽으면 주변으로 전염 ──
-  { id: 'poison_basic', el: 'poison', slot: 'basic', name: '독날 칼날',
+  { id: 'poison_basic', el: 'poison', slot: 'basic', name: '독 칼날',
     desc: lv => `기본공격이 독을 1중첩 건다. 독 피해 +${25 * (lv - 1)}%.` },
-  { id: 'poison_spray', el: 'poison', needs: 'poison_basic', name: '독 분사',
+  { id: 'poison_spray', el: 'poison', needs: 'poison_basic', name: '독 분사 베기',
     desc: lv => `3타째에 앞쪽으로 독을 뿜어 부채꼴 안의 적에게 독 ${3 + lv}중첩 + 공격력의 ${pct(0.4 + 0.1 * lv)} 피해.` },
   { id: 'poison_charge', el: 'poison', slot: 'charge', name: '독안개 회오리',
     desc: lv => `회전베기 후 주변에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
@@ -158,7 +158,7 @@ const BOONS = [
   { id: 'atk_wave', el: 'might', name: '거대 검기', desc: lv => `검기 크기·사거리 +${25 * lv}%, 특수공격 쿨타임 -${(0.6 * lv).toFixed(1)}초.` },
   { id: 'atk_thrust', el: 'might', name: '돌진 강화', desc: lv => `돌진 거리 +${15 * lv}%.` },
   { id: 'sharp', el: 'might', name: '날카로운 검', desc: lv => `모든 피해 +${10 * lv}%.` },
-  { id: 'vital', el: 'might', name: '급소 찌르기', desc: lv => `치명타 확률 +${8 * lv}%, 치명타 피해 +${20 * lv}%.` },
+  { id: 'vital', el: 'might', name: '급소 노리기', desc: lv => `치명타 확률 +${8 * lv}%, 치명타 피해 +${20 * lv}%.` },
   { id: 'ambush', el: 'might', name: '기습', desc: lv => `적의 옆이나 등 뒤에서 때리면 피해 +${10 + 20 * lv}%. 기절 · 빙결된 적도 무방비로 친다.` },
 
   // ── 🛡 방어: 누적 패시브 (생존) ──

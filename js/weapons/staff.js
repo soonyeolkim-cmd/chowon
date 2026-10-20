@@ -100,10 +100,10 @@ BOON_FORMS.staff = {
   ice_charge:     { name: '빙결 마법진', desc: lv => `마법진 폭발에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
   ice_special:    { name: '서리 마력탄', desc: lv => `마력탄에 맞은 적에게 냉기 ${lv >= 3 ? 2 : 1}중첩.` },
   elec_basic:     { name: '번개 마법봉' },
-  elec_chain:     { name: '연쇄 마력탄', needs: 'elec_special', desc: lv => `마력탄이 맞으면 번개가 옆 적에게 ${1 + lv}번 튄다 (한 번에 공격력의 ${pct(0.25 + 0.1 * lv)}) + 감전.` },
+  elec_chain:     { name: '연쇄 번개 마력탄', needs: 'elec_special', desc: lv => `마력탄이 맞으면 번개가 옆 적에게 ${1 + lv}번 튄다 (한 번에 공격력의 ${pct(0.25 + 0.1 * lv)}) + 감전.` },
   poison_spray:   { name: '독 웅덩이 마력탄', needs: 'poison_special', desc: lv => `마력탄이 맞은 자리에 ${1 + 0.5 * lv}초간 독 웅덩이가 남는다.` },
   elec_charge:    { name: '벼락 마법진', desc: lv => `마법진이 터진 자리 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '벼락 마력탄', desc: lv => `마력탄이 감전시킨다. 감전된 적은 4초 동안 받는 피해 +${20 + 10 * (lv - 1)}%. (번개가 튀는 건 연쇄 마력탄)` },
+  elec_special:   { name: '벼락 마력탄', desc: lv => `마력탄이 감전시킨다. 감전된 적은 4초 동안 받는 피해 +${20 + 10 * (lv - 1)}%. (번개가 튀는 건 연쇄 번개 마력탄)` },
   poison_basic:   { name: '독 마법봉' },
   poison_charge:  { name: '독안개 마법진', desc: lv => `마법진이 터진 자리에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 마력탄', desc: lv => `마력탄에 맞은 적에게 독 ${1 + Math.floor(lv / 2)}중첩.` },
@@ -245,14 +245,14 @@ Object.assign(FX, {
     if (fs && !t.dead) { this.burn(t, 1); for (const e of this.near(t.x, t.y, 30, t)) { this.burn(e, 1); this.damage(e, atk * (0.25 + 0.1 * fs), '#ff9a4a', 10); } G.burst(t.x, t.y, 6, ['#ff7a3c', '#ffd24a'], 110); }
     const is = this.lv('ice_special');
     if (is && !t.dead) this.chill(t, is >= 3 ? 2 : 1);
-    if (this.lv('elec_special')) this.shock(t); // 벼락 마력탄: 감전만 (번개가 튀는 건 연쇄 마력탄 몫, 2026-10-17)
+    if (this.lv('elec_special')) this.shock(t); // 벼락 마력탄: 감전만 (번개가 튀는 건 연쇄 번개 마력탄 몫, 2026-10-17)
     const ps = this.lv('poison_special');
     if (ps && !t.dead) this.poison(t, 1 + Math.floor(ps / 2));
     const hw = this.lv('heal_wave'), p = G.player;
     if (hw && p.alive) p.hp = Math.min(p.maxHp, p.hp + 0.1 + 0.1 * hw); // 한 발 0.2 · 0.3 · 0.4 (2026-10-17)
     // ── 마력탄 강화 축복 (특수 슬롯이 있어야 나온다) ──
     const ch = this.lv('elec_chain');
-    if (ch) this.chainJump(t, 1 + ch, atk * (0.25 + 0.1 * ch)); // 연쇄 마력탄
+    if (ch) this.chainJump(t, 1 + ch, atk * (0.25 + 0.1 * ch)); // 연쇄 번개 마력탄
     const isd = this.lv('ice_shard');
     if (isd) { // 얼음 파편 마력탄: 사방으로
       const n = 1 + isd, a0 = rand(0, Math.PI * 2);

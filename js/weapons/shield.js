@@ -143,7 +143,7 @@ Object.assign(WEAPONS.shield, {
 // 방패: 기본 = 3연 밀치기, 차지 = 방패 강타, 특수 = 돌려치기, 대시 공격 = 후려치기
 BOON_FORMS.shield = {
   fire_basic:     { name: '불꽃 방패' },
-  fire_bolt:      { name: '화염 밀치기', desc: lv => `밀칠 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
+  fire_bolt:      { name: '화염구 밀치기', desc: lv => `밀칠 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
   fire_charge:    { name: '화염 강타', desc: lv => `방패 강타에 맞은 적에게 화상 2중첩, 충격파가 지나간 땅에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
   fire_special:   { name: '화염 돌려치기', desc: lv => `돌려치기에 맞은 적에게 화상 2중첩, 돌고 나면 주변이 폭발한다 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
   ice_basic:      { name: '서리 방패' },
@@ -151,7 +151,8 @@ BOON_FORMS.shield = {
   ice_charge:     { name: '빙결 강타', desc: lv => `방패 강타에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
   ice_special:    { name: '서리 돌려치기', desc: lv => `돌려치기에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 돌고 나면 발밑이 얼어붙는다.` },
   elec_basic:     { name: '번개 방패' },
-  elec_chain:     { name: '연쇄 번개 방패' },
+  elec_chain:     { name: '연쇄 번개 밀치기' },
+  poison_spray:   { name: '독 분사 밀치기' },
   elec_charge:    { name: '벼락 강타', desc: lv => `방패 강타 직후 충격파 끝 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
   elec_special:   { name: '벼락 돌려치기', desc: lv => `돌려치기에 맞은 적은 감전, 돌고 나면 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
   poison_basic:   { name: '독 방패' },

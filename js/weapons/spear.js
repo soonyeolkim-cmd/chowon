@@ -96,19 +96,19 @@ Object.assign(WEAPONS.spear, {
     basic(g, s, line) { line(-0.75, 0.75, 0.55, -0.55); g.beginPath(); g.moveTo(0.8 * s, -0.8 * s); g.lineTo(0.3 * s, -0.55 * s); g.lineTo(0.55 * s, -0.3 * s); g.closePath(); g.fill(); },
     special(g, s, line) { line(-0.8, 0.1, 0.5, 0.1); g.beginPath(); g.moveTo(0.85 * s, 0.1 * s); g.lineTo(0.4 * s, -0.2 * s); g.lineTo(0.4 * s, 0.4 * s); g.closePath(); g.fill(); line(-0.8, -0.35, -0.3, -0.35); line(-0.8, 0.55, -0.4, 0.55); },
   },
-  // 찌르기가 맞았을 때: 피뢰 관통 · 빙결 관통 · 독 창끝
+  // 찌르기가 맞았을 때: 연쇄 번개 찌르기 · 빙결 찌르기 · 독 찌르기
   onBasicHit(fx, t, info, act, atk) {
     const ch = fx.lv('elec_chain');
-      // 피뢰 관통: 관통한 적끼리 번개로 잇는다
+      // 연쇄 번개 찌르기: 관통한 적끼리 번개로 잇는다
       if (ch && act.prevHit && !act.prevHit.dead && !t.dead) {
         fx.bolt(act.prevHit.x, act.prevHit.y - 6, t.x, t.y - 6); fx.shock(t);
         fx.damage(t, atk * (0.45 + 0.15 * ch) * fx.lightningMult(t), '#ffe14a');
       }
       act.prevHit = t;
-      // 빙결 관통: 뒤쪽에서 관통당한 적일수록 냉기 추가
+      // 빙결 찌르기: 뒤쪽에서 관통당한 적일수록 냉기 추가
       const isd = fx.lv('ice_shard');
       if (isd && act.pierced > 1 && !t.dead) fx.chill(t, Math.min(2, act.pierced - 1));
-      // 독 창끝
+      // 독 찌르기 (창끝)
       const pss = fx.lv('poison_spray');
       if (pss && info.tip && !t.dead) fx.poison(t, 1 + pss);
   },
@@ -130,19 +130,19 @@ Object.assign(WEAPONS.spear, {
 });
 BOON_FORMS.spear = {
   fire_basic:     { name: '불꽃 창날' },
-  fire_bolt:      { name: '화염 관통', desc: lv => `2타째 찌르기가 앞으로 불길을 내뿜는다. 줄 위의 적에게 공격력의 ${pct(0.5 + 0.2 * lv)} 피해 + 화상, 불길이 잠시 남는다.` },
+  fire_bolt:      { name: '화염 찌르기', desc: lv => `2타째 찌르기가 앞으로 불길을 내뿜는다. 줄 위의 적에게 공격력의 ${pct(0.5 + 0.2 * lv)} 피해 + 화상, 불길이 잠시 남는다.` },
   fire_charge:    { name: '불꽃 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬에 맞은 적에게 화상 2중첩, 찌른 줄을 따라 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
   fire_special:   { name: '폭염 투척', desc: lv => `던진 창이 반환점에서 폭발한다. 주변에 공격력의 ${pct(0.8 + 0.4 * lv)} 피해 + 화상. 창에 맞은 적도 화상.` },
   ice_basic:      { name: '서리 창날' },
-  ice_shard:      { name: '빙결 관통', desc: lv => `찌를 때마다 창끝에서 얼음 파편 ${1 + lv}개가 앞으로 날아간다 (공격력의 ${pct(0.25 + 0.05 * lv)} + 냉기). 뒤쪽에서 관통당한 적일수록 냉기가 더 쌓인다.` },
+  ice_shard:      { name: '빙결 찌르기', desc: lv => `찌를 때마다 창끝에서 얼음 파편 ${1 + lv}개가 앞으로 날아간다 (공격력의 ${pct(0.25 + 0.05 * lv)} + 냉기). 뒤쪽에서 관통당한 적일수록 냉기가 더 쌓인다.` },
   ice_charge:     { name: '서리 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
   ice_special:    { name: '서리 창', desc: lv => `창에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 반환점에 ${2 + 0.5 * lv}초간 얼음 장판이 생긴다.` },
   elec_basic:     { name: '번개 창날' },
-  elec_chain:     { name: '피뢰 관통', desc: lv => `찌르기가 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전. 관통한 적끼리도 번개로 이어진다.` },
+  elec_chain:     { name: '연쇄 번개 찌르기', desc: lv => `찌르기가 맞으면 번개가 적에서 적으로 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.45 + 0.15 * lv)}) + 감전. 관통한 적끼리도 번개로 이어진다.` },
   elec_charge:    { name: '벼락 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 직후 창끝 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
   elec_special:   { name: '피뢰 창', desc: lv => `반환점에 벼락이 떨어진다 (주변에 공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전. 날아가는 창에 맞은 적도 감전.` },
-  poison_basic:   { name: '독날 창날' },
-  poison_spray:   { name: '독 창끝', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
+  poison_basic:   { name: '독 창날' },
+  poison_spray:   { name: '독 찌르기', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
   poison_charge:  { name: '독안개 꿰뚫기', desc: lv => `찌른 줄을 따라 ${2 + 0.5 * lv}초간 독안개가 남는다. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독창', desc: lv => `창에 맞은 적에게 독 ${1 + lv}중첩, 반환점에 ${2 + 0.5 * lv}초간 독 웅덩이가 생긴다.` },
   atk_combo:      { name: '잔상 찌르기', desc: lv => `2타째를 잔상이 ${COMBO_ECHO_HITS}번 더 친다 (잔상 한 번에 2타째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 2타째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
