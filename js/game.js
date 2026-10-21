@@ -1814,6 +1814,15 @@ function boonLayout() {
   return L;
 }
 
+// 둥근 사각형 경로 (축복 카드, 2026-10-21)
+function rrPath(x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// '#rrggbb' → 'rgba(r,g,b,a)'
+function hexA(hex, a) { const n = parseInt(hex.slice(1, 7), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
 function drawBoonScreen() {
   const o = G.offer;
   overlay(0.72);
@@ -1833,26 +1842,48 @@ function drawBoonScreen() {
     const r = L.cards[i], b = c.boon, col = boonColor(b), sel = i === o.sel;
     const lift = sel ? -6 : 0, x = r.x, y = r.y + lift + (1 - appear) * 20;
     ctx.globalAlpha = appear;
-    ctx.fillStyle = sel ? 'rgba(30,36,44,0.97)' : 'rgba(18,22,28,0.92)';
-    ctx.fillRect(x, y, r.w, r.h);
-    ctx.fillStyle = col; ctx.fillRect(x, y, r.w, 4);
-    ctx.strokeStyle = sel ? col : 'rgba(255,255,255,0.15)'; ctx.lineWidth = sel ? 3 : 1;
-    ctx.strokeRect(x + 0.5, y + 0.5, r.w - 1, r.h - 1);
+    const R = L.horiz ? 12 : 10; // 모서리 둥글기
+    ctx.save();
+    if (sel) { ctx.shadowColor = hexA(col, 0.7); ctx.shadowBlur = 18; }
+    rrPath(x, y, r.w, r.h, R);
+    const bg = ctx.createLinearGradient(0, y, 0, y + r.h);
+    bg.addColorStop(0, sel ? 'rgba(42,48,60,0.97)' : 'rgba(30,35,44,0.94)'); bg.addColorStop(1, sel ? 'rgba(20,24,32,0.97)' : 'rgba(13,16,22,0.94)');
+    ctx.fillStyle = bg; ctx.fill(); ctx.shadowBlur = 0;
+    ctx.save(); ctx.clip(); // 속성 색 빛: 가로 카드는 위에서, 세로 카드는 왼쪽에서 번진다
+    const gl = L.horiz ? ctx.createLinearGradient(0, y, 0, y + 120) : ctx.createLinearGradient(x, 0, x + 110, 0);
+    gl.addColorStop(0, hexA(col, sel ? 0.3 : 0.2)); gl.addColorStop(1, hexA(col, 0));
+    ctx.fillStyle = gl; ctx.fillRect(x, y, r.w, r.h);
+    ctx.fillStyle = col; if (L.horiz) ctx.fillRect(x, y, r.w, 3); else ctx.fillRect(x, y, 3, r.h); // 속성 색 띠
+    ctx.restore();
+    rrPath(x + 0.5, y + 0.5, r.w - 1, r.h - 1, R);
+    ctx.strokeStyle = sel ? col : 'rgba(255,255,255,0.16)'; ctx.lineWidth = sel ? 2.5 : 1; ctx.stroke();
+    rrPath(x + 3.5, y + 3.5, r.w - 7, r.h - 7, R - 3); // 안쪽 얇은 빛선
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
     const tag = b.duo ? '듀오 축복' : b.slot ? SLOT_NAMES[b.slot] : b.needs ? `${BOON_BY_ID[b.needs].name} 강화` : b.el === 'might' || b.el === 'guard' ? '누적 패시브' : '패시브';
     const extra = c.replaces ? BOONS.filter(o => o.needs === c.replaces.id && G.boons[o.id]).map(o => ' +' + o.name).join('') : '';
     const status = c.lv > 1 ? `강화 Lv${c.lv - 1} → Lv${c.lv}` : c.replaces ? `교체: ${c.replaces.name}${extra}` : 'NEW';
     const stCol = c.lv > 1 ? '#8ff0b0' : c.replaces ? '#ff9a7a' : '#ffd24a';
     let tx, ty, tw;
     if (L.horiz) {
-      ctx.font = `26px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff'; ctx.fillText(boonIcon(b), x + r.w / 2, y + 32);
-      label(b.name, x + r.w / 2, y + 64, 16, col, 'center', '800');
-      label(tag, x + r.w / 2, y + 84, 11, '#aab', 'center', '600');
-      label(status, x + r.w / 2, y + 101, 11, stCol, 'center', '700');
-      tx = x + 12; ty = y + 124; tw = r.w - 24;
-    } else {
+      ctx.beginPath(); ctx.arc(x + r.w / 2, y + 32, 21, 0, Math.PI * 2); // 아이콘 받침
+      ctx.fillStyle = hexA(col, 0.14); ctx.fill(); ctx.strokeStyle = hexA(col, 0.55); ctx.lineWidth = 1.5; ctx.stroke();
       ctx.font = `24px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff'; ctx.fillText(boonIcon(b), x + 28, y + r.h / 2);
+      ctx.fillStyle = '#fff'; ctx.fillText(boonIcon(b), x + r.w / 2, y + 33);
+      label(b.name, x + r.w / 2, y + 66, 16, col, 'center', '800');
+      label(tag, x + r.w / 2, y + 85, 11, '#aab', 'center', '600');
+      ctx.font = `700 11px ${FONT}`; const sw = ctx.measureText(status).width + 16; // 상태 알약
+      rrPath(x + r.w / 2 - sw / 2, y + 93, sw, 17, 8.5); ctx.fillStyle = hexA(stCol, 0.14); ctx.fill(); ctx.strokeStyle = hexA(stCol, 0.45); ctx.lineWidth = 1; ctx.stroke();
+      label(status, x + r.w / 2, y + 102, 11, stCol, 'center', '700');
+      const dv = ctx.createLinearGradient(x + 14, 0, x + r.w - 14, 0); // 구분선 (가운데가 진하게)
+      dv.addColorStop(0, hexA(col, 0)); dv.addColorStop(0.5, hexA(col, 0.45)); dv.addColorStop(1, hexA(col, 0));
+      ctx.fillStyle = dv; ctx.fillRect(x + 14, y + 117, r.w - 28, 1);
+      tx = x + 12; ty = y + 130; tw = r.w - 24;
+    } else {
+      ctx.beginPath(); ctx.arc(x + 29, y + r.h / 2, 19, 0, Math.PI * 2); // 아이콘 받침
+      ctx.fillStyle = hexA(col, 0.14); ctx.fill(); ctx.strokeStyle = hexA(col, 0.55); ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.font = `22px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff'; ctx.fillText(boonIcon(b), x + 29, y + r.h / 2 + 1);
       label(b.name, x + 56, y + 18, 15, col, 'left', '800');
       label(`${tag} · ${status}`, x + 56, y + 36, 11, stCol, 'left', '600');
       tx = x + 56; ty = y + 56; tw = r.w - 66;
@@ -1862,17 +1893,17 @@ function drawBoonScreen() {
     if (o.auto && sel) { // 시간 초과로 고른 카드: 빛나는 테두리 + 퍼지는 빛 + 테두리를 도는 반짝이
       const t = o.auto.t, on = ((t * 14) | 0) % 2 === 0, pulse = 0.5 + 0.5 * Math.sin(t * 28);
       ctx.save();
-      ctx.fillStyle = `rgba(255,255,255,${0.08 + 0.12 * pulse})`; ctx.fillRect(x, y, r.w, r.h); // 카드가 번쩍
+      ctx.fillStyle = `rgba(255,255,255,${0.08 + 0.12 * pulse})`; rrPath(x, y, r.w, r.h, R); ctx.fill(); // 카드가 번쩍
       ctx.shadowColor = on ? '#fff' : col; ctx.shadowBlur = 18 + 16 * pulse;                    // 빛 번짐
       ctx.strokeStyle = on ? '#fff' : col; ctx.lineWidth = 5;
-      ctx.strokeRect(x - 3, y - 3, r.w + 6, r.h + 6);
+      rrPath(x - 3, y - 3, r.w + 6, r.h + 6, R + 3); ctx.stroke();
       ctx.shadowBlur = 0;
       ctx.strokeStyle = on ? col : '#fff'; ctx.lineWidth = 2;
-      ctx.strokeRect(x - 8, y - 8, r.w + 16, r.h + 16);
+      rrPath(x - 8, y - 8, r.w + 16, r.h + 16, R + 8); ctx.stroke();
       // 바깥으로 퍼지는 빛 테두리 (0.3초마다)
       const k = (t % 0.3) / 0.3, g = 8 + k * 18;
       ctx.globalAlpha = (1 - k) * 0.8; ctx.strokeStyle = col; ctx.lineWidth = 2;
-      ctx.strokeRect(x - g, y - g, r.w + g * 2, r.h + g * 2);
+      rrPath(x - g, y - g, r.w + g * 2, r.h + g * 2, R + g); ctx.stroke();
       // 테두리를 따라 도는 반짝이
       ctx.globalAlpha = 1;
       const per = 2 * (r.w + r.h);
@@ -1891,8 +1922,8 @@ function drawBoonScreen() {
     }
     if (sel && o.armed && !o.auto) {
       const k = clamp(o.hold / BOON_HOLD, 0, 1);
-      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x + 8, y + r.h - 14, r.w - 16, 6);
-      ctx.fillStyle = col; ctx.fillRect(x + 8, y + r.h - 14, (r.w - 16) * k, 6);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; rrPath(x + 10, y + r.h - 14, r.w - 20, 6, 3); ctx.fill();
+      if (k > 0) { ctx.fillStyle = col; rrPath(x + 10, y + r.h - 14, Math.max(6, (r.w - 20) * k), 6, 3); ctx.fill(); }
     }
   });
   ctx.globalAlpha = 1;
