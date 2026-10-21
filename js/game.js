@@ -2,7 +2,9 @@
 // 게임 루프, 스테이지 진행, 카메라, 화면 표시
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const FONT = '"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif';
+const FONT = '"AlkiFairy","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif';
+// 알키체를 미리 불러온다 (캔버스는 처음 쓸 때까지 안 불러서 첫 화면이 기본 글꼴로 나온다). 다 오면 제목 글씨 그림을 다시 만든다
+if (document.fonts && document.fonts.load) Promise.all([400, 500, 700, 800].map(w => document.fonts.load(w + ' 16px AlkiFairy', '봉인의 숲'))).then(() => { if (typeof TitleArt !== 'undefined') TitleArt.logoKey = ''; }).catch(() => {});
 // 세계 3개 × 스테이지 5개. 각 세계의 마지막 스테이지는 보스전.
 const FINAL_STAGE = 6;            // 마지막 세계 (한 번의 모험으로 1~6)
 const STAGES_PER_WORLD = 5;
@@ -1488,7 +1490,16 @@ function drawPauseMenu(big, blink, tap) {
 }
 
 // ── 설정: 키보드 · 게임패드 키 설정, 진동 · 화면 흔들림 ───────
-const SETTING_TABS = ['키보드', '게임패드', '기타'];
+const SETTING_TABS = ['키보드', '게임패드', '기타', '만든 사람'];
+// 만든 사람 (크레딧): 외부 에셋은 모두 CC0 — 표시 의무는 없지만 만든 분들께 감사 표시 (2026-10-21)
+const CREDITS = [
+  ['제작', '웨폰마스터'],
+  ['그래픽 · 배경음악', 'Ninja Adventure Asset Pack'],
+  ['', 'Pixel-boy · AAA (CC0)  pixel-boy.itch.io'],
+  ['방패 그림', 'Things — SnoopethDuckDuck (CC0)'],
+  ['효과음', '직접 만든 8비트 소리'],
+  ['글꼴', '알키체 (SUIT 기반 · SUNN, SIL OFL 1.1)'],
+];
 const KB_ACTIONS = [['up', '위로 이동'], ['down', '아래로 이동'], ['left', '왼쪽으로 이동'], ['right', '오른쪽으로 이동'],
   ['attack', '공격 (길게 누르면 차지)'], ['dash', '대시'], ['special', '특수공격'], ['pause', '일시정지 · 메뉴']];
 const PAD_ACTIONS = [['attack', '공격 (길게 누르면 차지)'], ['dash', '대시'], ['special', '특수공격'], ['pause', '일시정지 · 메뉴']];
@@ -1508,6 +1519,7 @@ function settingsRows(tab) {
   if (tab === 0) return [...(Input.phone ? [] : [{ kind: 'mode', name: '조작 방식', value: mouse ? '키보드+마우스' : '키보드만' }]), // 휴대폰은 키보드만 (모드 고르기 없음)
     ...(mouse ? [{ kind: 'toggle', key: 'cursorAim', name: '마우스 조준 (공격이 커서 쪽으로)', value: S.cursorAim ? '켜짐' : '꺼짐' }] : []), ...KB_ACTIONS.filter(([a]) => !(mouse && (a === 'attack' || a === 'special'))).map(([a, n]) => ({ kind: 'key', dev: kd, action: a, name: n, value: B[kd][a].map(kbName).join(' / ') })),
     { kind: 'reset', dev: kd, name: mouse ? '키보드+마우스 기본값으로 되돌리기' : '키보드 기본값으로 되돌리기', value: '' }];
+  if (tab === 3) return CREDITS.map(([n, v]) => ({ kind: 'info', name: n, value: v }));
   if (tab === 1) return [{ kind: 'padlayout', name: '패드 레이아웃', value: S.padLayout === 'switch' ? '스위치  ·  A 선택 (오른쪽) · B 취소 (아래)' : 'Xbox  ·  A 선택 (아래) · B 취소 (오른쪽)' }, ...PAD_ACTIONS.map(([a, n]) => ({ kind: 'key', dev: 'pad', action: a, name: n, value: B.pad[a].map(padName).join(' / ') })),
     { kind: 'reset', dev: 'pad', name: '게임패드 기본값으로 되돌리기', value: '' }];
   return [{ kind: 'toggle', key: 'sfx', name: '효과음', value: S.sfx ? '켜짐' : '꺼짐' },
@@ -1528,6 +1540,7 @@ function settingsLayout() {
 }
 function settingsAct(row) {
   const s = G.su;
+  if (row.kind === 'info') return; // 만든 사람: 보기만
   if (row.kind === 'reset') { Input.resetBinds(row.dev); s.msg = '기본값으로 되돌렸어요'; Sfx.level(); return; }
   if (row.kind === 'toggle') { Input.settings[row.key] = !Input.settings[row.key]; Input.saveSettings(); Sfx.pickup(); return; }
   if (row.kind === 'cycle') { const o = row.opts, k = o.indexOf(Input.settings[row.key]); Input.settings[row.key] = o[(k + 1) % o.length]; Input.saveSettings(); Sfx.pickup(); return; } // 누를 때마다 다음 값
@@ -1599,7 +1612,7 @@ function drawSettings(blink) {
     label(val, row.x + row.w - 14, row.y + row.h / 2, 13, waiting ? '#ffe08a' : r.kind === 'toggle' ? (r.value === '켜짐' ? '#8ff0b0' : '#ff9a7a') : '#c8d8ff', 'right', '800');
   });
   const d = Input.state.device;
-  const how = s.msg || (s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
+  const how = s.msg || (s.tab === 3 ? '멋진 에셋을 나눠 주신 분들께 감사드려요 · ←→ 탭 · 돌아가기' : s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
     : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→ 탭 · ↑↓ 고르기 · A 선택 → 바꿀 버튼 누르기 · B 취소/돌아가기 (B는 지정할 수 없어요)` : s.tab === 0 ? (Input.settings.kbMode === 'mouse' ? `키보드+마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · 조준은 ${Input.settings.cursorAim ? '커서 쪽' : '보는 방향 + 자동 조준'}` : '키보드만: 공격은 보는 방향으로 · 마우스는 메뉴 클릭에만') : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
   label(how, W / 2, H - inset.b - 18, 12, s.msg ? '#ffe08a' : '#aab', 'center', '600');
   if (s.tab === 1) { // 패드 입력 확인: 스틱 · 십자키 · 버튼이 제대로 들어오는지
