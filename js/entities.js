@@ -389,11 +389,6 @@ class Player {
     g.fillStyle = 'rgba(0,0,0,0.28)';
     g.beginPath(); g.ellipse(this.x, this.y + 9, 9, 4, 0, 0, Math.PI * 2); g.fill();
 
-    // 받아치기 실패 빈틈: 붉게 깜빡인다
-    if (this.gapT > 0 && Math.sin(G.time * 30) > 0) {
-      g.fillStyle = 'rgba(255,80,60,0.28)';
-      g.beginPath(); g.arc(x, y - 2, 13, 0, Math.PI * 2); g.fill();
-    }
     // 반격 준비 상태: 푸른 오라
     if (this.counterT > 0) {
       g.fillStyle = `rgba(127,224,255,${0.25 + Math.sin(G.time * 20) * 0.1})`;
@@ -407,6 +402,13 @@ class Player {
     const swordBehind = col === 1;
     const weapon = (gg, wx, wy) => (this.weapon.draw || WEAPONS.sword.draw)(this, gg, wx, wy);
     if (swordBehind) weapon(g, x, y);
+    // 받아치기 실패 빈틈: 캐릭터 둘레에 빨간 도트 외곽선 (도트 1칸 두께, 처음엔 진하고 1초 동안 옅어진다, 2026-10-22)
+    if (this.gapT > 0 && ART.red.hero) {
+      const a0 = g.globalAlpha, w = 16 * PIX, dx = Math.round(x - w / 2), dy = Math.round(y + 13 - w);
+      g.globalAlpha = a0 * (0.35 + 0.65 * clamp(this.gapT, 0, 1));
+      for (const [ox, oy] of [[PIX, 0], [-PIX, 0], [0, PIX], [0, -PIX]]) g.drawImage(ART.red.hero, col * 16, row * 16, 16, 16, dx + ox, dy + oy, w, w);
+      g.globalAlpha = a0;
+    }
     drawCell(g, 'hero', col, row, x, y + 13);
     if (!swordBehind) weapon(g, x, y);
     g.globalAlpha = 1;

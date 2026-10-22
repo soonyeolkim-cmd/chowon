@@ -164,7 +164,7 @@ const Input = (() => {
         if (kbHas('special', e.code)) queued.special = queued.reroll = true;
         if (kbHas('pause', e.code)) queued.pause = true;
         if (e.code === 'Enter' || e.code === 'NumpadEnter' || kbHas('attack', e.code)) queued.confirm = true;
-        if (e.code === 'Escape' || e.code === 'Backspace' || kbHas('pause', e.code)) queued.back = true;
+        if (e.code === 'Escape' || e.code === 'Backspace' || kbHas('pause', e.code) || (settings.kbMode !== 'mouse' && kbHas('dash', e.code))) queued.back = true; // 키보드만: 대시 키(C)도 메뉴 취소
         queued.start = true;
       }
       // 게임 키가 브라우저 기능(스크롤, Alt 메뉴 등)을 건드리지 않게 막는다

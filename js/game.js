@@ -219,6 +219,7 @@ const G = {
     if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
+    this.runT = 0; // 모험 진행 시간 (play 상태에서만 흐른다)
     this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0; this.shardFrac = 0; this.essRunBest = 0;
     this.reviveLeft = Meta.lv('revive');
     this.runHints = {}; // 이번 판에 루미가 한 조언
@@ -1130,6 +1131,11 @@ function drawReviveHeart(cx, cy, n) {
   ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bx, by, 7, 0, Math.PI * 2); ctx.stroke();
   label(String(n), bx, by + 0.5, 11, '#ffffff', 'center', '900');
 }
+function fmtRunT(t) {
+  t = Math.max(0, t || 0);
+  const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, sec = Math.floor(t) % 60, cs = Math.floor(t * 100) % 100, p2 = n => String(n).padStart(2, '0');
+  return h ? `${h}:${p2(m)}:${p2(sec)}` : `${p2(m)}:${p2(sec)}.${p2(cs)}`;
+}
 function drawHud() {
   const p = G.player;
   const x = inset.l + 16, y = inset.t + 14;
@@ -1158,6 +1164,9 @@ function drawHud() {
     const bw2 = Math.max(140, Math.min(420, W - 2 * hudRight));
     bar(cxm - bw2 / 2, inset.t + 32, bw2, 9, boss.hp / boss.maxHp, boss.enraged ? '#ff5a3c' : '#e04848');
   }
+
+  // 모험 진행 시간 (타임어택)
+  label('⏱ ' + fmtRunT(G.runT), cxm, inset.t + 52, 12, '#d8e4ff', 'center', '700');
 
   // 연속 타격
   if (G.chain >= 2) {
@@ -1485,7 +1494,7 @@ function drawPauseMenu(big, blink, tap) {
     label((sel ? '▶ ' : '') + r.it.name, r.x + r.w / 2, r.y + r.h / 2, 16, r.it.id === 'quit' ? '#ffb0a0' : '#fff', 'center', '800');
   });
   const d = Input.state.device;
-  const how = d === 'touch' ? '항목을 탭하세요' : d === 'gamepad' ? '↑↓ 고르기 · A 결정 · B 돌아가기' : '↑↓ 고르기 · Enter/Z 결정 · Esc 돌아가기';
+  const how = d === 'touch' ? '항목을 탭하세요' : d === 'gamepad' ? '↑↓ 고르기 · A 결정 · B 돌아가기' : `↑↓ 고르기 · ${menuKeys().ok} 결정 · ${menuKeys().no} 돌아가기`;
   label(how, W / 2, H - inset.b - 18, 12, '#aab', 'center', '600');
   if (G.tierInfo) drawCurseLines(H - inset.b - 38); // 이번 모험의 반발
 }
@@ -1614,7 +1623,7 @@ function drawSettings(blink) {
   });
   const d = Input.state.device;
   const how = s.msg || (s.tab === 3 ? '멋진 에셋을 나눠 주신 분들께 감사드려요 · ←→ 탭 · 돌아가기' : s.tab === 1 ? '이동은 왼쪽 스틱 · 십자키로 고정이에요' : d === 'touch' ? '키를 바꾸려면 키보드나 게임패드를 연결하세요'
-    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→ 탭 · ↑↓ 고르기 · A 선택 → 바꿀 버튼 누르기 · B 취소/돌아가기 (B는 지정할 수 없어요)` : s.tab === 0 ? (Input.settings.kbMode === 'mouse' ? `키보드+마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · 조준은 ${Input.settings.cursorAim ? '커서 쪽' : '보는 방향 + 자동 조준'}` : '키보드만: 공격은 보는 방향으로 · 마우스는 메뉴 클릭에만') : '←→ 탭 · ↑↓ 고르기 · Enter 바꾸기 · Esc 돌아가기');
+    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→ 탭 · ↑↓ 고르기 · A 선택 → 바꿀 버튼 누르기 · B 취소/돌아가기 (B는 지정할 수 없어요)` : s.tab === 0 ? (Input.settings.kbMode === 'mouse' ? `키보드+마우스: 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · 조준은 ${Input.settings.cursorAim ? '커서 쪽' : '보는 방향 + 자동 조준'}` : '키보드만: 공격은 보는 방향으로 · 마우스는 메뉴 클릭에만') : `←→ 탭 · ↑↓ 고르기 · ${menuKeys().ok} 바꾸기 · ${menuKeys().no} 돌아가기`);
   label(how, W / 2, H - inset.b - 18, 12, s.msg ? '#ffe08a' : '#aab', 'center', '600');
   if (s.tab === 1) { // 패드 입력 확인: 스틱 · 십자키 · 버튼이 제대로 들어오는지
     const pi = Input.padInfo;
@@ -1653,6 +1662,12 @@ function drawGear(r, sel) {
   if (sel) label('설정', r.x - 6, r.y + r.h / 2, 12, '#ffe08a', 'right', '800');
 }
 
+// 메뉴 선택 · 취소 키 이름 (키보드만 = 공격 키 · 대시 키, 키보드+마우스 = Enter · Esc)
+function menuKeys() {
+  const B = Input.binds;
+  if (Input.settings.kbMode === 'mouse') return { ok: 'Enter', no: 'Esc' };
+  return { ok: kbName(B.kb.attack[0] || 'Enter'), no: kbName(B.kb.dash[0] || 'Escape') };
+}
 function keyNames() {
   const d = Input.state.device, B = Input.binds;
   if (d === 'touch') return { A: '공격', P: '특수', D: '대시', move: '왼쪽 조이스틱' };
@@ -2078,7 +2093,7 @@ function drawPauseScreen(big, blink, tap) {
   const c = L.close, d = Input.state.device;
   ctx.fillStyle = 'rgba(60,70,90,0.95)'; ctx.fillRect(c.x, c.y, c.w, c.h);
   ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(c.x + 1, c.y + 1, c.w - 2, c.h - 2);
-  label(d === 'touch' ? '돌아가기' : d === 'gamepad' ? '돌아가기 (B)' :'돌아가기 (Esc)', W / 2, c.y + c.h / 2 + 1, 14, '#fff', 'center', '800');
+  label(d === 'touch' ? '돌아가기' : d === 'gamepad' ? '돌아가기 (B)' :`돌아가기 (${menuKeys().no})`, W / 2, c.y + c.h / 2 + 1, 14, '#fff', 'center', '800');
   if (L.maxScroll > 0 && d !== 'touch') label('↑↓ 스크롤', v.x + v.w, inset.t + 26, 11, '#aab', 'right', '600');
 }
 
@@ -2276,7 +2291,7 @@ function drawVillage(blink) {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
   const d = Input.state.device;
   const how = d === 'touch' ? '목록은 위아래로 밀어서 스크롤 · 버튼을 탭해서 강화 · ⚙ 설정 · 왼쪽 위 처음 화면'
-    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 Enter(${keyNames().A})로 강화 / 장착 / 출발 · 휠 스크롤 · Esc 설정`;
+    : d === 'gamepad' ? `${padName(4)} · ${padName(5)} / ←→: 목록에선 탭 전환 · 아래 줄에선 버튼 이동 · B 아래 줄로 · A로 강화 / 장착 / 출발 · 맨 위 ⚙ 또는 ${padName(9)} 설정` : `←→ 탭 / 아래 버튼 · ↑↓ 고르고 ${menuKeys().ok}로 강화 / 장착 / 출발 · ${menuKeys().no} 아래 줄로 · 휠 스크롤 · Esc 설정`;
   label(v.msg || how, W / 2, st.y - 8, 11, v.msg ? '#ff9a7a' : '#aab', 'center', '600');
   drawHeat(tierNo(md.tier || 1), true);
   if (v.tierView) drawTierView();
@@ -2400,7 +2415,7 @@ function drawTierView() {
   ctx.fillStyle = can ? '#3f8a3b' : 'rgba(50,56,70,0.95)'; ctx.fillRect(P.x, P.y, P.w, P.h);
   label(open ? '봉인 등급 선택' : '🔒 아직 잠김', P.x + P.w / 2, P.y + P.h / 2 + 1, 13, can ? '#fff' : '#99a', 'center', '800');
   const d = Input.state.device;
-  const how = tv.msg || (d === 'touch' ? '등급을 탭해서 보고, 한 번 더 탭하거나 버튼으로 정해요' : d === 'gamepad' ? '↑↓ 고르기 · A 정하기 · B 닫기' : '↑↓ 고르기 · Enter 정하기 · Esc 닫기');
+  const how = tv.msg || (d === 'touch' ? '등급을 탭해서 보고, 한 번 더 탭하거나 버튼으로 정해요' : d === 'gamepad' ? '↑↓ 고르기 · A 정하기 · B 닫기' : `↑↓ 고르기 · ${menuKeys().ok} 정하기 · ${menuKeys().no} 닫기`);
   label(how, L.x + L.w / 2, L.y + L.h + 12 > H - inset.b - 6 ? L.y + L.h - 8 : L.y + L.h + 12, 11, tv.msg ? '#ff9a7a' : '#aab', 'center', '600');
 }
 
@@ -2527,7 +2542,7 @@ function drawBoonBookRaw() {
   ctx.restore();
   if (L.maxScroll > 0) { const k = V.h / (V.h + L.maxScroll), bh = V.h * k, by = V.y + (bk.scroll / L.maxScroll) * (V.h - bh); ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(V.x + V.w + 4, by, 3, bh); }
   const d = Input.state.device;
-  const how = d === 'touch' ? '무기 · 속성을 눌러 바꾸고, 목록은 밀어서 스크롤 · ★ 지금 무기 · "1/2/3"은 레벨별 값' : d === 'gamepad' ? 'LB · RB 무기 · ←→ 속성 · ↑↓ 스크롤 · B 닫기 · ★ 지금 무기 · "1/2/3"은 레벨별 값' : '무기는 클릭 · ←→ 속성 · ↑↓ · 휠 스크롤 · Esc 닫기 · ★ 지금 무기 · "1/2/3"은 레벨별 값';
+  const how = d === 'touch' ? '무기 · 속성을 눌러 바꾸고, 목록은 밀어서 스크롤 · ★ 지금 무기 · "1/2/3"은 레벨별 값' : d === 'gamepad' ? 'LB · RB 무기 · ←→ 속성 · ↑↓ 스크롤 · B 닫기 · ★ 지금 무기 · "1/2/3"은 레벨별 값' : `무기는 클릭 · ←→ 속성 · ↑↓ · 휠 스크롤 · ${menuKeys().no} 닫기 · ★ 지금 무기 · "1/2/3"은 레벨별 값`;
   label(how, L.x + L.w / 2, L.y + L.h - 10, 11, '#8a96a0', 'center', '600');
 }
 
@@ -2960,7 +2975,7 @@ function drawProfiles(blink) {
     return;
   }
   const d = Input.state.device;
-  if (d !== 'touch' && b.y + b.h + 14 < H - inset.b - 4) label(d === 'gamepad' ? '←→ 고르기 · A 결정 · Y 지우기 · B 돌아가기' : '←→ 고르기 · Enter/Z 결정 · 특수 키 지우기 · Esc 돌아가기', W / 2, b.y + b.h + 14, 12, '#aab', 'center', '600');
+  if (d !== 'touch' && b.y + b.h + 14 < H - inset.b - 4) label(d === 'gamepad' ? '←→ 고르기 · A 결정 · Y 지우기 · B 돌아가기' : `←→ 고르기 · ${menuKeys().ok} 결정 · 특수 키 지우기 · ${menuKeys().no} 돌아가기`, W / 2, b.y + b.h + 14, 12, '#aab', 'center', '600');
 }
 // 정령의 첫 선물 연출 (월드 좌표): 하늘에서 금빛 기둥이 내려오고, 그 안으로 빛 구슬이 떨어져 리안 머리 위에서 터진다
 const GIFT_FX_DROP = 1.0; // 빛 구슬이 내려와 터지기까지 (초)
@@ -3132,7 +3147,7 @@ function render() {
       if (G.overT > 0.5) {
         const p = G.player;
         label('쓰러졌다...', W / 2, H * 0.32, big * 0.85, '#ff8a8a');
-        label(`${G.stage}-${G.sub}까지  ·  처치 ${G.runKills}  ·  축복 ${Object.keys(G.boons).length}개`, W / 2, H * 0.45, 15, '#fff', 'center', '600');
+        label(`${G.stage}-${G.sub}까지  ·  처치 ${G.runKills}  ·  축복 ${Object.keys(G.boons).length}개  ·  ⏱ ${fmtRunT(G.runT)}`, W / 2, H * 0.45, 15, '#fff', 'center', '600');
         drawRewardResult(H * 0.54);
         if (G.overT > 1.2 && blink) label(`${tap} 마을로 돌아가기`, W / 2, H * 0.7, 17, '#ffd24a');
       }
@@ -3144,12 +3159,14 @@ function render() {
         label(`세계 ${G.stage} 클리어!`, W / 2, H * 0.3, big * 0.85, '#ffe08a');
         label(stats, W / 2, H * 0.45, 14, '#fff', 'center', '600');
         const rp = G.rewardParts(false);
+        label(`모험 시간 ⏱ ${fmtRunT(G.runT)}`, W / 2, H * 0.495, 13, '#d8e4ff', 'center', '700');
         label(`이번 런 ◆ ${G.runShards}  ·  ⚔ ${G.runEssence}   (끝까지 가면 보상 ×${(rp.tier * DEPTH_CLEAR_MULT * rp.fam).toFixed(2)})`, W / 2, H * 0.54, 13, '#c8a0ff', 'center', '700');
         if (G.clearT > 1.2 && blink) label(`${tap} 세계 ${G.stage + 1}로 (정령의 힘 · 체력 회복)`, W / 2, H * 0.68, 18, '#ffd24a');
       } else {
         label('삼룡을 잠재웠다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
         label('세계 1부터 6까지, 숲의 모든 봉인을 풀었어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
         label(stats, W / 2, H * 0.48, 13, '#fff', 'center', '600');
+        label(`완주 시간 ⏱ ${fmtRunT(G.runT)}`, W / 2, H * 0.525, 15, '#ffe08a', 'center', '800');
         drawRewardResult(H * 0.57);
         const ti = G.tierInfo || tierInfo(1);
         if (G.tierFirst) {
@@ -3189,6 +3206,7 @@ function frame(now) {
   last = now;
   G.time += dt;
   if (Meta.data && G.state !== 'title' && G.state !== 'profiles' && G.state !== 'paused' && G.state !== 'settings') Meta.data.playT += dt; // 플레이 시간
+  if (G.state === 'play' && G.player) G.runT = (G.runT || 0) + dt; // 모험 진행 시간: 축복 선택 · 대화 · 일시정지 · 클리어 화면에선 멈춤
   Input.update();
   layoutButtons();
   Music.update(dt, musicTarget(), G.state === 'paused' || G.state === 'settings');
