@@ -873,6 +873,9 @@ const G = {
             { // 무기별 완주 기록: 완주 횟수 · 완주한 가장 높은 봉인 등급 (무기 선택 칸에 보인다, 2026-10-18)
               const wid = this.player.weaponId, ws = Meta.data.wstats[wid] || (Meta.data.wstats[wid] = { clears: 0, best: 0 });
               ws.clears++; ws.best = Math.max(ws.best, info.n);
+              const tk = runTimeKey(info.n), times = ws.times || (ws.times = {}), prev = times[tk];
+              this.timePrev = prev; this.timeNew = !prev || this.runT < prev; // 신기록?
+              if (this.timeNew) times[tk] = Math.round(this.runT * 100) / 100;
             }
             this.tierFirst = !Meta.data.tierCleared[info.n];
             if (this.tierFirst) {
@@ -1131,6 +1134,13 @@ function drawReviveHeart(cx, cy, n) {
   ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bx, by, 7, 0, Math.PI * 2); ctx.stroke();
   label(String(n), bx, by + 0.5, 11, '#ffffff', 'center', '900');
 }
+// 최고 기록 키: 봉인 등급 번호 (쉬움 모드는 앞에 e)
+const runTimeKey = n => (Meta.data.mode === 'easy' ? 'e' : '') + n;
+// 지금 무기 · 지금 봉인 등급의 최고 완주 시간 (없으면 0)
+function bestRunT(wid = G.player && G.player.weaponId, n = G.tier) {
+  const ws = Meta.data && Meta.data.wstats[wid];
+  return (ws && ws.times && ws.times[runTimeKey(n)]) || 0;
+}
 function fmtRunT(t) {
   t = Math.max(0, t || 0);
   const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, sec = Math.floor(t) % 60, cs = Math.floor(t * 100) % 100, p2 = n => String(n).padStart(2, '0');
@@ -1166,7 +1176,8 @@ function drawHud() {
   }
 
   // 모험 진행 시간 (타임어택)
-  label('⏱ ' + fmtRunT(G.runT), cxm, inset.t + 52, 12, '#d8e4ff', 'center', '700');
+  { const best = bestRunT();
+    label('⏱ ' + fmtRunT(G.runT) + (best ? `   최고 ${fmtRunT(best)}` : ''), cxm, inset.t + 52, 12, best && G.runT > best ? '#ffb0a0' : '#d8e4ff', 'center', '700'); } // 최고 기록보다 늦어지면 붉게
 
   // 연속 타격
   if (G.chain >= 2) {
@@ -1256,7 +1267,7 @@ function drawRunnerIcon(b, color) {
   g.globalAlpha = 1;
 }
 // 공격 버튼: 지금 무기의 도트 그림 (에셋 팩 그림 그대로, 비스듬히)
-const PAD_WEAPON_ART = { sword: 'sword', spear: 'spear', sai: 'sai', staff: 'wand', shield: 'shield', bow: 'bow' };
+const PAD_WEAPON_ART = { sword: 'swordIcon', spear: 'spear', sai: 'sai', staff: 'wand', shield: 'shield', bow: 'bow' };
 function drawWeaponIcon(b, p) {
   const im = ART.img[PAD_WEAPON_ART[p.weaponId] || 'sword'];
   if (!im || !im.width) return;
@@ -1555,8 +1566,8 @@ function drawPauseMenu(big, blink, tap) {
     label('보상은 쓰러지거나 끝까지 깼을 때 받아요', W / 2, H / 2 + 8, 11, '#ccd', 'center', '600');
     quitLayout().forEach((r, i) => {
       const sel = m.qsel === i;
-      ctx.fillStyle = sel ? (i ? '#3f8a3b' : '#9a3a2a') : 'rgba(30,36,48,0.95)'; ctx.fillRect(r.x, r.y, r.w, r.h);
-      ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+      ctx.fillStyle = sel ? (i ? '#3f8a3b' : '#9a3a2a') : 'rgba(30,36,48,0.95)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+      ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; (rrPath(r.x + 1, r.y + 1, r.w - 2, r.h - 2, 7), ctx.stroke());
       label(r.name, r.x + r.w / 2, r.y + r.h / 2, 15, '#fff', 'center', '800');
     });
     return;
@@ -1565,8 +1576,8 @@ function drawPauseMenu(big, blink, tap) {
   if (G.tier) label(`봉인 등급 ${tierNo(G.tier)} · ${G.stage}-${G.sub}${Meta.data.mode === 'easy' ? ' · 쉬움' : ''}`, W / 2, pauseLayout()[0].y - 14, 12, '#ccd', 'center', '600');
   pauseLayout().forEach((r, i) => {
     const sel = m.sel === i;
-    ctx.fillStyle = sel ? 'rgba(70,60,110,0.97)' : 'rgba(24,28,40,0.92)'; ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.18)'; ctx.lineWidth = sel ? 2 : 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    ctx.fillStyle = sel ? 'rgba(70,60,110,0.97)' : 'rgba(24,28,40,0.92)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+    ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.18)'; ctx.lineWidth = sel ? 2 : 1; (rrPath(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 7), ctx.stroke());
     label((sel ? '▶ ' : '') + r.it.name, r.x + r.w / 2, r.y + r.h / 2, 16, r.it.id === 'quit' ? '#ffb0a0' : '#fff', 'center', '800');
   });
   const d = Input.state.device;
@@ -1682,17 +1693,17 @@ function drawSettings(blink) {
   label('설정', W / 2, inset.t + 26, 22, '#ffe08a', 'center', '900');
   // 뒤로 버튼
   const b = L.back;
-  ctx.fillStyle = 'rgba(40,46,60,0.95)'; ctx.fillRect(b.x, b.y, b.w, b.h);
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
+  ctx.fillStyle = 'rgba(40,46,60,0.95)'; (rrPath(b.x, b.y, b.w, b.h, 7), ctx.fill());
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; (rrPath(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 7), ctx.stroke());
   label('← 돌아가기', b.x + b.w / 2, b.y + b.h / 2, 12, '#fff', 'center', '700');
   L.tabs.forEach((r, i) => {
-    ctx.fillStyle = i === s.tab ? '#6a3fb0' : 'rgba(40,40,60,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.fillStyle = i === s.tab ? '#6a3fb0' : 'rgba(40,40,60,0.9)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
     label(SETTING_TABS[i], r.x + r.w / 2, r.y + r.h / 2, 13, '#fff', 'center', '800');
   });
   L.rows.forEach((row, i) => {
     const sel = s.sel === i, r = row.r, waiting = s.waiting === r;
-    ctx.fillStyle = waiting ? 'rgba(120,90,20,0.95)' : sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.88)'; ctx.fillRect(row.x, row.y, row.w, row.h);
-    if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(row.x + 1, row.y + 1, row.w - 2, row.h - 2); }
+    ctx.fillStyle = waiting ? 'rgba(120,90,20,0.95)' : sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.88)'; (rrPath(row.x, row.y, row.w, row.h, 7), ctx.fill());
+    if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; (rrPath(row.x + 1, row.y + 1, row.w - 2, row.h - 2, 7), ctx.stroke()); }
     label(r.name + (r.kind === 'mode' ? '  (A · Enter로 바꾸기)' : r.kind === 'padlayout' ? '  (A로 바꾸기)' : ''), row.x + 14, row.y + row.h / 2, 13, r.kind === 'reset' ? '#ffb0a0' : r.kind === 'mode' || r.kind === 'padlayout' ? '#ffe08a' : '#fff', 'left', '700');
     const val = waiting ? (blink ? (r.dev === 'kb' ? '새 키를 누르세요… (Esc 취소)' : '새 버튼을 누르세요… (B 취소)') : '') : r.value;
     label(val, row.x + row.w - 14, row.y + row.h / 2, 13, waiting ? '#ffe08a' : r.kind === 'toggle' ? (r.value === '켜짐' ? '#8ff0b0' : '#ff9a7a') : '#c8d8ff', 'right', '800');
@@ -1712,18 +1723,18 @@ function drawSettings(blink) {
 // 마을의 '처음 화면' 버튼 (왼쪽 위, 루미 그림 자리). 패드 · 키보드에선 ⚙ 에서 ← 로 간다 (2026-10-17)
 function villageHome() { return { x: inset.l + 12, y: inset.t + 12, w: 96, h: 32 }; }
 function drawHome(r, sel) {
-  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.85)'; ctx.fillRect(r.x, r.y, r.w, r.h);
-  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
-  else { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
+  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.85)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; (rrPath(r.x + 1, r.y + 1, r.w - 2, r.h - 2, 7), ctx.stroke()); }
+  else { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; (rrPath(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 7), ctx.stroke()); }
   // 프로필 화면의 '← 처음 화면' 버튼과 같은 글씨
   label('← 처음 화면', r.x + r.w / 2, r.y + r.h / 2 + 1, 12, sel ? '#ffd24a' : '#ccd', 'center', '700');
 }
 // 마을의 '축복 도감' 버튼: ⚙ 왼쪽 (2026-10-18, 탭에서 옮김). 패드 · 키보드: ⚙ 에서 ← 로
 function villageBook() { const g = villageGear(); return { x: g.x - 108, y: g.y, w: 100, h: g.h }; }
 function drawBookBtn(r, sel) {
-  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.85)'; ctx.fillRect(r.x, r.y, r.w, r.h);
-  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
-  else { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
+  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(20,26,34,0.85)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; (rrPath(r.x + 1, r.y + 1, r.w - 2, r.h - 2, 7), ctx.stroke()); }
+  else { ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; (rrPath(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 7), ctx.stroke()); }
   label('📖 축복 도감', r.x + r.w / 2, r.y + r.h / 2 + 1, 12, sel ? '#ffd24a' : '#ccd', 'center', '700');
 }
 function villageGoTitle() { Meta.save(); G.state = 'title'; G.titleT = 0; G.titleHeard = true; Sfx.pickup(); }
@@ -1731,9 +1742,9 @@ function villageGoTitle() { Meta.save(); G.state = 'title'; G.titleT = 0; G.titl
 // 마을의 설정 버튼 (톱니)
 function villageGear() { return { x: W - inset.r - 46, y: inset.t + 30, w: 34, h: 30 }; }
 function drawGear(r, sel) {
-  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(30,36,48,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
-  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
-  else { ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1); }
+  ctx.fillStyle = sel ? 'rgba(60,70,90,0.95)' : 'rgba(30,36,48,0.9)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+  if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; (rrPath(r.x + 1, r.y + 1, r.w - 2, r.h - 2, 7), ctx.stroke()); }
+  else { ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; (rrPath(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 7), ctx.stroke()); }
   label('⚙', r.x + r.w / 2, r.y + r.h / 2 + 1, 16, '#fff', 'center', '700');
   if (sel) label('설정', r.x - 6, r.y + r.h / 2, 12, '#ffe08a', 'right', '800');
 }
@@ -1789,8 +1800,8 @@ function drawDialog() {
   overlay(0.3);
   const bw = Math.min(W - 32 - inset.l - inset.r, 760), bh = clamp(H * 0.34, 104, 150);
   const bx = (W - bw) / 2, by = H - inset.b - bh - 12;
-  ctx.fillStyle = 'rgba(10,18,14,0.92)'; ctx.fillRect(bx, by, bw, bh);
-  ctx.strokeStyle = sp.color; ctx.lineWidth = 2; ctx.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
+  ctx.fillStyle = 'rgba(10,18,14,0.92)'; (rrPath(bx, by, bw, bh, 7), ctx.fill());
+  ctx.strokeStyle = sp.color; ctx.lineWidth = 2; (rrPath(bx + 1, by + 1, bw - 2, bh - 2, 7), ctx.stroke());
   let tx = bx + 18, ty = by + 24;
   if (sys) {
     label('✦ 새 기술 습득', tx, ty, 15, sp.color, 'left', '800');
@@ -1812,7 +1823,7 @@ function drawDialog() {
   if (d.chars >= d.total && Math.sin(G.time * 6) > 0) label('▼', bx + bw - 20, by + bh - 16, 12, sp.color);
   const b = Input.buttons.skip;
   if (b && b.visible) {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(b.x - 34, b.y - 14, 68, 28);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; (rrPath(b.x - 34, b.y - 14, 68, 28, 7), ctx.fill());
     label('건너뛰기 ▶', b.x, b.y, 12, '#fff', 'center', '700');
   }
 }
@@ -2030,9 +2041,9 @@ function drawBoonScreen() {
   if (rb && Meta.lv('choice') > 0) {
     // 다시 뽑기: 카드와 같은 어두운 판 + 금빛 테두리, 남은 횟수는 마름모, 키는 작은 키캡 (2026-10-17)
     const ok = G.rerolls > 0 && o.armed, cy = rb.y + rb.h / 2;
-    ctx.fillStyle = 'rgba(18,22,28,0.94)'; ctx.fillRect(rb.x, rb.y, rb.w, rb.h);
-    ctx.strokeStyle = ok ? 'rgba(255,210,74,0.7)' : 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.strokeRect(rb.x + 0.5, rb.y + 0.5, rb.w - 1, rb.h - 1);
-    ctx.fillStyle = ok ? '#ffd24a' : 'rgba(255,255,255,0.15)'; ctx.fillRect(rb.x, rb.y, 3, rb.h); // 왼쪽 금빛 띠
+    ctx.fillStyle = 'rgba(18,22,28,0.94)'; (rrPath(rb.x, rb.y, rb.w, rb.h, 7), ctx.fill());
+    ctx.strokeStyle = ok ? 'rgba(255,210,74,0.7)' : 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; (rrPath(rb.x + 0.5, rb.y + 0.5, rb.w - 1, rb.h - 1, 7), ctx.stroke());
+    ctx.fillStyle = ok ? '#ffd24a' : 'rgba(255,255,255,0.15)'; (rrPath(rb.x, rb.y, 3, rb.h, 7), ctx.fill()); // 왼쪽 금빛 띠
     label('↻', rb.x + 20, cy + 1, 17, ok ? '#ffd24a' : '#666', 'center', '900');
     label('다시 뽑기', rb.x + 34, cy + 1, 13, ok ? '#fff' : '#777', 'left', '800');
     // 키캡: 패드 버튼 · 키보드만 쓸 때의 키만. 터치 · 마우스는 버튼을 바로 누르면 되니 안 보인다
@@ -2040,8 +2051,8 @@ function drawBoonScreen() {
     let rx = rb.x + rb.w - 10;
     if (keyTxt) { // 키캡
       ctx.font = `700 10px ${FONT}`; const kw = Math.ceil(ctx.measureText(keyTxt).width) + 10;
-      rx -= kw; ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(rx, cy - 9, kw, 18);
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.strokeRect(rx + 0.5, cy - 8.5, kw - 1, 17);
+      rx -= kw; ctx.fillStyle = 'rgba(255,255,255,0.08)'; (rrPath(rx, cy - 9, kw, 18, 7), ctx.fill());
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; (rrPath(rx + 0.5, cy - 8.5, kw - 1, 17, 7), ctx.stroke());
       label(keyTxt, rx + kw / 2, cy + 1, 10, ok ? '#dde' : '#777', 'center', '700');
       rx -= 8;
     }
@@ -2145,7 +2156,7 @@ function drawPauseScreen(big, blink, tap) {
     if (y > v.y + v.h + 10 || y + 120 < v.y) continue;
     if (it.t === 'head') {
       label(it.text, v.x, y + 10, 15, it.color, 'left', '800');
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(v.x, y + 20, v.w, 1);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; (rrPath(v.x, y + 20, v.w, 1, 7), ctx.fill());
     } else if (it.t === 'move') {
       label(it.name, v.x + 4, y + 8, 13, '#ffd24a', 'left', '800');
       label(it.input, v.x + v.w - 4, y + 8, 12, '#fff', 'right', '700');
@@ -2162,13 +2173,13 @@ function drawPauseScreen(big, blink, tap) {
   // 스크롤 막대
   if (L.maxScroll > 0) {
     const bh = Math.max(30, v.h * v.h / (v.h + L.maxScroll)), by = v.y + (v.h - bh) * (sc / L.maxScroll);
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(v.x + v.w + 6, v.y, 4, v.h);
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillRect(v.x + v.w + 6, by, 4, bh);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; (rrPath(v.x + v.w + 6, v.y, 4, v.h, 7), ctx.fill());
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; (rrPath(v.x + v.w + 6, by, 4, bh, 7), ctx.fill());
   }
   // 돌아가기 버튼
   const c = L.close, d = Input.state.device;
-  ctx.fillStyle = 'rgba(60,70,90,0.95)'; ctx.fillRect(c.x, c.y, c.w, c.h);
-  ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(c.x + 1, c.y + 1, c.w - 2, c.h - 2);
+  ctx.fillStyle = 'rgba(60,70,90,0.95)'; (rrPath(c.x, c.y, c.w, c.h, 7), ctx.fill());
+  ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; (rrPath(c.x + 1, c.y + 1, c.w - 2, c.h - 2, 7), ctx.stroke());
   label(d === 'touch' ? '돌아가기' : d === 'gamepad' ? '돌아가기 (B)' :`돌아가기 (${menuKeys().no})`, W / 2, c.y + c.h / 2 + 1, 14, '#fff', 'center', '800');
   if (L.maxScroll > 0 && d !== 'touch') label('↑↓ 스크롤', v.x + v.w, inset.t + 26, 11, '#aab', 'right', '600');
 }
@@ -2287,7 +2298,7 @@ function drawVillage(blink) {
   ['공통 강화', '무기 해금 · 선택'].forEach((name, i) => {
     const t = L.tabs[i], on = v.tab === i;
     ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(30,34,44,0.85)';
-    ctx.fillRect(t.x, t.y, t.w, t.h);
+    (rrPath(t.x, t.y, t.w, t.h, 7), ctx.fill());
     label(name, t.x + t.w / 2, t.y + t.h / 2, 13, on ? '#fff' : '#99a', 'center', '800');
   });
   // 목록 (스크롤 영역)
@@ -2298,13 +2309,13 @@ function drawVillage(blink) {
     const it = r.it, sel = v.sel === i;
     if (it.header) {
       label(it.name, r.x + 4, r.y + r.h / 2 + 2, 13, '#ffd24a', 'left', '800');
-      ctx.fillStyle = 'rgba(255,210,74,0.35)'; ctx.fillRect(r.x, r.y + r.h - 1, r.w, 1);
+      ctx.fillStyle = 'rgba(255,210,74,0.35)'; (rrPath(r.x, r.y + r.h - 1, r.w, 1, 7), ctx.fill());
       return;
     }
     ctx.fillStyle = sel ? 'rgba(60,70,90,0.9)' : 'rgba(20,26,34,0.85)';
-    ctx.fillRect(r.x, r.y, r.w, r.h);
-    if (v.flash[it.key] > 0) { ctx.fillStyle = `rgba(200,160,255,${v.flash[it.key]})`; ctx.fillRect(r.x, r.y, r.w, r.h); }
-    if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
+    (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+    if (v.flash[it.key] > 0) { ctx.fillStyle = `rgba(200,160,255,${v.flash[it.key]})`; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill()); }
+    if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; (rrPath(r.x + 1, r.y + 1, r.w - 2, r.h - 2, 7), ctx.stroke()); }
     label(it.name, r.x + 12, r.y + r.h * 0.32, 13, it.locked ? '#99a' : '#fff', 'left', '800');
     const bx = r.x + r.w - 92, bw = 84;
     let btn, bcol, tcol;
@@ -2314,7 +2325,8 @@ function drawVillage(blink) {
       const using = it.weapon === md.weapon, buy = !it.locked && !it.owned, can = buy && md.emblems >= it.unlockCost;
       if (it.owned) { // 이 무기의 완주 기록 (2026-10-18)
         const ws = md.wstats[it.weapon];
-        if (ws && ws.clears) label(`완주 ${ws.clears}회 · 최고 봉인 등급 ${tierNo(ws.best)}`, r.x + r.w - 100, r.y + r.h * 0.32, 11, '#ffd24a', 'right', '800');
+        const bt = ws && ws.times && ws.times[runTimeKey(ws.best)]; // 최고 봉인 등급의 최고 완주 시간 (같은 줄에)
+        if (ws && ws.clears) label(`완주 ${ws.clears}회 · 최고 봉인 등급 ${tierNo(ws.best)}` + (bt ? ` · ⏱ ${fmtRunT(bt)}` : ''), r.x + r.w - 100, r.y + r.h * 0.32, 11, '#ffd24a', 'right', '800');
         else label('완주 기록 없음', r.x + r.w - 100, r.y + r.h * 0.32, 10.5, '#7d8a96', 'right', '600');
       }
       btn = it.locked ? '차후 구현' : buy ? `✦ ${it.unlockCost} 해금` : using ? '✓ 장착됨' : '장착하기';
@@ -2327,13 +2339,13 @@ function drawVillage(blink) {
       label(desc, r.x + 12, r.y + r.h * 0.74, 10.5, '#b8c0cc', 'left', '500');
       for (let k = 0; k < it.max; k++) {
         ctx.fillStyle = k < lv ? '#c8a0ff' : 'rgba(255,255,255,0.15)';
-        ctx.fillRect(r.x + r.w - 104 - (it.max - k) * 11, r.y + r.h / 2 - 4, 8, 8);
+        (rrPath(r.x + r.w - 104 - (it.max - k) * 11, r.y + r.h / 2 - 4, 8, 8, 7), ctx.fill());
       }
       btn = cost === null ? 'MAX' : `${icon} ${cost}`;
       bcol = cost === null ? 'rgba(255,255,255,0.08)' : can ? (it.essence ? '#9a6a1a' : '#6a3fb0') : 'rgba(80,80,90,0.7)';
       tcol = cost === null ? '#888' : can ? '#fff' : '#999';
     }
-    ctx.fillStyle = bcol; ctx.fillRect(bx, r.y + 3, bw, r.h - 6);
+    ctx.fillStyle = bcol; (rrPath(bx, r.y + 3, bw, r.h - 6, 7), ctx.fill());
     label(btn, bx + bw / 2, r.y + r.h / 2, 13, tcol, 'center', '800');
   });
   ctx.restore();
@@ -2341,18 +2353,18 @@ function drawVillage(blink) {
   if (L.maxScroll > 0) {
     const total = L.view.h + L.maxScroll, bh = L.view.h * L.view.h / total;
     const by = L.view.y + (L.view.h - bh) * (v.scroll / L.maxScroll);
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(L.view.x + L.view.w + 4, L.view.y, 3, L.view.h);
-    ctx.fillStyle = 'rgba(200,160,255,0.8)'; ctx.fillRect(L.view.x + L.view.w + 4, by, 3, bh);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; (rrPath(L.view.x + L.view.w + 4, L.view.y, 3, L.view.h, 7), ctx.fill());
+    ctx.fillStyle = 'rgba(200,160,255,0.8)'; (rrPath(L.view.x + L.view.w + 4, by, 3, bh, 7), ctx.fill());
   }
   const st = L.start, ssel = v.sel === L.items.length;
-  ctx.fillStyle = ssel ? '#3f8a3b' : '#2f6b2f'; ctx.fillRect(st.x, st.y, st.w, st.h);
-  ctx.strokeStyle = ssel && blink ? '#ffd24a' : 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.strokeRect(st.x + 1, st.y + 1, st.w - 2, st.h - 2);
+  ctx.fillStyle = ssel ? '#3f8a3b' : '#2f6b2f'; (rrPath(st.x, st.y, st.w, st.h, 7), ctx.fill());
+  ctx.strokeStyle = ssel && blink ? '#ffd24a' : 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; (rrPath(st.x + 1, st.y + 1, st.w - 2, st.h - 2, 7), ctx.stroke());
   label('모험 떠나기 ▶', st.x + st.w / 2, st.y + st.h / 2, 16, '#fff', 'center', '900');
   drawGear(villageGear(), G.village && G.village.sel === -1); // 패드 · 키보드로도 고를 수 있다 (목록 맨 위에서 ↑)
   // 난이도 버튼
   const mb = L.mode, msel = v.sel === L.items.length + 1, easy = md.mode === 'easy';
-  ctx.fillStyle = easy ? 'rgba(40,110,70,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(mb.x, mb.y, mb.w, mb.h);
-  ctx.strokeStyle = msel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(mb.x + 1, mb.y + 1, mb.w - 2, mb.h - 2);
+  ctx.fillStyle = easy ? 'rgba(40,110,70,0.95)' : 'rgba(40,46,60,0.95)'; (rrPath(mb.x, mb.y, mb.w, mb.h, 7), ctx.fill());
+  ctx.strokeStyle = msel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; (rrPath(mb.x + 1, mb.y + 1, mb.w - 2, mb.h - 2, 7), ctx.stroke());
   drawModeIcon(easy ? 'easy' : 'normal', mb.x + 4, mb.y + 2, 34);
   const mtx = mb.x + 40 + (mb.w - 40) / 2;
   label(`난이도: ${easy ? '쉬움' : '일반'}`, mtx, mb.y + mb.h / 2 - 6, 13, easy ? '#8ff0b0' : '#ffb07a', 'center', '800');
@@ -2360,8 +2372,8 @@ function drawVillage(blink) {
   // 봉인 등급 버튼
   const tb = L.tier, tsel = v.sel === L.items.length + 2, ti = tierInfo(md.tier);
   drawHeatFlames(tb, tierNo(ti.n));
-  ctx.fillStyle = ti.curses.length ? 'rgba(110,40,60,0.95)' : 'rgba(40,46,60,0.95)'; ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
-  ctx.strokeStyle = tsel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(tb.x + 1, tb.y + 1, tb.w - 2, tb.h - 2);
+  ctx.fillStyle = ti.curses.length ? 'rgba(110,40,60,0.95)' : 'rgba(40,46,60,0.95)'; (rrPath(tb.x, tb.y, tb.w, tb.h, 7), ctx.fill());
+  ctx.strokeStyle = tsel && blink ? '#ffd24a' : 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; (rrPath(tb.x + 1, tb.y + 1, tb.w - 2, tb.h - 2, 7), ctx.stroke());
   label(`봉인 등급 ${tierNo(ti.n)}`, tb.x + tb.w / 2, tb.y + tb.h / 2 - 6, 13, '#ffd0e0', 'center', '800');
   const fm = familiarMult(ti.n);
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? ' 익숙함' : ''} · 반발 ${ti.curses.length}${playableTiers().length > 1 ? ' ▸' : ''}`, tb.x + tb.w / 2, tb.y + tb.h / 2 + 9, 9, fm < 1 ? '#ff8a7a' : '#aab', 'center', '600');
@@ -2443,12 +2455,12 @@ function handleTierView(dt, inp) {
 function drawTierView() {
   const tv = G.village.tierView, L = tierViewLayout();
   overlay(0.55);
-  ctx.fillStyle = 'rgba(16,20,28,0.97)'; ctx.fillRect(L.x, L.y, L.w, L.h);
-  ctx.strokeStyle = 'rgba(255,208,224,0.45)'; ctx.lineWidth = 1; ctx.strokeRect(L.x + 0.5, L.y + 0.5, L.w - 1, L.h - 1);
+  ctx.fillStyle = 'rgba(16,20,28,0.97)'; (rrPath(L.x, L.y, L.w, L.h, 7), ctx.fill());
+  ctx.strokeStyle = 'rgba(255,208,224,0.45)'; ctx.lineWidth = 1; (rrPath(L.x + 0.5, L.y + 0.5, L.w - 1, L.h - 1, 7), ctx.stroke());
   label('봉인 등급', L.x + 16, L.y + 22, 18, '#ffd0e0', 'left', '900');
   label('등급이 오를수록 반발이 하나씩 붙고, 보상이 커져요', L.x + 110, L.y + 23, 11, '#aab', 'left', '600');
   const c = L.close;
-  ctx.fillStyle = 'rgba(40,46,60,0.95)'; ctx.fillRect(c.x, c.y, c.w, c.h);
+  ctx.fillStyle = 'rgba(40,46,60,0.95)'; (rrPath(c.x, c.y, c.w, c.h, 7), ctx.fill());
   label('닫기', c.x + c.w / 2, c.y + c.h / 2 + 1, 12, '#ccd', 'center', '700');
   // 목록
   const Ls = L.list;
@@ -2457,8 +2469,8 @@ function drawTierView() {
     const n = i + 1, y = Ls.y + i * TIER_ROW - tv.scroll;
     if (y + TIER_ROW < Ls.y || y > Ls.y + Ls.h) continue;
     const open = tierOpen(n), cleared = !!Meta.data.tierCleared[n], cur = Meta.data.tier === n, sel = tv.sel === i, ti = tierInfo(n);
-    ctx.fillStyle = sel ? 'rgba(110,40,70,0.95)' : 'rgba(30,34,46,0.9)'; ctx.fillRect(Ls.x, y + 1, Ls.w, TIER_ROW - 3);
-    if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; ctx.strokeRect(Ls.x + 1, y + 2, Ls.w - 2, TIER_ROW - 5); }
+    ctx.fillStyle = sel ? 'rgba(110,40,70,0.95)' : 'rgba(30,34,46,0.9)'; (rrPath(Ls.x, y + 1, Ls.w, TIER_ROW - 3, 7), ctx.fill());
+    if (sel) { ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; (rrPath(Ls.x + 1, y + 2, Ls.w - 2, TIER_ROW - 5, 7), ctx.stroke()); }
     label((open ? '' : '🔒 ') + '봉인 등급 ' + tierNo(n), Ls.x + 10, y + TIER_ROW / 2, 13, open ? (cur ? '#ffd24a' : '#fff') : '#778', 'left', '800');
     const tag = cur ? '선택됨' : cleared ? '✓ 완주' : open ? `반발 ${ti.curses.length}` : '';
     label(tag, Ls.x + Ls.w - 10, y + TIER_ROW / 2, 10, cur ? '#ffd24a' : cleared ? '#8ff0b0' : '#aab', 'right', '700');
@@ -2466,7 +2478,7 @@ function drawTierView() {
   ctx.restore();
   if (L.maxScroll > 0) { // 스크롤 막대
     const k = Ls.h / (TIER_MAX * TIER_ROW), bh = Ls.h * k, by = Ls.y + (tv.scroll / L.maxScroll) * (Ls.h - bh);
-    ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(Ls.x + Ls.w + 3, by, 3, bh);
+    ctx.fillStyle = 'rgba(255,255,255,0.25)'; (rrPath(Ls.x + Ls.w + 3, by, 3, bh, 7), ctx.fill());
   }
   // 고른 등급의 내역
   const n = tv.sel + 1, ti = tierInfo(n), I = L.info, open = tierOpen(n), fm = familiarMult(n);
@@ -2488,7 +2500,7 @@ function drawTierView() {
   if (n > 1 && ti.curses.length) label('＋ 표시는 이 등급에서 새로 붙는 반발', I.x, y + 4, 10, '#889', 'left', '600');
   // 정하기 버튼
   const P = L.pick, can = open && Meta.data.tier !== n;
-  ctx.fillStyle = can ? '#3f8a3b' : 'rgba(50,56,70,0.95)'; ctx.fillRect(P.x, P.y, P.w, P.h);
+  ctx.fillStyle = can ? '#3f8a3b' : 'rgba(50,56,70,0.95)'; (rrPath(P.x, P.y, P.w, P.h, 7), ctx.fill());
   label(open ? '봉인 등급 선택' : '🔒 아직 잠김', P.x + P.w / 2, P.y + P.h / 2 + 1, 13, can ? '#fff' : '#99a', 'center', '800');
   const d = Input.state.device;
   const how = tv.msg || (d === 'touch' ? '등급을 탭해서 보고, 한 번 더 탭하거나 버튼으로 정해요' : d === 'gamepad' ? '↑↓ 고르기 · A 정하기 · B 닫기' : `↑↓ 고르기 · ${menuKeys().ok} 정하기 · ${menuKeys().no} 닫기`);
@@ -2583,21 +2595,21 @@ function drawBoonBook() { bookAs(drawBoonBookRaw); }
 function drawBoonBookRaw() {
   const bk = G.book, L = bookLayoutRaw();
   overlay(0.75);
-  ctx.fillStyle = 'rgba(14,18,26,0.97)'; ctx.fillRect(L.x, L.y, L.w, L.h);
-  ctx.strokeStyle = 'rgba(255,224,138,0.4)'; ctx.lineWidth = 1; ctx.strokeRect(L.x + 0.5, L.y + 0.5, L.w - 1, L.h - 1);
+  ctx.fillStyle = 'rgba(14,18,26,0.97)'; (rrPath(L.x, L.y, L.w, L.h, 7), ctx.fill());
+  ctx.strokeStyle = 'rgba(255,224,138,0.4)'; ctx.lineWidth = 1; (rrPath(L.x + 0.5, L.y + 0.5, L.w - 1, L.h - 1, 7), ctx.stroke());
   label('📖 축복 도감', L.x + 16, L.y + 22, 18, '#ffe08a', 'left', '900');
   label('같은 축복도 무기마다 이름과 효과가 달라요', L.x + 140, L.y + 23, 11, '#aab', 'left', '600');
   const mine = G.player ? G.player.weaponId : Meta.data.weapon;
   L.weapons.forEach(r => {
     const on = bk.weapon === r.id;
-    ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(28,32,44,0.9)'; ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(28,32,44,0.9)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
     label((r.id === mine ? '★ ' : '') + WEAPONS[r.id].name, r.x + r.w / 2, r.y + r.h / 2, 12, on ? '#fff' : '#99a', 'center', '800');
   });
-  const c = L.close; ctx.fillStyle = 'rgba(40,46,60,0.95)'; ctx.fillRect(c.x, c.y, c.w, c.h); label('닫기', c.x + c.w / 2, c.y + c.h / 2 + 1, 12, '#ccd', 'center', '700');
+  const c = L.close; ctx.fillStyle = 'rgba(40,46,60,0.95)'; (rrPath(c.x, c.y, c.w, c.h, 7), ctx.fill()); label('닫기', c.x + c.w / 2, c.y + c.h / 2 + 1, 12, '#ccd', 'center', '700');
   L.tabs.forEach((t, i) => {
     const on = bk.tab === i, el = ELEMENTS[t.k], col = t.k === 'duo' ? '#ffb8f0' : el.color;
-    ctx.fillStyle = on ? 'rgba(60,52,90,0.95)' : 'rgba(28,32,44,0.9)'; ctx.fillRect(t.x, t.y, t.w, t.h);
-    if (on) { ctx.fillStyle = col; ctx.fillRect(t.x, t.y + t.h - 3, t.w, 3); }
+    ctx.fillStyle = on ? 'rgba(60,52,90,0.95)' : 'rgba(28,32,44,0.9)'; (rrPath(t.x, t.y, t.w, t.h, 7), ctx.fill());
+    if (on) { ctx.fillStyle = col; (rrPath(t.x, t.y + t.h - 3, t.w, 3, 7), ctx.fill()); }
     label(t.k === 'duo' ? '✨ 듀오' : `${el.icon} ${el.name}`, t.x + t.w / 2, t.y + t.h / 2, 12, on ? col : '#99a', 'center', '800');
   });
   const V = L.view;
@@ -2606,8 +2618,8 @@ function drawBoonBookRaw() {
     const y = V.y + cd.top - bk.scroll;
     if (y + cd.h < V.y || y > V.y + V.h) continue;
     const b = cd.b, col = boonColor(b), own = G.player && G.boons && G.boons[b.id] && bk.weapon === G.player.weaponId;
-    ctx.fillStyle = 'rgba(24,30,40,0.95)'; ctx.fillRect(V.x, y, V.w, cd.h);
-    ctx.fillStyle = col; ctx.fillRect(V.x, y, 3, cd.h);
+    ctx.fillStyle = 'rgba(24,30,40,0.95)'; (rrPath(V.x, y, V.w, cd.h, 7), ctx.fill());
+    ctx.fillStyle = col; (rrPath(V.x, y, 3, cd.h, 7), ctx.fill());
     ctx.font = `16px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(boonIcon(b), V.x + 10, y + 14);
     label(b.name + (own ? `  (지금 Lv${G.boons[b.id]})` : ''), V.x + 34, y + 14, 14, col, 'left', '800');
     label(cd.tag, V.x + V.w - 10, y + 14, 11, '#aab', 'right', '600');
@@ -2616,7 +2628,7 @@ function drawBoonBookRaw() {
     cd.eff.forEach(l => { label(l, V.x + 12, ly + 1, 12, '#e8e8e8', 'left', '500'); ly += 16; });
   }
   ctx.restore();
-  if (L.maxScroll > 0) { const k = V.h / (V.h + L.maxScroll), bh = V.h * k, by = V.y + (bk.scroll / L.maxScroll) * (V.h - bh); ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(V.x + V.w + 4, by, 3, bh); }
+  if (L.maxScroll > 0) { const k = V.h / (V.h + L.maxScroll), bh = V.h * k, by = V.y + (bk.scroll / L.maxScroll) * (V.h - bh); ctx.fillStyle = 'rgba(255,255,255,0.25)'; (rrPath(V.x + V.w + 4, by, 3, bh, 7), ctx.fill()); }
   const d = Input.state.device;
   const how = d === 'touch' ? '무기 · 속성을 눌러 바꾸고, 목록은 밀어서 스크롤 · ★ 지금 무기 · "1/2/3"은 레벨별 값' : d === 'gamepad' ? 'LB · RB 무기 · ←→ 속성 · ↑↓ 스크롤 · B 닫기 · ★ 지금 무기 · "1/2/3"은 레벨별 값' : `무기는 클릭 · ←→ 속성 · ↑↓ · 휠 스크롤 · ${menuKeys().no} 닫기 · ★ 지금 무기 · "1/2/3"은 레벨별 값`;
   label(how, L.x + L.w / 2, L.y + L.h - 10, 11, '#8a96a0', 'center', '600');
@@ -3003,19 +3015,19 @@ function drawProfiles(blink) {
   label('프로필 선택', W / 2, L[0].y - 34, 24, '#ffe08a', 'center', '900');
   L.forEach((r, i) => {
     const s = Meta.summary(i + 1), sel = m.sel === i, cx = r.x + r.w / 2;
-    ctx.fillStyle = sel ? 'rgba(58,50,96,0.96)' : 'rgba(20,26,34,0.92)'; ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.2)'; ctx.lineWidth = sel ? 2 : 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    ctx.fillStyle = sel ? 'rgba(58,50,96,0.96)' : 'rgba(20,26,34,0.92)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+    ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.2)'; ctx.lineWidth = sel ? 2 : 1; (rrPath(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 7), ctx.stroke());
     label(`프로필 ${i + 1}`, cx, r.y + 20, 16, sel ? '#ffd24a' : '#fff', 'center', '900');
     const foot = (t, c) => label(t, cx, r.y + r.h - 18, 13, sel && blink ? '#ffd24a' : c, 'center', '800');
     const cb = r.code; // 저장 코드 버튼 (내보내기 · 불러오기)
-    ctx.fillStyle = 'rgba(40,60,90,0.8)'; ctx.fillRect(cb.x, cb.y, cb.w, cb.h);
-    ctx.strokeStyle = 'rgba(160,200,255,0.5)'; ctx.lineWidth = 1; ctx.strokeRect(cb.x + 0.5, cb.y + 0.5, cb.w - 1, cb.h - 1);
+    ctx.fillStyle = 'rgba(40,60,90,0.8)'; (rrPath(cb.x, cb.y, cb.w, cb.h, 7), ctx.fill());
+    ctx.strokeStyle = 'rgba(160,200,255,0.5)'; ctx.lineWidth = 1; (rrPath(cb.x + 0.5, cb.y + 0.5, cb.w - 1, cb.h - 1, 7), ctx.stroke());
     label('코드', cb.x + cb.w / 2, cb.y + cb.h / 2 + 1, 11, '#cfe8ff', 'center', '800');
     if (!s) { label('비어 있음', cx, r.y + r.h / 2, 14, '#8a96a0', 'center', '700'); foot('새 모험 시작', '#ccd'); return; }
     const stageLabel = i => (i > STAGES_PER_WORLD * FINAL_STAGE ? '완주' : stageLabelRaw(i)); // 31 = 끝까지 깸
     const db = r.del; // 지우기 버튼
-    ctx.fillStyle = 'rgba(120,40,30,0.75)'; ctx.fillRect(db.x, db.y, db.w, db.h);
-    ctx.strokeStyle = 'rgba(255,160,140,0.6)'; ctx.lineWidth = 1; ctx.strokeRect(db.x + 0.5, db.y + 0.5, db.w - 1, db.h - 1);
+    ctx.fillStyle = 'rgba(120,40,30,0.75)'; (rrPath(db.x, db.y, db.w, db.h, 7), ctx.fill());
+    ctx.strokeStyle = 'rgba(255,160,140,0.6)'; ctx.lineWidth = 1; (rrPath(db.x + 0.5, db.y + 0.5, db.w - 1, db.h - 1, 7), ctx.stroke());
     label('✕', db.x + db.w / 2, db.y + db.h / 2 + 1, 12, '#ffd0c8', 'center', '900');
     const best = s.best ? stageLabel(s.best) + (s.bestEasy ? ` (쉬움 ${stageLabel(s.bestEasy)})` : '') : s.bestEasy ? `쉬움 ${stageLabel(s.bestEasy)}` : '-';
     const rows = [
@@ -3027,15 +3039,15 @@ function drawProfiles(blink) {
     const top = r.y + 44, rh = Math.min(19, (r.h - 82) / rows.length), lx = r.x + 12, rx = r.x + r.w - 12;
     rows.forEach((row, j) => {
       const yy = top + j * rh;
-      if (!row) { ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(lx, yy, r.w - 24, 1); label('모은 자원', lx, yy + rh * 0.45, 10, '#8a96a0', 'left', '700'); return; }
+      if (!row) { ctx.fillStyle = 'rgba(255,255,255,0.15)'; (rrPath(lx, yy, r.w - 24, 1, 7), ctx.fill()); label('모은 자원', lx, yy + rh * 0.45, 10, '#8a96a0', 'left', '700'); return; }
       label(row[0], lx, yy + rh * 0.6, 11, '#aab4c0', 'left', '600');
       label(String(row[1]), rx, yy + rh * 0.6, 12, '#fff', 'right', '700');
     });
     foot(`이어하기 · 봉인 등급 ${tierNo(s.tier || 1)}${s.mode === 'easy' ? ' · 쉬움' : ''}`, '#c8b8ff');
   });
   const b = L.back;
-  ctx.fillStyle = 'rgba(20,26,34,0.85)'; ctx.fillRect(b.x, b.y, b.w, b.h);
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
+  ctx.fillStyle = 'rgba(20,26,34,0.85)'; (rrPath(b.x, b.y, b.w, b.h, 7), ctx.fill());
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; (rrPath(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 7), ctx.stroke());
   label('← 처음 화면', b.x + b.w / 2, b.y + b.h / 2, 12, '#ccd', 'center', '700');
   if (m.msg) label(m.msg, W / 2, L[0].y - 12, 12, '#ffb0a0', 'center', '700');
   if (m.ask !== undefined) { // 지우기 확인 창
@@ -3044,8 +3056,8 @@ function drawProfiles(blink) {
     label('모은 자원 · 강화 · 해금 · 기록이 모두 사라지고 되돌릴 수 없어요', W / 2, H / 2 - 8, 12, '#ff9a7a', 'center', '700');
     L.ask.forEach((r, i) => {
       const sel = m.askSel === i;
-      ctx.fillStyle = sel ? (i ? '#3f8a3b' : '#9a3a2a') : 'rgba(30,36,48,0.95)'; ctx.fillRect(r.x, r.y, r.w, r.h);
-      ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+      ctx.fillStyle = sel ? (i ? '#3f8a3b' : '#9a3a2a') : 'rgba(30,36,48,0.95)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+      ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; (rrPath(r.x + 1, r.y + 1, r.w - 2, r.h - 2, 7), ctx.stroke());
       label(r.name, r.x + r.w / 2, r.y + r.h / 2, 15, '#fff', 'center', '800');
     });
     return;
@@ -3196,7 +3208,7 @@ function render() {
     const lines = story.flatMap(t => wrap(t, Math.min(W * 0.86, 620), 14, '600'));
     lines.forEach((l, i) => label(l, W / 2, logoBottom + 16 + i * 21, 14, '#e8eef8', 'center', '600'));
     if (blink) label(`${tap} 시작`, W / 2, Math.max(H * 0.88, H - inset.b - 36), 20, '#ffd24a');
-    label('© 2026 SY Studio. All rights reserved.', W / 2, H - inset.b - 10, 10, 'rgba(220,226,240,0.7)', 'center', '600'); // 저작권 표시
+    label('© 2026 웨폰마스터. All rights reserved.', W / 2, H - inset.b - 10, 10, 'rgba(220,226,240,0.7)', 'center', '600'); // 저작권 표시
   } else if (G.state === 'profiles') {
     TitleArt.scene(G.time);
     drawProfiles(blink);
@@ -3242,7 +3254,7 @@ function render() {
         label('삼룡을 잠재웠다!', W / 2, H * 0.26, big * 0.85, '#ffe08a');
         label('세계 1부터 6까지, 숲의 모든 봉인을 풀었어요. 축하합니다!', W / 2, H * 0.26 + big * 0.85, 15, '#e8ffd8', 'center', '600');
         label(stats, W / 2, H * 0.48, 13, '#fff', 'center', '600');
-        label(`완주 시간 ⏱ ${fmtRunT(G.runT)}`, W / 2, H * 0.525, 15, '#ffe08a', 'center', '800');
+        label(`완주 시간 ⏱ ${fmtRunT(G.runT)}` + (G.timeNew ? (G.timePrev ? `   🏆 신기록! (이전 ${fmtRunT(G.timePrev)})` : '   🏆 첫 기록!') : `   (최고 ${fmtRunT(G.timePrev)})`), W / 2, H * 0.525, 15, G.timeNew ? '#ffe08a' : '#d8e4ff', 'center', '800');
         drawRewardResult(H * 0.57);
         const ti = G.tierInfo || tierInfo(1);
         if (G.tierFirst) {

@@ -72,6 +72,7 @@ const ART_FILES = {
   boss3Hit:  'Actor/Boss/GiantBamboo/Hit.png',
   boss3Face: 'Actor/Boss/GiantBamboo/Faceset.png',
   sword:     'Items/Weapons/Sword/Sprite.png',
+  swordIcon: 'Items/Weapons/Sword2/Sprite.png',     // 가상 패드 공격 버튼용 깔끔한 검 (2026-10-22)
   spear:     'Items/Weapons/Lance/Sprite.png',
   slash:     'FX/Attack/SlashCurved/SpriteSheet.png',
   sai:       'Items/Weapons/Sai/Sprite.png',
