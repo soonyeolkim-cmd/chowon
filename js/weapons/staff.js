@@ -77,8 +77,9 @@ Object.assign(WEAPONS.staff, {
   enhanceSlot: 'special', // 강화 축복(연쇄 번개 · 화염구 …)과 번개 감전 강화가 기본공격 대신 특수(마력탄)에 붙는다
   padIcon(b, p) { // 마력탄: 구슬 안에 남은 구슬 개수
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.4, 0, Math.PI * 2); ctx.stroke();
-    label(String(p.orbs), b.x, b.y + 1, Math.round(b.r * 0.5), p.orbs ? '#bff4ff' : '#ff9a7a', 'center', '900');
   },
+  // 구슬 개수 숫자: 도트 아이콘 위에 또렷한 글씨로 따로 (도트 버퍼에 그리면 너무 작아진다, 2026-10-22)
+  padLabel(b, p) { label(String(p.orbs), b.x, b.y + 1, Math.round(b.r * 0.5), p.orbs ? '#bff4ff' : '#ff9a7a', 'center', '900'); },
   glyph: {
     basic(g, s, line) { line(-0.7, 0.7, 0.45, -0.45); g.beginPath(); g.arc(0.6 * s, -0.6 * s, 0.25 * s, 0, Math.PI * 2); g.fill(); }, // 마법봉
     plus(g, s, line) { // 강화 축복: 마력탄 + 더하기

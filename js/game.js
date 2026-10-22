@@ -1,7 +1,7 @@
 'use strict';
 // 게임 루프, 스테이지 진행, 카메라, 화면 표시
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d'); // let: 가상 패드 아이콘을 도트 버퍼에 그릴 때 잠깐 바꿔 낀다 (pixIcon)
 const FONT = '"AlkiFairy","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif';
 // 알키체를 미리 불러온다 (캔버스는 처음 쓸 때까지 안 불러서 첫 화면이 기본 글꼴로 나온다). 다 오면 제목 글씨 그림을 다시 만든다
 if (document.fonts && document.fonts.load) Promise.all([400, 500, 700, 800].map(w => document.fonts.load(w + ' 16px AlkiFairy', '봉인의 숲'))).then(() => { if (typeof TitleArt !== 'undefined') TitleArt.logoKey = ''; }).catch(() => {});
@@ -1206,13 +1206,85 @@ function drawObjectiveArrow() {
   label(`${dist}m`, ax - Math.cos(a) * 26, ay - Math.sin(a) * 22, 11, color, 'center', '700');
 }
 
-function drawButtonBase(b, pressed) {
-  ctx.globalAlpha = pressed ? 0.75 : 0.45;
-  ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = pressed ? 1 : 0.8;
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(b.x, b.y, b.r - 1, 0, Math.PI * 2); ctx.stroke();
+// ── 가상 패드 도트 아이콘 (2026-10-22: 반듯한 선 → 도트 그림 느낌) ──
+// 아이콘을 작은 버퍼(한 변 n 도트)에 그리고, 반투명 가장자리를 잘라 도트로 만든 뒤 어두운 1도트 테두리를 둘러 키운다.
+const PAD_ICON_N = 22;
+const _pib = document.createElement('canvas'), _pibG = _pib.getContext('2d', { willReadFrequently: true });
+function pixIcon(b, draw, n = PAD_ICON_N, edgeCol = [14, 16, 24, 200]) { // edgeCol: 1도트 테두리 색 (어두운 무기 그림은 밝은 테두리)
+  _pib.width = _pib.height = n; // 크기를 다시 정하면 버퍼가 지워진다
+  const g = _pibG, k = n / (2 * b.r);
+  g.imageSmoothingEnabled = false; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = ctx.strokeStyle; g.fillStyle = ctx.fillStyle; g.lineWidth = Math.max(1.6, ctx.lineWidth * k);
+  const real = ctx; ctx = g;
+  try { draw({ x: n / 2, y: n / 2, r: b.r * k }, g, k); } finally { ctx = real; }
+  // 도트로: 반쯤 투명한 가장자리는 잘라내고, 남은 칸은 꽉 채운다. 비어 있고 옆이 찬 칸은 어두운 테두리
+  const im = g.getImageData(0, 0, n, n), d = im.data, on = new Uint8Array(n * n);
+  for (let i = 0; i < n * n; i++) on[i] = d[i * 4 + 3] >= 110 ? 1 : 0;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const i = y * n + x, o = i * 4;
+    if (on[i]) { d[o + 3] = 255; continue; }
+    const edge = (x > 0 && on[i - 1]) || (x < n - 1 && on[i + 1]) || (y > 0 && on[i - n]) || (y < n - 1 && on[i + n]);
+    if (edge) { d[o] = edgeCol[0]; d[o + 1] = edgeCol[1]; d[o + 2] = edgeCol[2]; d[o + 3] = edgeCol[3]; } else d[o + 3] = 0;
+  }
+  g.putImageData(im, 0, 0);
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(_pib, Math.round(b.x - b.r), Math.round(b.y - b.r), Math.round(b.r * 2), Math.round(b.r * 2));
+  ctx.restore();
+}
+// 질주하는 사람 (오른쪽으로 달림) + 뒤의 속도선. '#' = 몸, '-' = 속도선
+const DASH_RUNNER = [
+  '........##...',
+  '........##...',
+  '.......##....',
+  '-----######..',
+  '.....#.##..#.',
+  '-------##....',
+  '......###....',
+  '----.##.##...',
+  '....##...##..',
+  '...##.....#..',
+  '..##......##.',
+];
+function drawRunnerIcon(b, color) {
+  const rows = DASH_RUNNER.length, cols = DASH_RUNNER[0].length, g = ctx;
+  const x0 = Math.round(b.x - cols / 2), y0 = Math.round(b.y - rows / 2);
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const c = DASH_RUNNER[y][x];
+    if (c === '#') { g.globalAlpha = 1; g.fillStyle = color; g.fillRect(x0 + x, y0 + y, 1, 1); }
+    else if (c === '-') { g.globalAlpha = 0.6; g.fillStyle = color; g.fillRect(x0 + x, y0 + y, 1, 1); }
+  }
+  g.globalAlpha = 1;
+}
+// 공격 버튼: 지금 무기의 도트 그림 (에셋 팩 그림 그대로, 비스듬히)
+const PAD_WEAPON_ART = { sword: 'sword', spear: 'spear', sai: 'sai', staff: 'wand', shield: 'shield', bow: 'bow' };
+function drawWeaponIcon(b, p) {
+  const im = ART.img[PAD_WEAPON_ART[p.weaponId] || 'sword'];
+  if (!im || !im.width) return;
+  const g = ctx, flat = im.width > im.height * 1.5, round = Math.abs(im.width - im.height) < 3;
+  const len = b.r * (round ? 1.15 : 1.55), sc = len / Math.max(im.width, im.height);
+  g.save(); g.translate(b.x, b.y); if (!round) g.rotate(flat ? -Math.PI * 0.75 : Math.PI / 4); // 세로 그림은 끝이 오른쪽 위로, 활(가로)은 휜 쪽이 오른쪽 위로
+  g.drawImage(im, -im.width * sc / 2, -im.height * sc / 2, im.width * sc, im.height * sc);
+  g.restore();
+}
+function drawButtonBase(b, pressed, color = '#ffffff') {
+  const a0 = ctx.globalAlpha, r = pressed ? b.r * 0.95 : b.r; // 누르면 살짝 작아진다
+  ctx.save();
+  // 바탕: 위가 조금 밝은 어두운 유리알 + 아래 그림자
+  ctx.globalAlpha = a0 * (pressed ? 0.85 : 0.6);
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
+  const bg = ctx.createRadialGradient(b.x, b.y - r * 0.45, r * 0.1, b.x, b.y, r);
+  bg.addColorStop(0, pressed ? hexA(color, 0.5) : 'rgba(70,80,96,0.95)'); bg.addColorStop(1, 'rgba(10,13,18,0.95)');
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowColor = 'transparent';
+  // 테두리: 기술 색 (누르면 진하게)
+  ctx.globalAlpha = a0 * (pressed ? 1 : 0.85);
+  ctx.strokeStyle = hexA(color, pressed ? 1 : 0.75); ctx.lineWidth = pressed ? 3 : 2;
+  ctx.beginPath(); ctx.arc(b.x, b.y, r - 1.5, 0, Math.PI * 2); ctx.stroke();
+  // 위쪽 반짝임 (유리알 느낌)
+  ctx.globalAlpha = a0 * 0.35; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(b.x, b.y, r - 5, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+  ctx.restore();
+  ctx.globalAlpha = a0 * (pressed ? 1 : 0.8);
 }
 
 function drawCdNumber(b, t) {
@@ -1270,23 +1342,33 @@ function drawTouchControls() {
   const j = Input.joy, B = Input.buttons, p = G.player;
   const active = j.id !== null;
   const ox = active ? j.ox : inset.l + 40 + j.radius, oy = active ? j.oy : H - inset.b - 40 - j.radius;
-  ctx.globalAlpha = active ? 0.5 : 0.22;
-  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(ox, oy, j.radius, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.globalAlpha = active ? 0.85 : 0.35;
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(active ? j.x : ox, active ? j.y : oy, j.radius * 0.42, 0, Math.PI * 2); ctx.fill();
+  const ja = ctx.globalAlpha;
+  ctx.globalAlpha = ja * (active ? 0.6 : 0.32);
+  const jb = ctx.createRadialGradient(ox, oy, j.radius * 0.2, ox, oy, j.radius);
+  jb.addColorStop(0, 'rgba(10,13,18,0.5)'); jb.addColorStop(1, 'rgba(10,13,18,0.9)');
+  ctx.fillStyle = jb; ctx.beginPath(); ctx.arc(ox, oy, j.radius, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.75)'; // 방향 눈금 (작은 삼각형 4개)
+  for (let k = 0; k < 4; k++) {
+    const an = k * Math.PI / 2, rr = j.radius * 0.8, t = j.radius * 0.09;
+    const cx = ox + Math.cos(an) * rr, cy = oy + Math.sin(an) * rr;
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(an) * t, cy + Math.sin(an) * t);
+    ctx.lineTo(cx + Math.cos(an + 2.2) * t, cy + Math.sin(an + 2.2) * t); ctx.lineTo(cx + Math.cos(an - 2.2) * t, cy + Math.sin(an - 2.2) * t); ctx.fill();
+  }
+  ctx.globalAlpha = ja * (active ? 0.9 : 0.45);
+  const kx = active ? j.x : ox, ky = active ? j.y : oy, kr = j.radius * 0.42;
+  const kg = ctx.createRadialGradient(kx - kr * 0.3, ky - kr * 0.35, kr * 0.1, kx, ky, kr);
+  kg.addColorStop(0, '#ffffff'); kg.addColorStop(1, '#b8c2d0');
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+  ctx.fillStyle = kg; ctx.beginPath(); ctx.arc(kx, ky, kr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  ctx.globalAlpha = ja;
 
   ctx.lineCap = 'round';
   // 공격 (큰 버튼)
   const a = B.attack, s = a.r * 0.42;
-  drawButtonBase(a, a.held);
+  drawButtonBase(a, a.held, '#ffd98a');
   if (p.spearOut) ctx.globalAlpha *= 0.35;
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(3, a.r * 0.1);
-  ctx.beginPath();
-  ctx.moveTo(a.x - s, a.y + s); ctx.lineTo(a.x + s, a.y - s);
-  ctx.moveTo(a.x - s * 0.9, a.y + s * 0.2); ctx.lineTo(a.x - s * 0.2, a.y + s * 0.9);
-  ctx.stroke();
+  pixIcon(a, bb => drawWeaponIcon(bb, p), 26, [255, 236, 190, 235]); // 지금 무기 도트 그림 + 밝은 테두리 (어두운 버튼 위에서 보이게)
   // 길게 누르는 중: 회전베기 충전 게이지
   if (p.charge > 0) drawArcProgress(a, p.charge, p.charge >= 1 ? '#ffd24a' : 'rgba(255,255,255,0.8)', 5);
   if (p.charge2 > 0) drawArcProgress({ x: a.x, y: a.y, r: a.r + 6 }, p.charge2, '#7fe0ff', 4); // 차지 2단
@@ -1296,20 +1378,14 @@ function drawTouchControls() {
   padButton(B.special, p.specialCdShown, p.specialCdBase, '#4fc3ff', b => {
     (p.weapon.padIcon || WEAPONS.sword.padIcon)(b, p); // 무기마다 특수 버튼 그림
   }, (p.finisherT > 0 && G.has('triple')) || p.freeSpecialT > 0); // 빛남: 삼연 · 무료 받아치기
+  if (p.weapon.padLabel && B.special && B.special.visible) p.weapon.padLabel(B.special, p); // 아이콘 위 숫자 (마법봉 구슬)
   // 전용스킬 (무기에 있을 때만 보인다)
   padButton(B.skill, p.skillCd, p.skillCdBase, '#ffd24a', b => {
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.4, 0, Math.PI * 2); ctx.stroke();
   });
   // 대시 (이중 화살표)
   const dashCd = p.dashStock > 0 ? 0 : p.dashRecharge;
-  padButton(B.dash, dashCd, p.dashCdBase, '#8ff0b0', b => {
-    const ds = b.r * 0.42;
-    ctx.beginPath();
-    for (const o of [-0.45, 0.35]) {
-      ctx.moveTo(b.x + ds * (o - 0.3), b.y - ds * 0.6); ctx.lineTo(b.x + ds * (o + 0.3), b.y); ctx.lineTo(b.x + ds * (o - 0.3), b.y + ds * 0.6);
-    }
-    ctx.stroke();
-  });
+  padButton(B.dash, dashCd, p.dashCdBase, '#8ff0b0', b => drawRunnerIcon(b, '#8ff0b0')); // 질주하는 사람
   if (p.specMax > 1 && B.special && B.special.visible) drawBadge(B.special.x + B.special.r * 0.62, B.special.y - B.special.r * 0.62, p.specStock, p.freeSpecialT > 0 ? '#ffffff' : p.specStock ? '#4fc3ff' : '#ff9a7a');
   if (p.dashMax > 1 && B.dash && B.dash.visible) drawBadge(B.dash.x + B.dash.r * 0.62, B.dash.y - B.dash.r * 0.62, p.dashStock, p.dashStock ? '#8ff0b0' : '#ff9a7a');
   ctx.globalAlpha = 1;
@@ -1325,10 +1401,10 @@ function drawBadge(x, y, n, color) {
 
 function padButton(b, cd, cdBase, color, icon, glow) {
   if (!b || !b.visible) return;
-  drawButtonBase(b, b.held);
+  drawButtonBase(b, b.held, color);
   ctx.globalAlpha = cd > 0 ? 0.35 : 1;
-  ctx.strokeStyle = color; ctx.lineWidth = Math.max(3, b.r * 0.12);
-  icon(b);
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = Math.max(3, b.r * 0.12);
+  pixIcon(b, icon); // 도트 아이콘 + 어두운 테두리 (풀밭 위에서도 보이게)
   ctx.globalAlpha = 1;
   if (cd > 0) {
     drawArcProgress(b, 1 - cd / cdBase, color, 3);
