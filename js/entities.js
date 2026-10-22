@@ -388,6 +388,7 @@ class Player {
 
     g.fillStyle = 'rgba(0,0,0,0.28)';
     g.beginPath(); g.ellipse(this.x, this.y + 9, 9, 4, 0, 0, Math.PI * 2); g.fill();
+    if (typeof Awaken !== 'undefined') Awaken.back(g, this, x, y); // 무기 각성 오로라 (뒤쪽)
 
     // 반격 준비 상태: 푸른 오라
     if (this.counterT > 0) {
@@ -411,6 +412,7 @@ class Player {
     }
     drawCell(g, 'hero', col, row, x, y + 13);
     if (!swordBehind) weapon(g, x, y);
+    if (typeof Awaken !== 'undefined') Awaken.front(g, this, x, y); // 무기 각성 오로라 (앞쪽)
     g.globalAlpha = 1;
     if (Input.state.device !== 'touch' && this.alive) this.drawCooldownMarks(g); // 가상 패드가 없을 땐 캐릭터 곁에 쿨타임
   }

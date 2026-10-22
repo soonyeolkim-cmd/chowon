@@ -72,7 +72,10 @@ const ART_FILES = {
   boss3Hit:  'Actor/Boss/GiantBamboo/Hit.png',
   boss3Face: 'Actor/Boss/GiantBamboo/Faceset.png',
   sword:     'Items/Weapons/Sword/Sprite.png',
-  swordIcon: 'Items/Weapons/Sword2/Sprite.png',     // 가상 패드 공격 버튼용 깔끔한 검 (2026-10-22)
+  swordIcon: 'Items/Weapons/Sword2/Sprite.png',
+  auraFx:    'FX/Magic/Aura/SpriteSheet.png',       // 각성 오라 불꽃 (25x24 5장, 2026-10-22)
+  spiritFx:  'FX/Magic/Spirit/SpriteSheet.png',     // 각성 정령 꼬리 (32x32 5장)
+  sparkPx:   'FX/Particle/Spark.png',               // 각성 반짝이 알갱이 (10x8 7장)     // 가상 패드 공격 버튼용 깔끔한 검 (2026-10-22)
   spear:     'Items/Weapons/Lance/Sprite.png',
   slash:     'FX/Attack/SlashCurved/SpriteSheet.png',
   sai:       'Items/Weapons/Sai/Sprite.png',
