@@ -611,6 +611,7 @@ const G = {
     dmg = FX.playerHurt(dmg, src);
     if (dmg && Meta.data.mode === 'easy') dmg = Math.max(1, Math.round(dmg * EASY_DMG_TAKEN));
     if (!dmg) return;
+    if (p.gapT > 0 && p.gapMult > 0) { dmg = Math.round(dmg * (1 + p.gapMult)); p.gapT = 0; this.text(p.x, p.y - 34, '빈틈 피격!', '#ff7a6a', 11, 0.6); } // 쌍검 받아치기 실패 빈틈: 한 번만
     p.hp -= dmg; p.invuln = p.hurtT = chip ? 0.35 : 0.8;
     this.hintHurt(src);
     if (p.momentum > 0) { p.momentum = 0; this.text(p.x, p.y - 30, '기세 끊김', '#c8b8a8', 10, 0.5); } // 쌍검: 맞으면 기세가 사라진다

@@ -22,6 +22,9 @@ const RIPOSTE_MAX = 150;        // 반격 돌진 최대 거리
 const RUSH_HIT_INV = 0.5;       // 그림자 베기가 적을 맞히면 지나간 뒤에도 이만큼 더 무적 (2026-10-17)
 const RUSH_FREE_T = 2.0;        // 그림자 베기가 적을 맞히면 이 시간 안의 받아치기는 충전 · 쿨타임 없이 (2026-10-17)
 const PURSUIT_LEN = 100;        // 잔영 베기: 그림자 베기 적중 뒤 평타로, 보는 방향으로 반격처럼 베고 지나가는 거리 (2026-10-17)
+const PARRY_GAP_T = 1.0;        // 받아치기 실패 빈틈: 이 시간 안에 처음 맞는 피해 한 번이 커진다 (2026-10-22)
+const PARRY_GAP = [0.3, 0.2, 0.1, 0]; // 빈틈 피해 증가: 받아치기 강화 0 · 1 · 2 · 3레벨 (3레벨이면 빈틈 없음)
+const parryGap = () => PARRY_GAP[Math.min(3, FX.lv('atk_wave'))];
 const PARRY_CHAIN_T = 2.0;      // 연속 반격: 이 안에 또 받아치면 연속으로 친다 (성공할 때마다 충전 한 칸을 돌려받는다, 2026-10-17)
 const WHIRL_R = 40;             // 선풍 베기 반경
 const RUSH_AIM = { range: 140, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
@@ -75,6 +78,7 @@ addWeapon('sai', {
     '쓰기: 그림자 베기가 기세를 모두 써서 1칸마다 피해 +20% (5칸이면 2배).',
     '사라짐: 1.5초 동안 기본공격을 못 맞히거나, 적에게 맞으면 0이 돼요. 꺼지기 직전엔 점이 흐려져요.',
     '받아치기: 막는 자세(0.4초) 중에 공격을 받으면 피해 없이 그 적을 향해 베고 지나가요. 지나가는 동안과 도착 직후는 무적, 길 위의 적은 모두 반격 치명타 + 기절.',
+    `빈틈: 받아치기를 실패하면(못 막고 자세가 끝나면) ${PARRY_GAP_T}초 안에 처음 맞는 피해가 +${PARRY_GAP[0] * 100}%예요. 받아치기 강화 1레벨마다 10%씩 줄고 3레벨이면 빈틈이 없어요.`,
   ],
   comboLen: 3,
   shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 X자 베기나 그림자 베기는 방패를 깨요. 받아치기로 공격을 막아도 기절해요.',
@@ -131,7 +135,7 @@ BOON_FORMS.sai = {
   atk_combo:      { name: '잔상 교차 베기' },
   atk_spin:       { name: '그림자 베기 강화', desc: lv => `차지 시간 -${15 * lv}%, 그림자 베기 · 잔영 베기 거리 +${15 * lv}%.` },
   atk_multispin:  { name: '그림자 분신', desc: lv => `그림자 베기 · 잔영 베기 뒤 분신이 ${lv}번 더 벤다 (피해 ${pct(MULTISPIN_MULT)}, 마지막만 넉백).` },
-  atk_wave:       { name: '받아치기 강화', desc: lv => `막는 시간 +${(0.1 * lv).toFixed(1)}초, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
+  atk_wave:       { name: '받아치기 강화', desc: lv => `막는 시간 +${(0.1 * lv).toFixed(1)}초, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초). ` + (PARRY_GAP[Math.min(3, lv)] > 0 ? `실패 빈틈 피해 +${Math.round(PARRY_GAP[Math.min(3, lv)] * 100)}%.` : '실패해도 빈틈 없음.') },
   atk_thrust:     { name: '선풍 강화', desc: lv => `선풍 베기 범위 +${10 * lv}%.` },
   sharp:          { name: '날카로운 쌍검' },
   lifesteal:      { name: '흡혈 쌍검' },
@@ -198,11 +202,18 @@ extendPlayer({
     this.aim(mag);
     const wide = this.finisherT > 0 && G.has('triple');
     const win = (wide ? PARRY_TRIPLE : PARRY_TIME) + 0.1 * FX.lv('atk_wave');
-    this.parryT = win; this.parryWide = wide;
+    this.parryT = win; this.parryWide = wide; this.parryPending = true; // parryPending: 막기 전에 자세가 끝나면 실패 (대시로 빠져도 실패)
     this.finisherT = 0;
     this.act = { kind: 'parry', t: 0, dur: win, hit: new Set() };
     if (wide) G.text(this.x, this.y - 24, '교차 받아치기', '#7fe0ff', 12, 0.6);
     Sfx.swing(false);
+  },
+  // 못 막고 자세가 끝났다: 빈틈 (1초 안에 처음 맞는 피해 +30%, 받아치기 강화 레벨마다 -10%p)
+  onParryFail() {
+    const m = parryGap();
+    if (m <= 0) return;
+    this.gapT = PARRY_GAP_T; this.gapMult = m;
+    G.text(this.x, this.y - 28, '빈틈!', '#ff7a6a', 12, 0.6);
   },
   // 막았다: 피해 없이 반격. 공격한 적을 향해 직선으로 베고 지나간다 (지나가는 동안 · 도착한 뒤 잠깐 무적)
   // 길 위의 적은 모두 반격 치명타 + 기절, 기세 +2. 교차 받아치기는 주변 적도 함께 벤다
@@ -219,7 +230,7 @@ extendPlayer({
     G.shake = Math.max(G.shake, 4); Sfx.dash(); Input.rumble(0.5, 120);
   },
   parry(src) {
-    this.parryT = 0;
+    this.parryT = 0; this.parryPending = false;
     let target = null, bd = 120;
     for (const t of G.targets()) { const d = t === src ? -1 : Math.hypot(t.x - this.x, t.y - this.y) - t.r; if (d < bd) { bd = d; target = t; } }
     const dir = target ? Math.atan2(target.y - this.y, target.x - this.x) : this.facing;

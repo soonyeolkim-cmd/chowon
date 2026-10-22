@@ -95,6 +95,7 @@ class Player {
     this.trail = [];
     this.momentum = 0; this.momT = 0; // 쌍검 기세
     this.parryT = 0;                  // 쌍검 받아치기: 막는 자세가 남은 시간
+    this.parryPending = false; this.gapT = 0; this.gapMult = 0; // 쌍검 받아치기 실패 빈틈 (gapT 안에 처음 맞는 피해 × (1 + gapMult))
     this.guardT = 0;                  // 방패 돌진: 정면 공격을 막는 시간 (dashGuard 무기)
     this.freeSpecialT = 0;            // 이 시간 안에 쓰는 특수공격은 충전 · 쿨타임을 쓰지 않는다 (쌍검: 그림자 베기 적중 보상)
     this.orbs = this.orbMax; this.orbT = 0; // 마법봉 마력 구슬 (처음엔 가득)
@@ -118,7 +119,8 @@ class Player {
     const inp = Input.state;
     for (const k of ['atkCd', 'dashCd', 'invuln', 'hurtT', 'comboT', 'finisherT', 'atkBuffer',
       'specialBuffer', 'skillBuffer', 'dashBuffer', 'postDashT', 'dodgeT', 'counterT', 'leafT', 'specialCd', 'skillCd',
-      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'freeSpecialT', 'guardT']) this[k] -= dt;
+      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'freeSpecialT', 'guardT', 'gapT']) this[k] -= dt;
+    if (this.parryPending && this.parryT <= 0) { this.parryPending = false; if (this.onParryFail) this.onParryFail(); } // 쌍검: 받아치기 실패
     if (this.dashStock < this.dashMax) {
       this.dashRecharge -= dt;
       if (this.dashRecharge <= 0) { this.dashStock++; this.dashRecharge = this.dashCdBase; }
@@ -387,6 +389,11 @@ class Player {
     g.fillStyle = 'rgba(0,0,0,0.28)';
     g.beginPath(); g.ellipse(this.x, this.y + 9, 9, 4, 0, 0, Math.PI * 2); g.fill();
 
+    // 받아치기 실패 빈틈: 붉게 깜빡인다
+    if (this.gapT > 0 && Math.sin(G.time * 30) > 0) {
+      g.fillStyle = 'rgba(255,80,60,0.28)';
+      g.beginPath(); g.arc(x, y - 2, 13, 0, Math.PI * 2); g.fill();
+    }
     // 반격 준비 상태: 푸른 오라
     if (this.counterT > 0) {
       g.fillStyle = `rgba(127,224,255,${0.25 + Math.sin(G.time * 20) * 0.1})`;
