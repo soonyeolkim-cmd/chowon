@@ -2304,6 +2304,11 @@ function drawHeatFlames(r, lv) {
     }
   }
 }
+// 무기 이름 칸 너비: 가장 긴 무기 이름 (이름 글씨 13px 굵게로 잰다) — 각성 표시를 모든 줄에서 같은 자리에 둔다
+function villageNameCol() {
+  ctx.font = `800 13px ${FONT}`;
+  return Math.max(...weaponOrder().map(id => ctx.measureText(WEAPONS[id].name).width));
+}
 // 각성 · 강화할 수 있다는 알림: 깜빡이는 보라 점 (2026-10-23)
 function drawAwakenDot(x, y) {
   const k = 0.6 + 0.4 * Math.sin(G.time * 6);
@@ -2323,8 +2328,9 @@ function drawVillage(blink) {
     const full = `◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}` + (aw ? `    ◈ 봉인의 핵 ${md.cores}    🔥 각성의 불씨 ${md.embers}` : '');
     const short = `◆ ${md.shards}   ⚔ ${Meta.ess(md.weapon)}   ✦ ${md.emblems}` + (aw ? `   ◈ ${md.cores}   🔥 ${md.embers}` : '');
     ctx.font = `800 13px ${FONT}`;
-    const txt = ctx.measureText(full).width <= avail ? full : short, w = ctx.measureText(txt).width;
-    label(txt, cx, inset.t + 43, w > avail ? Math.max(9, Math.floor(13 * avail / w)) : 13, '#c8a0ff', 'center', '800');
+    const room = avail * 0.85; // 기기마다 글자 · 이모지 폭이 조금씩 달라서 여유를 둔다
+    const txt = ctx.measureText(full).width <= room ? full : short, w = ctx.measureText(txt).width;
+    label(txt, cx, inset.t + 43, w > room ? Math.max(9, Math.floor(13 * room / w)) : 13, '#c8a0ff', 'center', '800');
   }
 
   label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
@@ -2365,7 +2371,7 @@ function drawVillage(blink) {
         if (ws && ws.clears) label(`완주 ${ws.clears}회 · 최고 봉인 등급 ${tierNo(ws.best)}` + (bt ? ` · ⏱ ${fmtRunT(bt)}` : ''), r.x + r.w - 100, r.y + r.h * 0.32, 11, '#ffd24a', 'right', '800');
         else label('완주 기록 없음', r.x + r.w - 100, r.y + r.h * 0.32, 10.5, '#7d8a96', 'right', '600');
       }
-      if (it.owned && Awaken.lv(it.weapon)) label('◈' + '★'.repeat(Awaken.lv(it.weapon) - 1), r.x + 14 + ctx.measureText(it.name).width + 8, r.y + r.h * 0.32, 11, '#c8a0ff', 'left', '800'); // 각성 단계
+      if (it.owned && Awaken.lv(it.weapon)) label('◈' + '★'.repeat(Awaken.lv(it.weapon) - 1), r.x + 12 + villageNameCol() + 10, r.y + r.h * 0.32, 11, '#c8a0ff', 'left', '800'); // 각성 단계: 무기 이름 칸 뒤 같은 줄에 맞춤
       if (it.owned && Awaken.canNext(it.weapon)) drawAwakenDot(r.x + 6, r.y + 6);
       btn = it.locked ? '차후 구현' : buy ? `✦ ${it.unlockCost} 해금` : using ? '✓ 장착됨' : '장착하기';
       bcol = it.locked ? 'rgba(80,70,40,0.7)' : buy ? (can ? '#9a7a1a' : 'rgba(80,80,90,0.7)') : using ? 'rgba(63,138,59,0.9)' : '#6a3fb0';
@@ -2373,7 +2379,8 @@ function drawVillage(blink) {
     } else if (it.awaken) { // 각성 칸: ◈ 각성 + ★ 강화 3칸, 다음 단계 설명, 재료 버튼
       const wid = it.awaken, n = md.awaken[wid] || 0, c = Awaken.nextCost(wid), can = Awaken.canNext(wid);
       const nm = n ? `${AWAKEN_STAGE_NAME[n]}` : '각성 전';
-      label(nm, r.x + 14 + ctx.measureText(it.name).width + 10, r.y + r.h * 0.32, 11, n ? '#c8a0ff' : '#8a8f99', 'left', '800');
+      ctx.font = `800 13px ${FONT}`;
+      label(nm, r.x + 12 + ctx.measureText(it.name).width + 10, r.y + r.h * 0.32, 11, n ? '#c8a0ff' : '#8a8f99', 'left', '800');
       label(n < 4 ? '다음: ' + Awaken.summary(wid, n + 1) : '지금: ' + Awaken.summary(wid, 4), r.x + 12, r.y + r.h * 0.74, 10.5, '#b8c0cc', 'left', '500');
       for (let k = 0; k < 4; k++) { // ◈ 한 칸(각성) + 강화 세 칸
         ctx.fillStyle = k < n ? (k ? '#ffb070' : '#c8a0ff') : 'rgba(255,255,255,0.15)';
