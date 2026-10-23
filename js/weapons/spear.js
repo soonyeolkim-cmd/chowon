@@ -359,7 +359,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       if (a.t > 0.06 && !a.fired) { // 쏜 순간 줄 전체를 한 번에
         a.fired = true;
         const wb = World.shotLineBlock(this.x, this.y, this.x + fx * a.len, this.y + fy * a.len);
-        if (wb >= 0) a.len = Math.max(30, wb + 6); // 나무 · 바위에 막히면 거기까지 (2026-10-18)
+        if (wb >= 0 && !a.awk) a.len = Math.max(30, wb + 6); // 나무 · 바위에 막히면 거기까지 (2026-10-18). 심안 일섬(각성 3단)은 장애물도 꿰뚫는다 (2026-10-23 사용자)
         this.hitSpear(a, a.len, SPEAR_BEAM_WIDTH, 0);
         if (a.awk) this.hitHidden(a, a.len, SPEAR_BEAM_WIDTH); // 각성 3단: 숨은 적도 꿰뚫는다
         G.shake = Math.max(G.shake, 6); G.hitstop = Math.max(G.hitstop, 0.05); Input.rumble(0.7, 160);

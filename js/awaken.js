@@ -16,7 +16,7 @@ const AWAKEN_SMALL = [0.03, 0.04, 0.06, 0.08];       // 공격 속도 · 기본 
 const AWAKEN_MID = [0.05, 0.08, 0.11, 0.15];         // 범위 · 거리 · 차지 시간 · 충전
 const AWAKEN_DEF = {
   sword:  { skill: '사연 검기',       skillDesc: '삼연 검기가 네 갈래',            stats: { atkSpeed: AWAKEN_SMALL, spinRange: [0.03, 0.05, 0.07, 0.10], waveSize: AWAKEN_MID } }, // 회전베기 범위는 조금 더 낮게 (2026-10-23 사용자)
-  spear:  { skill: '심안 일섬',       skillDesc: '3단 차지 · 숨은 적까지 꿰뚫는다',    stats: { reach: AWAKEN_SMALL, chargeTime: AWAKEN_MID } },
+  spear:  { skill: '심안 일섬',       skillDesc: '3단 차지 · 숨은 적 · 장애물까지 꿰뚫는다',    stats: { reach: AWAKEN_SMALL, chargeTime: AWAKEN_MID } },
   sai:    { skill: '그림자 반격',     skillDesc: '받아치기 뒤 분신이 한 번 더',     stats: { atkSpeed: AWAKEN_SMALL, rushLen: AWAKEN_MID, parryWin: [0.02, 0.03, 0.05, 0.07] } },
   staff:  { skill: '대마법진',        skillDesc: '더 모으면 더 큰 마법진',          stats: { reach: AWAKEN_SMALL, circleR: AWAKEN_MID, orbRecharge: AWAKEN_MID } },
   shield: { skill: '막을 때 충격파',  skillDesc: '막으면 둘레로 충격파',            stats: { knock: AWAKEN_MID, quakeR: AWAKEN_MID, guardWaveR: [32, 35, 38, 42] } },

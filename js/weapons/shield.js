@@ -28,7 +28,7 @@ const SHIELD_QUAKE_STUN = 0.6;
 const QUAKE_WAVE_SPEED = 620;   // 충격파가 부채꼴로 퍼져 나가는 속도 (380 → 620: 빨리 퍼지고 빨리 사라진다, 2026-10-18)
 const QUAKE_WAVE_REACH = 1.35;  // 충격파가 가는 거리 = 강타 거리 × 이 값 (1.7 → 1.35, 약 120 → 97, 2026-10-18)
 const QUAKE_NEAR = 30;          // 내려친 바로 앞은 그 자리에서 맞는다  // 강타에 맞은 적 기절 (보스 제외)
-const SHIELD_SLAM_R = 40;       // 후려치기 범위
+const SHIELD_SLAM_R = 40;       // 방패 후리기 범위 (2026-10-23: 창 '후려치기'와 이름이 겹쳐 '방패 후리기'로 (사용자 선택))
 const SHIELD_SLAM_STUN = 0.5;
 const SHIELD_BUMP = 14;         // 돌진 중 이 거리 안의 적에 부딪히면 멈춘다
 const SHIELD_SIZE = 0.75;
@@ -45,7 +45,7 @@ bash:       { mult: 1.15, kb: 150, guardBreak: false, role: 'basic', light: true
 bashFin:    { mult: 1.95, kb: 760, guardBreak: true, role: 'fin', shove: true },  // 3타: 몸으로 밀어치기 (넉백 440 → 760, 약 100 날아감, 무거운 적도 꽤 밀림)
 quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방패 강타 (차지): 앞쪽 부채꼴 충격파 + 기절
 shieldSpin: { mult: 1.1, kb: 760, guardBreak: true, role: 'special', shove: true },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
-shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 후려치기 (대시 공격)
+shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 방패 후리기 (대시 공격)
 shieldCharge: { mult: 1.4, kb: 520, guardBreak: true, role: 'special', shove: true }, // 방패 돌진 (대시 중 특수)
 shoveChain: { mult: 0.7, kb: 0, guardBreak: true, role: 'special', passive: true }, // 방패 돌진 연쇄: 날아간 적에 부딪힌 적 (2026-10-23)
 chargeShock: { mult: 0.9, kb: 320, guardBreak: false, role: 'special' }, // 방패 돌진 충격파 (맞은 적 둘레)
@@ -57,7 +57,7 @@ addWeapon('shield', {
   style: '수호형 · 방패 대시로 막고 밀어내기, 묵직하고 느림 · 범위 공격과 포위에 약함',
   essence: '무기의 정수',
   unlockCost: 1,             // 영웅의 증표 1개
-  moves: { basic: '3연 밀치기', charged: '방패 강타', special: '돌려치기', dashAttack: '후려치기' },
+  moves: { basic: '3연 밀치기', charged: '방패 강타', special: '돌려치기', dashAttack: '방패 후리기' },
   chargeTime: 0.6,
   specialCd: 2.8, // 3.5 → 2.8 (2026-10-17)
   cdPerLv: 0.4, cdPerMastery: 0.3, cdFloor: 1.5,
@@ -71,7 +71,7 @@ addWeapon('shield', {
   skillCd: 0,
   basic: (p, mag) => p.startBash(mag),
   basicAfterDash: p => p.startShieldSlam(),
-  dashEcho: p => ({ x: p.x + Math.cos(p.facing) * 14, y: p.y + Math.sin(p.facing) * 10, dir: p.facing, shape: { range: SHIELD_SLAM_R * (1 + 0.1 * FX.lv('atk_thrust')), half: Math.PI } }), // 후려치기 다단히트: 땅이 한 번 더 울린다
+  dashEcho: p => ({ x: p.x + Math.cos(p.facing) * 14, y: p.y + Math.sin(p.facing) * 10, dir: p.facing, shape: { range: SHIELD_SLAM_R * (1 + 0.1 * FX.lv('atk_thrust')), half: Math.PI } }), // 방패 후리기 다단히트: 땅이 한 번 더 울린다
   charged: (p, mag) => p.startQuake(mag),
   special: (p, mag) => (p.postDashT > 0 ? p.startShieldCharge(mag) : p.startShieldSpin(mag)), // 대시 직후면 방패 돌진
   specialInDash: p => p.startShieldCharge(0), // 대시 중 특수 → 방패 돌진 (돌려치기와 쿨타임 같이 씀)
@@ -83,7 +83,7 @@ addWeapon('shield', {
     ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (막으면 피해 0 · 다음 밀치기는 반격 밀치기) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
-    ['후려치기', `${D} → ${A}`, '대시 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음', 'thrust'],
+    ['방패 후리기', `${D} → ${A}`, '대시 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음', 'thrust'],
   ],
   notesTitle: '방패 특성 · 막기',
   notes: [
@@ -99,7 +99,7 @@ addWeapon('shield', {
     { id: 'combo',  name: '3연 밀치기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `3타째 밀치기 피해 +${15 * lv}%` },
     { id: 'spin',   name: '방패 강타 숙련',  max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 강타 거리 +${5 * lv}%` },
     { id: 'wave',   name: '돌려치기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `돌려치기 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 1.5초)` },
-    { id: 'thrust', name: '후려치기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `후려치기 피해 +${20 * lv}%` },
+    { id: 'thrust', name: '방패 후리기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `방패 후리기 피해 +${20 * lv}%` },
   ],
 });
 
@@ -138,24 +138,24 @@ Object.assign(WEAPONS.shield, {
     const ps = fx.lv('poison_special');
     if (ps && !t.dead) fx.poison(t, 1 + ps);
     const hw = fx.lv('heal_wave'), p = G.player, a = p.act;
-    if (hw && p.alive && a && a.kind === 'shieldSpin' && !a.healed) { a.healed = true; p.hp = Math.min(p.maxHp, p.hp + 0.5 + 0.5 * hw); }
+    if (hw && p.alive && a && (a.kind === 'shieldSpin' || a.kind === 'shieldCharge') && !a.healed) { a.healed = true; p.hp = Math.min(p.maxHp, p.hp + 0.5 + 0.5 * hw); }
   },
 });
-// 방패: 기본 = 3연 밀치기, 차지 = 방패 강타, 특수 = 돌려치기, 대시 공격 = 후려치기
+// 방패: 기본 = 3연 밀치기, 차지 = 방패 강타, 특수 = 돌려치기, 대시 공격 = 방패 후리기
 BOON_FORMS.shield = {
   fire_basic:     { name: '불꽃 방패' },
   fire_bolt:      { name: '화염구 밀치기', desc: lv => `밀칠 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
   fire_charge:    { name: '화염 강타', desc: lv => `방패 강타에 맞은 적에게 화상 2중첩, 충격파가 지나간 땅에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
-  fire_special:   { name: '화염 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적에게 화상 2중첩. 돌려치기를 마치면 주변이 폭발한다 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
+  fire_special:   { name: '화염 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적에게 화상 2중첩. 기술을 마치면 주변이 폭발한다 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
   ice_basic:      { name: '서리 방패' },
   ice_shard:      { name: '얼음 파편 밀치기', desc: lv => `밀칠 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
   ice_charge:     { name: '빙결 강타', desc: lv => `방패 강타에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
-  ice_special:    { name: '서리 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적에게 냉기 ${iceBig(lv)}중첩. 돌려치기를 마치면 발밑이 얼어붙는다.` },
+  ice_special:    { name: '서리 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적에게 냉기 ${iceBig(lv)}중첩. 기술을 마치면 발밑이 얼어붙는다.` },
   elec_basic:     { name: '번개 방패' },
   elec_chain:     { name: '연쇄 번개 밀치기' },
   poison_spray:   { name: '독 분사 밀치기' },
   elec_charge:    { name: '벼락 강타', desc: lv => `방패 강타 직후 충격파 끝 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '벼락 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적은 감전. 돌려치기를 마치면 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
+  elec_special:   { name: '벼락 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적은 감전. 기술을 마치면 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
   poison_basic:   { name: '독 방패' },
   poison_charge:  { name: '독안개 강타', desc: lv => `충격파가 지나간 땅에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적에게 독 ${1 + lv}중첩.` },
@@ -163,12 +163,12 @@ BOON_FORMS.shield = {
   atk_spin:       { name: '강타 강화', desc: lv => `차지 시간 -${15 * lv}%, 강타 거리 +${10 * lv}%.` },
   atk_multispin:  { name: '여진', desc: lv => `방패 강타 뒤 땅이 ${lv}번 더 울린다. 여진은 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
   atk_wave:       { name: '돌려치기 강화', desc: lv => `돌려치기 범위 +${10 * lv}%, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초). 쿨타임을 같이 쓰는 방패 돌진도 빨리 돌아오고 피해도 함께 오른다.` }, // 방패 돌진 설명 추가 (2026-10-23 사용자)
-  atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 범위 +${10 * lv}%.` },
+  atk_thrust:     { name: '방패 후리기 강화', desc: lv => `방패 후리기 범위 +${10 * lv}%.` },
   sharp:          { name: '날 선 방패' },
   ambush:         { name: '벽치기', desc: lv => `벽꿍 피해 +${60 * lv}%, 벽꿍 기절 +${(0.3 * lv).toFixed(1)}초.` }, // 기습 대신
   lifesteal:      { name: '흡혈 방패' },
   guard_spin:     { name: '굳건한 강타', desc: lv => `방패 강타 뒤 ${(0.5 + 0.5 * lv).toFixed(1)}초간 받는 피해 -50%.` },
-  heal_wave:      { name: '치유의 돌려치기', desc: lv => `돌려치기가 적을 맞히면 체력 ${0.5 + 0.5 * lv} 회복 (한 번 돌 때 한 번).` },
+  heal_wave:      { name: '치유의 돌려치기', desc: lv => `돌려치기 · 방패 돌진이 적을 맞히면 체력 ${0.5 + 0.5 * lv} 회복 (한 번 쓸 때 한 번).` },
 };
 
 extendPlayer({
@@ -292,17 +292,17 @@ extendPlayer({
     if (!a.ringed) { a.ringed = true; G.projectiles.push(new DustRing(cx, cy, SHIELD_CHARGE_SHOCK_R * 0.75, 6, slotCol('special', null))); } // 도트 흙먼지 고리: 돌진 한 번에 한 번만 (2026-10-18)
     G.shake = Math.max(G.shake, 5); Sfx.slam();
   },
-  // 후려치기 (대시 공격): 방패를 들어 앞을 내려찍는다
+  // 방패 후리기 (대시 공격): 방패를 들어 앞을 내려찍는다
   startShieldSlam() {
     this.finisherT = 0;
     this.aim(Math.hypot(Input.state.mx, Input.state.my));
     this.guardT = 0; // 방패를 내려찍는다: 막기 없음
     this.act = { kind: 'shieldSlam', t: 0, dur: 0.3, hit: new Set(), r: SHIELD_SLAM_R * (1 + 0.1 * FX.lv('atk_thrust')) };
     this.atkCd = 0.55; this.atkBuffer = 0; this.postDashT = 0; this.comboT = 0;
-    G.text(this.x, this.y - 24, '후려치기', '#9cdcff', 11, 0.5);
+    G.text(this.x, this.y - 24, '방패 후리기', '#9cdcff', 11, 0.5);
     Sfx.swing(true);
   },
-  // 방패 강타 · 후려치기: 내려찍은 자리 안, 땅속에 숨은 적(두더지)을 강제로 튀어나오게 하고 잠깐 기절시킨다 → 바로 맞는다 (2026-10-17)
+  // 방패 강타 · 방패 후리기: 내려찍은 자리 안, 땅속에 숨은 적(두더지)을 강제로 튀어나오게 하고 잠깐 기절시킨다 → 바로 맞는다 (2026-10-17)
   unearth(r, half, cx = this.x, cy = this.y) {
     for (const e of G.enemies) {
       if (e.dead || !e.burrowed || e.type !== 'mole') continue;
@@ -444,6 +444,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.ended = true;
         for (const t of a.carry) if (!t.dead) { t.kvx = c * 520; t.kvy = s * 520; shoveChain(a).add(t, 1); }
         G.projectiles.push(new DustRing(this.x + c * 16, this.y + s * 10, 20, 4, slotCol('special', null))); G.shake = Math.max(G.shake, 5); Sfx.slam();
+        FX.onShieldSpinEnd(this); // 특수 속성 축복의 마무리 효과(폭발 · 얼음 장판 · 벼락)가 방패 돌진 끝에도 (2026-10-23 사용자: 벼락 돌려치기가 돌진에 안 붙음)
       }
       return true;
     }
@@ -453,7 +454,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         a.hitDone = true;
         this.unearth(a.r, Math.PI, this.x + fx * 14, this.y + fy * 10); // 땅속에 숨은 적도 끌어낸다
         this.hitFan(a, this.x + fx * 14, this.y + fy * 10, a.r, Math.PI, 'shieldSlam', SHIELD_SLAM_STUN);
-        G.projectiles.push(new DustRing(this.x + fx * 16, this.y + fy * 10, a.r * 0.7, 7, slotCol('dash', null))); // 후려치기: 도트 흙먼지 고리
+        G.projectiles.push(new DustRing(this.x + fx * 16, this.y + fy * 10, a.r * 0.7, 7, slotCol('dash', null))); // 방패 후리기: 도트 흙먼지 고리
         G.shake = Math.max(G.shake, 5); Sfx.slam();
       }
       return true;
