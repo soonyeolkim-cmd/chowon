@@ -91,6 +91,8 @@ const TEST_BUILDS = {
   bow: { weapon: 'bow', mastery: {}, all: true, boons: {} },
   bow_trap: { weapon: 'bow', mastery: {}, all: true, boons: { atk_wave: 3, atk_thrust: 3, atk_combo: 3, atk_multispin: 3 } },
   // 검의 정령 축복 전부 만렙 + 무기 숙련 전부 만렙 (?build=bow_max, 2026-10-20). 다른 무기는 &w=sword 처럼
+  // 재료 넉넉히 (?build=rich, 2026-10-23): 해금 · 숙련 · 공통 강화 · 각성을 직접 눌러 볼 수 있게 재료만 가득 (해금은 안 해 둠). 따로 저장
+  rich: { weapon: 'sword', mastery: {}, boons: {}, rich: true },
   bow_max: { weapon: 'bow', mastery: { combo: 3, spin: 3, wave: 3, thrust: 3 }, all: true, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3, sharp: 3, vital: 3, ambush: 3 } },
   // 방패 첫 손맛 (?build=shield)
   shield: { weapon: 'shield', mastery: {}, boons: {} },
@@ -245,8 +247,13 @@ const Meta = {
       const d = this.data;
       if (!d.unlocked.includes(DEV_BUILD.weapon)) d.unlocked.push(DEV_BUILD.weapon);
       if (DEV_BUILD.all) for (const id of WEAPON_ORDER) if (!d.unlocked.includes(id)) d.unlocked.push(id); // 무기 전부 해금: 마을에서 무기를 바꿔도 같은 축복으로 시작 (2026-10-18)
-      d.weapon = DEV_BUILD.weapon;
-      Object.assign(d.wup[DEV_BUILD.weapon] || (d.wup[DEV_BUILD.weapon] = {}), DEV_BUILD.mastery);
+      if (DEV_BUILD.rich) { // 재료만 가득 (쓴 만큼 다시 채워진다)
+        d.shards = Math.max(d.shards, 99999); d.essence = Math.max(d.essence, 9999); d.emblems = Math.max(d.emblems, 99);
+        d.cores = Math.max(d.cores || 0, 6); d.embers = Math.max(d.embers || 0, 36); d.awakenV1 = true;
+      } else {
+        d.weapon = DEV_BUILD.weapon;
+        Object.assign(d.wup[DEV_BUILD.weapon] || (d.wup[DEV_BUILD.weapon] = {}), DEV_BUILD.mastery);
+      }
     }
   },
   // 테스트용: 강화·숙련 최대, 무기 전부 해금, 재화 넉넉히
