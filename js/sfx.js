@@ -77,3 +77,8 @@ Sfx.register('staff.cast', { layers: [
   { wave: 'sq', duty: 0.25, f0: 310, f1: 120, curve: 'exp', dur: 0.18, vol: 0.06, delay: 0.02 },
   { wave: 'noise', f0: 2500, f1: 500, dur: 0.16, vol: 0.06, delay: 0.03 },
 ] });
+// 빙결: 예전 소리(아주 높은 삑삑 세 번)가 귀에 찔러서 사운드 테스트 후보 A '얼음 껍질'로 바꿈 (2026-10-23 사용자)
+Sfx.register('freeze', { layers: [
+  { wave: 'noise', f0: 9000, f1: 5000, dur: 0.08, vol: 0.12, bits: 5 },
+  { wave: 'tri', notes: [[1568, 0.05], [1319, 0.05], [1047, 0.1]], vol: 0.24 },
+] });
