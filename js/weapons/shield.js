@@ -79,8 +79,8 @@ addWeapon('shield', {
   rows: (A, P, D) => [
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 95까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
-    ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
-    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 3번)'],
+    ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
+    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (막으면 피해 0 · 다음 밀치기는 반격 밀치기) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '대시 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음', 'thrust'],
@@ -146,19 +146,19 @@ BOON_FORMS.shield = {
   fire_basic:     { name: '불꽃 방패' },
   fire_bolt:      { name: '화염구 밀치기', desc: lv => `밀칠 때마다 화염구가 날아가 처음 닿은 적 자리에서 폭발 (공격력의 ${pct(0.5 + 0.2 * lv)} + 화상). 3타째는 3발.` },
   fire_charge:    { name: '화염 강타', desc: lv => `방패 강타에 맞은 적에게 화상 2중첩, 충격파가 지나간 땅에 ${1.5 + 0.5 * lv}초간 불길이 남는다.` },
-  fire_special:   { name: '화염 돌려치기', desc: lv => `돌려치기에 맞은 적에게 화상 2중첩, 돌고 나면 주변이 폭발한다 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
+  fire_special:   { name: '화염 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적에게 화상 2중첩. 돌려치기를 마치면 주변이 폭발한다 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
   ice_basic:      { name: '서리 방패' },
   ice_shard:      { name: '얼음 파편 밀치기', desc: lv => `밀칠 때마다 얼음 파편 ${1 + lv}개가 부채꼴로 날아가 적을 관통하며 냉기 1중첩 (공격력의 ${pct(0.25 + 0.05 * lv)}).` },
   ice_charge:     { name: '빙결 강타', desc: lv => `방패 강타에 맞은 적에게 냉기 ${iceBig(lv)}중첩.` },
-  ice_special:    { name: '서리 돌려치기', desc: lv => `돌려치기에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 돌고 나면 발밑이 얼어붙는다.` },
+  ice_special:    { name: '서리 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적에게 냉기 ${iceBig(lv)}중첩. 돌려치기를 마치면 발밑이 얼어붙는다.` },
   elec_basic:     { name: '번개 방패' },
   elec_chain:     { name: '연쇄 번개 밀치기' },
   poison_spray:   { name: '독 분사 밀치기' },
   elec_charge:    { name: '벼락 강타', desc: lv => `방패 강타 직후 충격파 끝 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
-  elec_special:   { name: '벼락 돌려치기', desc: lv => `돌려치기에 맞은 적은 감전, 돌고 나면 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
+  elec_special:   { name: '벼락 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적은 감전. 돌려치기를 마치면 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}).` },
   poison_basic:   { name: '독 방패' },
   poison_charge:  { name: '독안개 강타', desc: lv => `충격파가 지나간 땅에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
-  poison_special: { name: '독 돌려치기', desc: lv => `돌려치기에 맞은 적에게 독 ${1 + lv}중첩.` },
+  poison_special: { name: '독 돌려치기', desc: lv => `돌려치기 · 방패 돌진에 맞은 적에게 독 ${1 + lv}중첩.` },
   atk_combo:      { name: '잔상 밀치기' },
   atk_spin:       { name: '강타 강화', desc: lv => `차지 시간 -${15 * lv}%, 강타 거리 +${10 * lv}%.` },
   atk_multispin:  { name: '여진', desc: lv => `방패 강타 뒤 땅이 ${lv}번 더 울린다. 여진은 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
@@ -285,8 +285,9 @@ extendPlayer({
       const dx = t.x - cx, dy = t.y - cy, d = Math.hypot(dx, dy) || 1;
       if (d > SHIELD_CHARGE_SHOCK_R + t.r) continue;
       a.shock.add(t);
-      this.deal(t, 'chargeShock', dx / d, dy / d);
-      shoveChain(a).add(t, 1);
+      const [sx, sy] = chainDir(dx / d + Math.cos(a.dir) * 0.8, dy / d + Math.sin(a.dir) * 0.8, Math.cos(a.dir), Math.sin(a.dir)); // 앞쪽으로 치우쳐 (뒤로 안 날아가게)
+      this.deal(t, 'chargeShock', sx, sy);
+      shoveChain(a).add(t, 1, sx, sy);
     }
     if (!a.ringed) { a.ringed = true; G.projectiles.push(new DustRing(cx, cy, SHIELD_CHARGE_SHOCK_R * 0.75, 6, slotCol('special', null))); } // 도트 흙먼지 고리: 돌진 한 번에 한 번만 (2026-10-18)
     G.shake = Math.max(G.shake, 5); Sfx.slam();
@@ -415,6 +416,13 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
     }
     if (a.kind === 'shieldSpin') {
       if (a.t > a.dur * 0.1) this.hitFan(a, this.x, this.y, a.r, Math.PI, 'shieldSpin', 0);
+      // 돌려치기 연쇄 (2026-10-23): 맞아서 사방으로 날아간 적이 다른 적에게 부딪히면 연쇄 (방패 돌진과 같은 규칙)
+      for (const t of a.hit) {
+        if ((a.chained || (a.chained = new Set())).has(t)) continue;
+        a.chained.add(t);
+        const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
+        shoveChain(a).add(t, 1, dx / d, dy / d);
+      }
       if (!a.ended && a.t >= a.dur * 0.9) { a.ended = true; FX.onShieldSpinEnd(this); }
       return true;
     }
@@ -561,12 +569,22 @@ function shieldSprite(g, x, y, scale = 1, glow) {
 }
 
 // 방패 돌진 연쇄 (2026-10-23): 날아가는 적(mover)이 다른 적에게 닿으면 그 적도 맞고 튕겨 나간다. 한 번의 돌진에 하나씩
-const CHAIN_MAX = 3, CHAIN_SPEED = 420, CHAIN_MIN_SPEED = 140, CHAIN_LIFE = 0.6, CHAIN_REACH = 10;
+const CHAIN_MAX = 4, CHAIN_SPEED = 460, CHAIN_MIN_SPEED = 90, CHAIN_LIFE = 0.85, CHAIN_REACH = 26; // 2026-10-23 사용자 "더 넓혀서 많이 부딪히게": 닿는 거리 10 → 26, 이어지는 횟수 3 → 4, 날아가는 시간 · 속도 늘림
+// 돌진 방향(cx, cy) 앞쪽 성분이 CHAIN_FWD 보다 작으면 앞쪽으로 당겨 준다 → 뒤 · 옆으로 엉뚱하게 날아가지 않게
+const CHAIN_FWD = 0.35;
+function chainDir(x, y, cx, cy) {
+  let L = Math.hypot(x, y) || 1; x /= L; y /= L;
+  const fw = x * cx + y * cy;
+  if (fw < CHAIN_FWD) { x += cx * (CHAIN_FWD - fw) * 1.5; y += cy * (CHAIN_FWD - fw) * 1.5; L = Math.hypot(x, y) || 1; x /= L; y /= L; }
+  return [x, y];
+}
 class ShoveChain {
-  constructor() { this.movers = []; this.hit = new Set(); this.done = false; this.t = 0; }
-  add(t, depth) {
+  // dir: 방패 돌진 방향 (앞쪽으로만 날아가게). 없으면(돌려치기) 사방 어디로든
+  constructor(dir) { this.free = dir === undefined; this.cx = this.free ? 1 : Math.cos(dir); this.cy = this.free ? 0 : Math.sin(dir); this.movers = []; this.hit = new Set(); this.done = false; this.t = 0; }
+  // dx, dy: 이 적이 날아가는 방향 (처음 정한 방향을 기억해 둔다 — 지금 속도는 벽 · 밀어내기에 휘기 때문)
+  add(t, depth, dx = this.cx, dy = this.cy) {
     if (!t || t.dead || t.type === 'boss' || t.superArmor || t.type === 'totem' || this.movers.some(m => m.t === t)) return;
-    this.hit.add(t); this.movers.push({ t, depth, life: CHAIN_LIFE });
+    this.hit.add(t); this.movers.push({ t, depth, life: CHAIN_LIFE, dx, dy });
   }
   update(dt) {
     this.t += dt;
@@ -575,11 +593,14 @@ class ShoveChain {
       m.life -= dt;
       const t = m.t, sp = Math.hypot(t.kvx || 0, t.kvy || 0);
       if (t.dead || m.life <= 0 || sp < CHAIN_MIN_SPEED) { m.life = 0; continue; }
-      const dx = t.kvx / sp, dy = t.kvy / sp;
       for (const o of G.targets()) {
         if (o === t || this.hit.has(o) || o.dead) continue;
         if (Math.hypot(o.x - t.x, o.y - t.y) > (t.r || 8) + (o.r || 8) + CHAIN_REACH) continue; // 적끼리 서로 밀어내서 딱 붙지는 않으므로 조금 넉넉하게
         this.hit.add(o);
+        // 당구공: 부딪힌 쪽(t → o)과 날아가던 쪽을 반씩 섞고, 돌진 앞쪽 성분은 남긴다
+        const nx = o.x - t.x, ny = o.y - t.y, nl = Math.hypot(nx, ny) || 1;
+        const bx = nx / nl * 0.5 + m.dx * 0.5, by = ny / nl * 0.5 + m.dy * 0.5, bl = Math.hypot(bx, by) || 1;
+        const [dx, dy] = this.free ? [bx / bl, by / bl] : chainDir(bx, by, this.cx, this.cy);
         p.deal(o, 'shoveChain', dx, dy);
         G.projectiles.push(new DustRing(o.x, o.y - 2, 14, 5, slotCol('special', null)));
         G.text(o.x, o.y - (o.r || 8) - 14, '연쇄!', '#ffd28a', 11, 0.5);
@@ -587,7 +608,7 @@ class ShoveChain {
         if (o.type !== 'boss' && !o.superArmor && o.type !== 'totem') {
           const k = Math.pow(0.85, m.depth);
           o.kvx = dx * CHAIN_SPEED * k; o.kvy = dy * CHAIN_SPEED * k; o.slamT = Math.max(o.slamT || 0, 0.4); // 벽에 부딪히면 벽꿍
-          if (m.depth < CHAIN_MAX) this.movers.push({ t: o, depth: m.depth + 1, life: CHAIN_LIFE });
+          if (m.depth < CHAIN_MAX) this.movers.push({ t: o, depth: m.depth + 1, life: CHAIN_LIFE, dx, dy });
         }
       }
     }
@@ -596,7 +617,7 @@ class ShoveChain {
   }
   draw() {}
 }
-function shoveChain(a) { if (!a.chain || a.chain.done) { a.chain = new ShoveChain(); G.projectiles.push(a.chain); } return a.chain; }
+function shoveChain(a) { if (!a.chain || a.chain.done) { a.chain = new ShoveChain(a.dir); G.projectiles.push(a.chain); } return a.chain; }
 
 // 각성 · 막을 때 충격파: 피해 배율은 deal 의 mult 로 (공격력의 5 ~ 20%). passive: 저절로 나가는 피해라 저스트 회피 반격을 안 쓴다
 MOVES.guardWave = { mult: 1, kb: 260, guardBreak: false, role: 'special', passive: true };
