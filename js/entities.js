@@ -108,18 +108,19 @@ class Player {
   get hurtR() { return this.r * PLAYER_HURT_SCALE; } // 맞는 판정 반경: 몸(지형 충돌)보다 조금 작게 (2026-10-17)
   get dashCdBase() { return DASH_CD * (this.weapon.dashCdMult || 1) * (1 - 0.08 * Meta.lv('agi')); }
   mastery(id) { return Meta.wlv(this.weaponId, id); }
-  get specialCdBase() { const w = this.weapon; return Math.max(w.cdFloor, w.specialCd - w.cdPerLv * FX.lv('atk_wave') - w.cdPerMastery * this.mastery('wave')); }
+  get specialCdBase() { const w = this.weapon; return Math.max(w.cdFloor, w.specialCd - w.cdPerLv * FX.lv('atk_wave') - w.cdPerMastery * this.mastery('wave') - Awaken.val(this.weaponId, 'trapCd')); }
   // 특수공격 충전: 무기에 specialCharges 가 있으면 대시처럼 여러 번 쌓아 둔다 (쌍검 2회, 2026-10-17)
   get specMax() { return this.weapon.specialCharges || 1; }
   get specialCdShown() { if (this.freeSpecialT > 0) return 0; return this.specMax > 1 ? (this.specStock > 0 ? 0 : this.specRecharge) : this.specialCd; } // 화면에 보이는 남은 쿨타임
   get skillCdBase() { return this.weapon.skillCd || 1; }
-  get chargeTime() { return this.weapon.chargeTime * (1 - 0.15 * FX.lv('atk_spin')) * (1 - 0.1 * this.mastery('spin')); }
+  get chargeTime() { return this.weapon.chargeTime * (1 - 0.15 * FX.lv('atk_spin')) * (1 - 0.1 * this.mastery('spin')) * (1 - Awaken.val(this.weaponId, 'chargeTime')); }
 
   update(dt) {
     const inp = Input.state;
     for (const k of ['atkCd', 'dashCd', 'invuln', 'hurtT', 'comboT', 'finisherT', 'atkBuffer',
       'specialBuffer', 'skillBuffer', 'dashBuffer', 'postDashT', 'dodgeT', 'counterT', 'leafT', 'specialCd', 'skillCd',
-      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'freeSpecialT', 'guardT', 'gapT']) this[k] -= dt;
+      'dashGuardT', 'spinGuardT', 'slowT', 'noDashT', 'parryT', 'freeSpecialT', 'guardT', 'gapT', 'awakenFlashT']) this[k] -= dt;
+    if (this.atkCd > 0) this.atkCd -= dt * Awaken.val(this.weaponId, 'atkSpeed'); // 각성: 공격 속도
     if (this.parryPending && this.parryT <= 0) { this.parryPending = false; if (this.onParryFail) this.onParryFail(); } // 쌍검: 받아치기 실패
     if (this.dashStock < this.dashMax) {
       this.dashRecharge -= dt;
@@ -150,10 +151,17 @@ class Player {
           this.charge2 = Math.min(1, b2 + dt / (c2 * this.chargeTime / this.weapon.chargeTime));
           if (b2 < 1 && this.charge2 >= 1) { Sfx.charged(); Sfx.zap(); G.ring(this.x, this.y, '#7fe0ff', 44); G.text(this.x, this.y - 30, '최대 충전!', '#7fe0ff', 12, 0.6); }
         }
+        // 무기 각성 차지 (2026-10-23): 앞 단계를 다 모은 뒤 0.5초 더 → 각성 기술 (창 3단 · 마법봉 대마법진)
+        const aw = this.weapon.awakenChargeAfter;
+        if (aw && Awaken.lv(this.weaponId) && (aw === 2 ? (this.charge2 || 0) >= 1 : this.charge >= 1)) {
+          const bA = this.chargeA || 0;
+          this.chargeA = Math.min(1, bA + dt / AWAKEN_CHARGE_T);
+          if (bA < 1 && this.chargeA >= 1) { Sfx.charged(); G.text(this.x, this.y - 34, '각성 충전!', '#ffffff', 13, 0.7); }
+        }
       }
     } else {
-      if (this.charge >= 1 && this.dashT <= 0) this.weapon.charged(this, mag, (this.charge2 || 0) >= 1); // 셋째 값: 2단까지 모았나
-      this.holdT = 0; this.charge = 0; this.charge2 = 0;
+      if (this.charge >= 1 && this.dashT <= 0) this.weapon.charged(this, mag, (this.charge2 || 0) >= 1, (this.chargeA || 0) >= 1); // 셋째 값: 2단까지 모았나 · 넷째: 각성 차지까지
+      this.holdT = 0; this.charge = 0; this.charge2 = 0; this.chargeA = 0;
     }
 
     if (this.dashT > 0) {
@@ -201,7 +209,8 @@ class Player {
     }
 
     if (this.act) {
-      this.act.t += dt;
+      const am = MOVES[this.act.kind], fast = am && (am.role === 'basic' || am.role === 'fin') ? Awaken.val(this.weaponId, 'atkSpeed') : 0; // 각성: 공격 속도
+      this.act.t += dt * (1 + fast);
       this.updateAct(dt);
       if (this.act && this.act.t >= this.act.dur) this.act = null;
     }
@@ -336,7 +345,9 @@ class Player {
       if (this.momentum < MOMENTUM_MAX && ++this.momentum === MOMENTUM_MAX) { G.text(this.x, this.y - 30, '기세 최대!', '#ffb84a', 12, 0.7); G.ring(this.x, this.y, '#ffb84a', 26); }
     }
     let dmg = this.atk * m.mult * (o.mult || 1) * rand(0.9, 1.1) * (1 + G.chainBonus()) * FX.damageMult(this, kind, t);
-    const kb = o.kb !== undefined ? o.kb : m.kb;
+    if (m.role === 'basic' || m.role === 'fin' || m.role === 'charge' || m.role === 'special') dmg *= 1 + Awaken.dmg(this.weaponId); // 무기 각성: 세 기술 피해 (2026-10-23)
+    let kb = o.kb !== undefined ? o.kb : m.kb;
+    if (m.role === 'basic' || m.role === 'fin') kb *= 1 + Awaken.val(this.weaponId, 'knock'); // 각성: 밀치기 넉백 (방패)
     let crit = Math.random() < FX.critChance(), counter = false;
     // 반격 치명타: 저스트 회피 뒤 '내가 새로 한 공격'에만 (2026-10-20 활 버그: 깔아 둔 덫 · 회피 전에 쏜 화살이 반격을 써 버려 엉뚱하게 '반격!'이 떴다)
     const oldShot = o.src && o.src.born !== undefined && this.counterAt !== undefined && o.src.born < this.counterAt;

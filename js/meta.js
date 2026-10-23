@@ -195,6 +195,8 @@ const Meta = {
       // 지금까지 모은 자원 (쓴 것 포함) · 플레이 시간(초): 프로필 화면에 보인다
       totShards: d.totShards ?? est.shards, totEssence: d.totEssence ?? est.essence, totEmblems: d.totEmblems ?? est.emblems,
       playT: d.playT || 0,
+      // 무기 각성 (2026-10-23): awaken = { sword: 1 ~ 4 } (1 = 각성, 2 ~ 4 = 강화 1 ~ 3) · 봉인의 핵 · 각성의 불씨 · 등급별 불씨를 받은 가장 먼 세계
+      awaken: d.awaken || {}, cores: d.cores || 0, embers: d.embers || 0, emberBest: d.emberBest || {}, awakenV1: !!d.awakenV1,
     };
     // 건틀릿은 쌍검으로 바뀌었다 (2026-10-17): 해금 · 장착 · 숙련을 그대로 옮긴다
     { const D = this.data;
@@ -208,6 +210,19 @@ const Meta = {
       this.data.tierCleared = {};
       this.data.tier = 1;
       this.data.tiers7 = true;
+    }
+    // 각성이 들어오기 전에 이미 깬 등급의 몫을 한 번 소급해서 준다 (2026-10-23)
+    //   핵: 이미 깬 등급 4~9 마다 1개 / 불씨: 이미 깬 등급 5~10 은 6개, 안 깬 등급 5 는 정수 기록으로 잡은 세계 보스 수만큼
+    if (!this.data.awakenV1) {
+      const D = this.data; let c = 0, e = 0;
+      for (let n = CORE_TIER_MIN; n <= CORE_TIER_MAX; n++) if (D.tierCleared[n]) c++;
+      for (let n = EMBER_TIER_MIN; n <= TIER_MAX; n++) {
+        const got = D.tierCleared[n] ? 6 : n === EMBER_TIER_MIN ? Math.min(6, Math.floor((D.essBest[n] || 0) / 5)) : 0;
+        if (got > (D.emberBest[n] || 0)) { e += got - (D.emberBest[n] || 0); D.emberBest[n] = got; }
+      }
+      D.cores += c; D.embers += e; D.awakenV1 = true;
+      if (c || e) this.giftNote = `각성 재료를 받았어요! ◈ 봉인의 핵 ${c} · 🔥 각성의 불씨 ${e} (이미 깬 봉인 등급 몫)`;
+      this.save();
     }
     // 선물 코드 (?gift=코드): 이 기기의 진짜 저장(지금 프로필)에 한 번만 넣는다
     const giftCode = new URLSearchParams(location.search).get('gift'), gift = GIFTS[giftCode];

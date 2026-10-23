@@ -210,6 +210,8 @@ const G = {
     this.gotEssence = this.runEssence; // 정수는 처음 넘은 지점에서만 주므로 배율 없이 그대로
     const tn = (this.tierInfo || tierInfo(1)).n;
     Meta.data.essBest[tn] = Math.max(Meta.data.essBest[tn] || 0, this.essRunBest || 0);
+    this.gotEmbers = this.runEmbers || 0; // 각성의 불씨: 쓰러져도 간 만큼
+    Meta.data.embers += this.gotEmbers; Meta.data.emberBest[tn] = Math.max(Meta.data.emberBest[tn] || 0, this.emberRunBest || 0);
     Meta.data.shards += this.gotShards; Meta.data.essence += this.gotEssence;
     Meta.data.totShards += this.gotShards; Meta.data.totEssence += this.gotEssence;
     Meta.save();
@@ -220,6 +222,7 @@ const G = {
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
     this.runT = 0; // 모험 진행 시간 (play 상태에서만 흐른다)
+    this.runEmbers = 0; this.emberRunBest = 0; this.runCores = 0; // 각성의 불씨 (끝나야 받는다) · 봉인의 핵 (첫 완주 때)
     this.runShards = 0; this.runKills = 0; this.runEmblems = 0; this.runEssence = 0; this.essFrac = 0; this.shardFrac = 0; this.essRunBest = 0;
     this.reviveLeft = Meta.lv('revive');
     this.runHints = {}; // 이번 판에 루미가 한 조언
@@ -251,6 +254,14 @@ const G = {
     if (n <= 0) return;
     this.runEssence += n;
     if (x !== undefined) this.text(x, y, '⚔' + n, '#ffcf6a', 13, 1.2);
+  },
+  // 각성의 불씨: 봉인 등급 5~10 에서 세계 보스마다 1개. 등급마다 세계별 한 번씩 (이미 받은 세계는 '이미 받음')
+  earnEmber(x, y) {
+    const tn = (this.tierInfo || tierInfo(1)).n;
+    if (tn < EMBER_TIER_MIN) return;
+    if (this.stage <= (Meta.data.emberBest[tn] || 0)) { this.text(x, y, '🔥 이미 받음', '#8a8f99', 10, 0.9); return; }
+    this.runEmbers++; this.emberRunBest = Math.max(this.emberRunBest || 0, this.stage);
+    this.text(x, y, '🔥 각성의 불씨 +1', '#ffb070', 14, 1.4);
   },
   earn(n, x, y) {
     const total = n * SHARD_RATE * (1 + 0.2 * Meta.lv('luck')) * (this.stage >= 4 ? DEEP_SHARD_MULT : 1) + (this.shardFrac || 0);
@@ -594,6 +605,7 @@ const G = {
     for (const e of this.enemies) if (!e.dead) this.killEnemy(e);
     this.earn(SHARD_BOSS * this.stage, b.x, b.y - 50);
     this.earnEssence(ESSENCE_BOSS[Math.min(this.stage, ESSENCE_BOSS.length) - 1], b.x, b.y - 70, (this.stage - 1) * STAGES_PER_WORLD + this.sub);
+    this.earnEmber(b.x, b.y - 92);
     Meta.save();
     this.phase = 'done'; this.clearDelay = 2.2;
   },
@@ -881,6 +893,7 @@ const G = {
             if (this.tierFirst) {
               Meta.data.tierCleared[info.n] = true;
               if (info.emblem) { Meta.data.emblems += EMBLEM_PER_CLEAR; Meta.data.totEmblems += EMBLEM_PER_CLEAR; this.runEmblems += EMBLEM_PER_CLEAR; }
+              if (info.core) { Meta.data.cores++; this.runCores = 1; } // 봉인의 핵 (등급 4~9 첫 완주, 등급 4 는 증표와 함께)
               else if (info.bonusShards) this.earn(info.bonusShards);
               // 다음에 고를 등급을 새로 열린 등급으로
               const next = playableTiers().filter(n => n > info.n)[0];
@@ -2213,6 +2226,11 @@ function villageItems(tab) {
     key: wid + '.' + m.id, name: m.name, desc: m.desc, max: m.max, essence: wid,
     lv: () => Meta.wlv(wid, m.id), cost: () => Meta.wNextCost(wid, m), buy: () => Meta.buyMastery(wid, m),
   });
+  // 무기 각성 (봉인의 핵으로 각성, 각성의 불씨로 강화 1 ~ 3, 2026-10-23)
+  if (AWAKEN_DEF[wid]) {
+    list.push({ header: true, name: `◈ 무기 각성 · ${W0.name}` });
+    list.push({ key: 'awk.' + wid, awaken: wid, name: '각성', max: 4 });
+  }
   return list;
 }
 
@@ -2286,12 +2304,20 @@ function drawHeatFlames(r, lv) {
     }
   }
 }
+// 각성 · 강화할 수 있다는 알림: 깜빡이는 보라 점 (2026-10-23)
+function drawAwakenDot(x, y) {
+  const k = 0.6 + 0.4 * Math.sin(G.time * 6);
+  ctx.save(); ctx.globalAlpha = k;
+  ctx.fillStyle = '#a874ff'; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ead8ff'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+}
 function drawVillage(blink) {
   const v = G.village, L = villageLayout(), md = Meta.data;
   overlay(0.7);
   drawHeat(tierNo(md.tier || 1));
   label('숲 마을 · 정령의 제단', W / 2, inset.t + 20, 22, '#ffe08a', 'center', '900');
-  label(`◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}`, W / 2, inset.t + 43, 13, '#c8a0ff', 'center', '800');
+  label(`◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}` + (md.cores || md.embers || Object.keys(md.awaken).length ? `    ◈ 봉인의 핵 ${md.cores}    🔥 각성의 불씨 ${md.embers}` : ''), W / 2, inset.t + 43, 13, '#c8a0ff', 'center', '800');
   label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
   drawHome(villageHome(), v.sel === -2);
   drawBookBtn(villageBook(), v.sel === -3);
@@ -2300,6 +2326,7 @@ function drawVillage(blink) {
     ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(30,34,44,0.85)';
     (rrPath(t.x, t.y, t.w, t.h, 7), ctx.fill());
     label(name, t.x + t.w / 2, t.y + t.h / 2, 13, on ? '#fff' : '#99a', 'center', '800');
+    if (i === 1 && Awaken.anyCan()) drawAwakenDot(t.x + t.w - 12, t.y + 8); // 각성 · 강화할 수 있어요
   });
   // 목록 (스크롤 영역)
   ctx.save();
@@ -2329,9 +2356,24 @@ function drawVillage(blink) {
         if (ws && ws.clears) label(`완주 ${ws.clears}회 · 최고 봉인 등급 ${tierNo(ws.best)}` + (bt ? ` · ⏱ ${fmtRunT(bt)}` : ''), r.x + r.w - 100, r.y + r.h * 0.32, 11, '#ffd24a', 'right', '800');
         else label('완주 기록 없음', r.x + r.w - 100, r.y + r.h * 0.32, 10.5, '#7d8a96', 'right', '600');
       }
+      if (it.owned && Awaken.lv(it.weapon)) label('◈' + '★'.repeat(Awaken.lv(it.weapon) - 1), r.x + 14 + ctx.measureText(it.name).width + 8, r.y + r.h * 0.32, 11, '#c8a0ff', 'left', '800'); // 각성 단계
+      if (it.owned && Awaken.canNext(it.weapon)) drawAwakenDot(r.x + 6, r.y + 6);
       btn = it.locked ? '차후 구현' : buy ? `✦ ${it.unlockCost} 해금` : using ? '✓ 장착됨' : '장착하기';
       bcol = it.locked ? 'rgba(80,70,40,0.7)' : buy ? (can ? '#9a7a1a' : 'rgba(80,80,90,0.7)') : using ? 'rgba(63,138,59,0.9)' : '#6a3fb0';
       tcol = it.locked ? '#cbb' : '#fff';
+    } else if (it.awaken) { // 각성 칸: ◈ 각성 + ★ 강화 3칸, 다음 단계 설명, 재료 버튼
+      const wid = it.awaken, n = md.awaken[wid] || 0, c = Awaken.nextCost(wid), can = Awaken.canNext(wid);
+      const nm = n ? `${AWAKEN_STAGE_NAME[n]}` : '각성 전';
+      label(nm, r.x + 14 + ctx.measureText(it.name).width + 10, r.y + r.h * 0.32, 11, n ? '#c8a0ff' : '#8a8f99', 'left', '800');
+      label(n < 4 ? '다음: ' + Awaken.summary(wid, n + 1) : '지금: ' + Awaken.summary(wid, 4), r.x + 12, r.y + r.h * 0.74, 10.5, '#b8c0cc', 'left', '500');
+      for (let k = 0; k < 4; k++) { // ◈ 한 칸(각성) + 강화 세 칸
+        ctx.fillStyle = k < n ? (k ? '#ffb070' : '#c8a0ff') : 'rgba(255,255,255,0.15)';
+        (rrPath(r.x + r.w - 104 - (4 - k) * 11, r.y + r.h / 2 - 4, 8, 8, k ? 2 : 4), ctx.fill());
+      }
+      if (can) drawAwakenDot(r.x + 6, r.y + 6);
+      btn = !c ? 'MAX' : c.core ? `◈ ${c.core} 각성` : `🔥 ${c.ember} 강화`;
+      bcol = !c ? 'rgba(255,255,255,0.08)' : can ? '#6a3fb0' : 'rgba(80,80,90,0.7)';
+      tcol = !c ? '#888' : can ? '#fff' : '#999';
     } else {
       const have = it.essence ? Meta.ess(it.essence) : md.shards, icon = it.essence ? '⚔' : '◆';
       const lv = it.lv(), cost = it.cost(), can = cost !== null && have >= cost;
@@ -2487,8 +2529,11 @@ function drawTierView() {
   label(`보상 ×${(ti.rewardMult * fm).toFixed(2)}${fm < 1 ? '  (익숙한 숲 ×0.5)' : ''}`, I.x, y, 12, fm < 1 ? '#ff8a7a' : '#c8b8ff', 'left', '700'); y += 18;
   const cleared = !!Meta.data.tierCleared[n], eb = Meta.data.essBest[n] || 0;
   if (ti.emblem) label(`✦ 영웅의 증표: ${cleared ? '받음' : '처음 완주하면 1개'}`, I.x, y, 11, cleared ? '#8ff0b0' : '#ffd24a', 'left', '600');
-  else label('◈ 봉인의 핵: 무기 각성 재료 (각성과 함께 추가 예정)', I.x, y, 11, '#c8a0ff', 'left', '600');
+  else if (ti.core) label(`◈ 봉인의 핵: ${cleared ? '받음' : '처음 완주하면 1개'}`, I.x, y, 11, cleared ? '#8ff0b0' : '#c8a0ff', 'left', '600');
+  else label('🌙 처음 완주하면 숲의 진실이 드러나요', I.x, y, 11, '#e8d8ff', 'left', '600');
   y += 16;
+  if (ti.emblem && ti.core) { label(`◈ 봉인의 핵: ${cleared ? '받음' : '처음 완주하면 1개'}`, I.x, y, 11, cleared ? '#8ff0b0' : '#c8a0ff', 'left', '600'); y += 16; }
+  if (ti.ember) { const eb2 = Meta.data.emberBest[n] || 0; label(`🔥 각성의 불씨: 세계 보스마다 1개 · ${eb2 >= 6 ? '모두 받음' : eb2 ? `세계 ${eb2}까지 받음 (${eb2}/6)` : '아직 안 받음 (0/6)'}`, I.x, y, 11, '#ffb070', 'left', '600'); y += 16; }
   label(n > ESSENCE_TIER_MAX ? '⚔ 무기의 정수: 이 등급은 없음 (등급 0~5 에서만)' : `⚔ 무기의 정수: ${eb > STAGES_PER_WORLD * FINAL_STAGE ? '모두 받음' : eb ? `${stageLabel(eb)}까지 받음` : '아직 안 받음'}`, I.x, y, 11, '#ccd', 'left', '600'); y += 22;
   label(ti.curses.length ? `봉인의 반발 ${ti.curses.length}개` : '봉인의 반발 없음', I.x, y, 12, ti.curses.length ? '#ff9a7a' : '#8a96a0', 'left', '800'); y += 18;
   ti.curses.forEach((id, k) => {
@@ -2649,6 +2694,11 @@ function villageAct(i) {
   const it = items[i];
   if (!it || it.header) return;
   if (it.locked) { v.msg = '차후 구현 예정인 무기예요'; Sfx.block(); return; }
+  if (it.awaken) { // 무기 각성 · 강화
+    const r = Awaken.advance(it.awaken); v.msg = r.msg;
+    if (r.ok) { v.flash[it.key] = 1; v.awakenFx = { t: 0, key: it.key }; Sfx.level(); } else Sfx.block();
+    return;
+  }
   if (it.weapon !== undefined) {
     if (!it.owned) {
       if (Meta.data.emblems < it.unlockCost) { v.msg = `영웅의 증표가 ${it.unlockCost}개 필요해요 (봉인 등급 0~4를 처음 완주할 때마다 1개씩 얻어요)`; Sfx.block(); return; }
@@ -2871,6 +2921,7 @@ function drawRewardResult(y) {
   if (P.fam < 1) parts.push(`익숙한 숲 ×${P.fam}`);
   label(`◆ 정령의 조각 ${G.runShards} → +${G.gotShards ?? Math.round(G.runShards * P.total)}    ⚔ 무기의 정수 ${G.runEssence} → +${G.gotEssence ?? G.runEssence}`, W / 2, y, 15, '#c8a0ff', 'center', '800');
   label(`보상 ×${P.total.toFixed(2)}  (${parts.join(' · ')})   ·   보유 ◆ ${Meta.data.shards} · ⚔ ${Meta.data.essence}`, W / 2, y + 18, 11, P.fam < 1 ? '#ff9a7a' : '#ccd', 'center', '600');
+  if (G.runEmbers) label(`🔥 각성의 불씨 +${G.runEmbers}  (보유 ${Meta.data.embers + (G.runCommitted ? 0 : G.runEmbers)})`, W / 2, y + 34, 12, '#ffb070', 'center', '800');
 }
 
 // ── 프로필 고르기: 저장 칸 3개, 칸마다 지금까지의 진행 상황 (2026-10-17) ──
@@ -3258,7 +3309,7 @@ function render() {
         drawRewardResult(H * 0.57);
         const ti = G.tierInfo || tierInfo(1);
         if (G.tierFirst) {
-          const reward = ti.emblem ? `✦ 영웅의 증표 +${EMBLEM_PER_CLEAR} (보유 ${Meta.data.emblems}) · 새 무기를 해금할 수 있어요` : '◈ 봉인의 핵은 무기 각성과 함께 받을 수 있어요';
+          const reward = [ti.emblem && `✦ 영웅의 증표 +${EMBLEM_PER_CLEAR} (보유 ${Meta.data.emblems})`, ti.core && `◈ 봉인의 핵 +1 (보유 ${Meta.data.cores}) · 무기를 각성할 수 있어요`].filter(Boolean).join('  ') || '진실의 문이 열렸어요';
           label(`봉인 등급 ${tierNo(ti.n)} 첫 돌파!  ${reward}`, W / 2, H * 0.57 + 20, 13, '#ffd24a', 'center', '700');
           const nx = tierInfo(ti.n + 1);
           if (ti.n < TIER_MAX) label(`다음 도전: 봉인 등급 ${tierNo(nx.n)} · ${curseText(nx)}`, W / 2, H * 0.57 + 40, 12, '#e8d8ff', 'center', '600');

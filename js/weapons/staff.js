@@ -49,7 +49,8 @@ addWeapon('staff', {
   basic: (p, mag) => p.startBonk(mag),
   basicAfterDash: p => p.startPulse(),
   dashEcho: p => ({ x: p.x, y: p.y, dir: p.facing, shape: { range: p.pulseR, half: Math.PI } }), // 마력 파동 다단히트: 파동이 한 번 더
-  charged: (p, mag) => p.startCircle(mag),
+  charged: (p, mag, full2, fullA) => p.startCircle(mag, fullA), // 각성: 더 모으면 대마법진
+  awakenChargeAfter: 1, // 각성: 1단 뒤 2단
   special: (p, mag) => p.castOrb(mag),
   skill: null,
   rows: (A, P, D) => [
@@ -122,14 +123,14 @@ BOON_FORMS.staff = {
 extendPlayer({
   // 최대 구슬: 기본 + 마력 증폭 축복 레벨 + 마력탄 숙련 단계 (2026-10-17: 숙련은 충전 시간 → 최대 개수)
   get orbMax() { return this.weapon.orbs ? ORB_BASE + FX.lv('atk_wave') + this.mastery('wave') : 0; },
-  get orbRecharge() { return ORB_RECHARGE; },
+  get orbRecharge() { return ORB_RECHARGE * (1 - Awaken.val('staff', 'orbRecharge')); }, // 각성: 구슬 충전
   // ── 마법봉 ──
   // 2연타: 약하고 짧다. 맞히면 마력 구슬 충전이 빨라진다
   startBonk(mag) {
     this.combo = this.comboT > 0 ? (this.combo + 1) % 2 : 0;
     this.aim(mag);
     const fin = this.combo === 1;
-    this.act = { kind: fin ? 'bonkFin' : 'bonk', t: 0, dur: fin ? 0.2 : 0.16, hit: new Set(), range: STAFF_REACH * (fin ? 1.1 : 1), half: fin ? 1.2 : 1.0, swingDir: fin ? -1 : 1 };
+    this.act = { kind: fin ? 'bonkFin' : 'bonk', t: 0, dur: fin ? 0.2 : 0.16, hit: new Set(), range: STAFF_REACH * (fin ? 1.1 : 1) * (1 + Awaken.val('staff', 'reach')), half: fin ? 1.2 : 1.0, swingDir: fin ? -1 : 1 };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
     this.atkCd = (fin ? 0.42 : 0.28) * (1 - COMBO_SPEED * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
@@ -152,17 +153,19 @@ extendPlayer({
     Sfx.orb();
   },
   // 마법진 (차지): 앞쪽(가까운 적 발밑)에 깔고 잠시 뒤 폭발
-  get circleR() { return CIRCLE_R * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')); },
-  startCircle(mag) {
+  get circleR() { return CIRCLE_R * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')) * (1 + Awaken.val('staff', 'circleR')); },
+  startCircle(mag, awk) {
     this.finisherT = 0;
     this.aim(mag, ORB_AIM);
     const t = this.aimTarget && !this.aimTarget.dead && Math.hypot(this.aimTarget.x - this.x, this.aimTarget.y - this.y) < 150 ? this.aimTarget : null;
     const cx = t ? t.x : this.x + Math.cos(this.facing) * 80, cy = t ? t.y : this.y + Math.sin(this.facing) * 80;
-    G.projectiles.push(new MagicCircle(cx, cy, this.circleR, FX.lv('atk_multispin')));
+    const mc = new MagicCircle(cx, cy, this.circleR * (awk ? 1.35 : 1), FX.lv('atk_multispin')); // 대마법진: 35% 크게
+    if (awk) { mc.awk = 1 + Awaken.skillDmg('staff'); Awaken.flash(this); }
+    G.projectiles.push(mc);
     this.act = { kind: 'cast', t: 0, dur: 0.25, hit: new Set(), circleCast: true };
     this.atkCd = 0.4; this.charge = 0; this.comboT = 0;
     this.finisherT = 0.8; // 마법진을 깐 직후 특수공격 → 삼연 마력탄 (2026-10-18)
-    G.text(this.x, this.y - 24, '마법진', '#ffd24a', 12, 0.6);
+    G.text(this.x, this.y - 24, awk ? '각성 · 대마법진!' : '마법진', awk ? '#ffffff' : '#ffd24a', awk ? 15 : 12, 0.7);
     Sfx.charged();
     FX.onCircleCast(this);
   },
@@ -366,7 +369,7 @@ class MagicCircle {
       for (const t of G.targets()) {
         const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
         if (d > this.r + t.r) continue;
-        p.deal(t, 'circle', dx / d, dy / d, { mult, kb: this.small ? 60 : undefined });
+        p.deal(t, 'circle', dx / d, dy / d, { mult: mult * (this.awk || 1), kb: this.small ? 60 : undefined }); // 대마법진: 피해 +5 ~ 20%
       }
       pixRing(this.x, this.y, slotCol('charge', FX_WHITE), this.r); // 마법진 폭발: 도트 고리, 차지 칸 속성 색 (2026-10-18)
       G.burst(this.x, this.y, this.small ? 8 : 16, slotBurst('charge', ['#ffffff', '#e8e8e8']), 170);

@@ -164,7 +164,7 @@ extendPlayer({
     FX.onSwing(this, fin);
   },
   // 그림자 베기 (차지): 앞으로 순식간에 지나가며 길 위의 적을 모두 벤다. 지나가는 동안 무적. 기세를 다 써서 한 칸마다 +20%
-  get rushLen() { return RUSH_LEN * (1 + 0.15 * FX.lv('atk_spin') + 0.03 * this.mastery('spin')); }, // 숙련 거리 +8% → +3% (2026-10-17)
+  get rushLen() { return RUSH_LEN * (1 + 0.15 * FX.lv('atk_spin') + 0.03 * this.mastery('spin')) * (1 + Awaken.val('sai', 'rushLen')); }, // 숙련 거리 +8% → +3% (2026-10-17)
   startRush(mag) {
     this.finisherT = 0;
     this.aim(mag, RUSH_AIM);
@@ -201,7 +201,7 @@ extendPlayer({
   startParry(mag) {
     this.aim(mag);
     const wide = this.finisherT > 0 && G.has('triple');
-    const win = (wide ? PARRY_TRIPLE : PARRY_TIME) + 0.1 * FX.lv('atk_wave');
+    const win = (wide ? PARRY_TRIPLE : PARRY_TIME) + 0.1 * FX.lv('atk_wave') + Awaken.val('sai', 'parryWin'); // 각성: 막는 시간
     this.parryT = win; this.parryWide = wide; this.parryPending = true; // parryPending: 막기 전에 자세가 끝나면 실패 (대시로 빠져도 실패)
     this.finisherT = 0;
     this.act = { kind: 'parry', t: 0, dur: win, hit: new Set() };
@@ -239,6 +239,7 @@ extendPlayer({
     this.invuln = Math.max(this.invuln, RIPOSTE_TIME + RIPOSTE_SAFE);
     this.act = { kind: 'riposte', t: 0, dur: RIPOSTE_TIME + 0.3, dash: RIPOSTE_TIME, hit: new Set(), x0: this.x, y0: this.y, px: this.x, py: this.y, len, marks: [], wide: this.parryWide };
     if (this.parryWide) for (const t of G.targets()) { if (Math.hypot(t.x - this.x, t.y - this.y) < PARRY_WIDE_R + t.r) this.riposteHit(t); }
+    if (Awaken.lv('sai')) { G.projectiles.push(new ShadowRiposte(this, this.act)); Awaken.flash(this); } // 각성: 그림자 반격
     this.momentum = Math.min(MOMENTUM_MAX, this.momentum + 2); this.momT = MOMENTUM_TIME;
     // 연속 반격: 성공하면 쓴 충전을 돌려받아 바로 다음 받아치기로 이어 간다
     if (this.specMax > 1) this.specStock = Math.min(this.specMax, this.specStock + 1);
@@ -398,6 +399,44 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
     }
     if (a.kind === 'parry') return true;
 });
+
+// 각성 · 그림자 반격 (2026-10-23): 받아치기 반격이 끝난 뒤 0.3초, 어두운 분신이 같은 길을 베고 지나간다
+// 피해 = 반격의 5 ~ 20% (각성 단계), 기절은 없다. 보라는 오로라 전용이라 분신은 어두운 반투명 실루엣
+const SHADOW_RIPOSTE_DELAY = 0.3, SHADOW_RIPOSTE_RUN = 0.14, SHADOW_RIPOSTE_CRIT = 2.6;
+MOVES.saiShadow = { mult: 2.5, kb: 120, guardBreak: false, role: 'special' };
+class ShadowRiposte {
+  constructor(p, act) { this.p = p; this.act = act; this.t = 0; this.go = -1; this.hit = new Set(); this.done = false; }
+  update(dt) {
+    const a = this.act;
+    if (this.go < 0) { // 반격이 끝날 때까지 기다렸다가 길을 기억한다
+      if (!a.ended && this.p.act === a) return;
+      this.x0 = a.x0; this.y0 = a.y0; this.x1 = a.x1 ?? this.p.x; this.y1 = a.y1 ?? this.p.y; this.go = 0; return;
+    }
+    this.go += dt;
+    if (this.go < SHADOW_RIPOSTE_DELAY) return;
+    const k = clamp((this.go - SHADOW_RIPOSTE_DELAY) / SHADOW_RIPOSTE_RUN, 0, 1), hx = this.x0 + (this.x1 - this.x0) * k, hy = this.y0 + (this.y1 - this.y0) * k;
+    this.hx = hx; this.hy = hy;
+    const dx = this.x1 - this.x0, dy = this.y1 - this.y0, L = Math.hypot(dx, dy) || 1;
+    for (const t of G.targets()) {
+      if (this.hit.has(t) || Math.hypot(t.x - hx, t.y - hy) > RUSH_WIDTH + 6 + t.r) continue;
+      this.hit.add(t); this.p.deal(t, 'saiShadow', dx / L, dy / L, { mult: Awaken.skillDmg('sai') * SHADOW_RIPOSTE_CRIT }); // 반격은 확정 치명타라, 분신 한 방이 반격의 5 ~ 20% 가 되게 맞춘다
+    }
+    if (this.go > SHADOW_RIPOSTE_DELAY + SHADOW_RIPOSTE_RUN + 0.2) this.done = true;
+  }
+  draw(g) {
+    if (this.go < SHADOW_RIPOSTE_DELAY) return;
+    const k = clamp((this.go - SHADOW_RIPOSTE_DELAY) / SHADOW_RIPOSTE_RUN, 0, 1), fade = 1 - clamp((this.go - SHADOW_RIPOSTE_DELAY - SHADOW_RIPOSTE_RUN) / 0.2, 0, 1);
+    const dir = Math.atan2(this.y1 - this.y0, this.x1 - this.x0), col = dirCol(dir), w = 16 * PIX, a0 = g.globalAlpha;
+    for (let i = 0; i < 4; i++) { // 분신 잔상 몇 개
+      const kk = Math.max(0, k - i * 0.18), x = this.x0 + (this.x1 - this.x0) * kk, y = this.y0 + (this.y1 - this.y0) * kk;
+      g.globalAlpha = a0 * fade * (0.55 - i * 0.12);
+      g.drawImage(tintedBy(ART.img.hero, '#1c1a26'), col * 16, 4 * 16, 16, 16, Math.round(x - w / 2), Math.round(y + 13 - w), w, w);
+    }
+    g.globalAlpha = a0 * fade * 0.8;
+    cutFx(g, this.x0, this.y0 - 2, dir, Math.hypot(this.x1 - this.x0, this.y1 - this.y0) * k, 6, 0.6, slotCol('special', FX_WHITE));
+    g.globalAlpha = a0;
+  }
+}
 
 Object.assign(FX, {
   // ── 쌍검 ──

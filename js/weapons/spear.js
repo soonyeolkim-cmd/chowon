@@ -51,7 +51,8 @@ addWeapon('spear', {
   basic: (p, mag) => p.startPoke(mag),
   dashEcho: p => ({ x: p.x, y: p.y, dir: p.facing, shape: { range: p.sweepLen, half: SWEEP_HALF } }), // 후려치기 다단히트: 같은 부채꼴을 다시
   basicAfterDash: p => p.startSweep(),
-  charged: (p, mag, full2) => (full2 ? p.startSpearBeam(mag) : p.startLunge(mag)), // 2단까지 모으면 창기 일섬
+  charged: (p, mag, full2, fullA) => (full2 ? p.startSpearBeam(mag, fullA) : p.startLunge(mag)), // 2단까지 모으면 창기 일섬, 각성 3단이면 찌르기 + 일섬 동시
+  awakenChargeAfter: 2, // 각성: 2단 뒤 3단
   charge2Time: 0.45, // 차지 2단: 1단을 다 모은 뒤 0.45초 더
   special: (p, mag) => p.throwSpear(mag),
   skill: null,
@@ -163,7 +164,7 @@ extendPlayer({
     this.combo = this.comboT > 0 ? (this.combo + 1) % 2 : 0;
     this.aim(mag, SPEAR_AIM);
     const fin = this.combo === 1;
-    this.act = { kind: fin ? 'pokeFin' : 'poke', t: 0, dur: (fin ? 0.18 : 0.15) / SPEAR_SPEED, hit: new Set(), pierced: 0, len: SPEAR_REACH * (fin ? 1.1 : 1) };
+    this.act = { kind: fin ? 'pokeFin' : 'poke', t: 0, dur: (fin ? 0.18 : 0.15) / SPEAR_SPEED, hit: new Set(), pierced: 0, len: SPEAR_REACH * (fin ? 1.1 : 1) * (1 + Awaken.val('spear', 'reach')) }; // 각성: 찌르기 사거리
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.len, 0.35);
     this.atkCd = (fin ? 0.46 : 0.3) / SPEAR_SPEED * (1 - COMBO_SPEED * FX.lv('atk_combo'));
     this.comboT = this.atkCd + 0.3;
@@ -188,13 +189,14 @@ extendPlayer({
   },
   // 창기 일섬 (차지 2단): 창끝에서 빛의 창기가 일직선으로 멀리 뻗는다. 줄 위의 적을 모두 관통, 먼 쪽은 창끝 보너스
   get beamLen() { return SPEAR_BEAM_LEN * (1 + 0.1 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')); },
-  startSpearBeam(mag) {
+  startSpearBeam(mag, awk) {
     this.finisherT = 0;
     this.aim(mag, THROW_AIM);
     const ms = FX.lv('atk_multispin');
-    this.act = { kind: 'spearBeam', t: 0, dur: 0.42 + 0.1 * ms, dur0: 0.42, hit: new Set(), pierced: 0, len: this.beamLen, extra: ms, stabs: 0 };
+    this.act = { kind: 'spearBeam', t: 0, dur: 0.42 + 0.1 * ms, dur0: 0.42, hit: new Set(), pierced: 0, len: this.beamLen, extra: ms, stabs: 0, awk: !!awk };
     this.atkCd = 0.6 + 0.1 * ms; this.charge = 0; this.comboT = 0;
-    G.text(this.x, this.y - 26, '창기 일섬!', '#7fe0ff', 14, 0.7);
+    G.text(this.x, this.y - 26, awk ? '각성 · 3단 차지!' : '창기 일섬!', awk ? '#ffffff' : '#7fe0ff', awk ? 16 : 14, 0.8);
+    if (awk) Awaken.flash(this); // 각성 3단: 관통 찌르기가 함께 나가는 모습 + 일섬 피해 +5 ~ 20% (찌르기 피해를 따로 더하면 +20% 상한을 넘어서 모습만, 2026-10-23)
     Sfx.thrust(); Sfx.wave(true);
     FX.onPierce(this, this.act.len); // 속성 꿰뚫기 축복: 줄을 따라 불길 · 독안개, 수호의 자세
   },
@@ -256,10 +258,11 @@ extendPlayer({
     for (const [along, t] of list) {
       if (maxN && a.pierced >= maxN) break;
       a.hit.add(t); a.pierced++;
-      if (a.kind === 'lunge' || (a.kind === 'spearBeam' && a.opts)) { this.deal(t, a.kind, fx, fy, a.opts); continue; }
+      const am = a.awk ? 1 + Awaken.skillDmg('spear') : 1; // 각성 3단: 피해 +5 ~ 20%
+      if (a.kind === 'lunge' || (a.kind === 'spearBeam' && a.opts)) { this.deal(t, a.kind, fx, fy, am > 1 ? Object.assign({}, a.opts, { mult: ((a.opts && a.opts.mult) || 1) * am }) : a.opts); continue; }
       const tip = along > len * SPEAR_TIP, haft = along < SPEAR_HAFT;
       if (tip) G.burst(t.x - fx * t.r, t.y - fy * t.r, 6, slotBurst(a.kind === 'poke' || a.kind === 'pokeFin' ? 'basic' : 'charge', ['#fff', '#ffe18a']), 160); // 칸 속성 색 (2026-10-18)
-      this.deal(t, a.kind, fx, fy, { mult: tip ? SPEAR_TIP_MULT : haft ? SPEAR_HAFT_MULT : 1, tip });
+      this.deal(t, a.kind, fx, fy, { mult: (tip ? SPEAR_TIP_MULT : haft ? SPEAR_HAFT_MULT : 1) * am, tip });
     }
   },
   drawSpear(g, x, y) {
@@ -290,6 +293,7 @@ extendPlayer({
       const L = a.len * Math.min(1, p / 0.12), cs = ElFx.slot('charge');
       g.save(); g.globalAlpha *= Math.min(1, e * 1.5);
       beamFx(g, x, cy, f, L, Math.min(0.99, 0.5 + p), cs ? EL_STYLE[cs.el].main : FX_WHITE);
+      if (a.awk) cutFx(g, x + Math.cos(f) * 8, cy + Math.sin(f) * 8, f, this.pierceLen * Math.min(1, p / 0.1), 12, Math.min(0.99, 0.55 + p), cs ? EL_STYLE[cs.el].main : FX_WHITE); // 각성 3단: 굵은 관통 찌르기가 함께
       g.restore();
       if (Math.random() < 0.8 * e) G.particles.push({ x: x + c * rand(30, L), y: cy + s * rand(30, L), vx: rand(-20, 20), vy: rand(-30, -5), life: 0.3, max: 0.3, color: Math.random() < 0.5 ? (cs ? EL_STYLE[cs.el].light : '#e8e8e8') : '#fff', size: 2, grav: 0 });
       if (a.phantomAt !== undefined && a.t - a.phantomAt < 0.1) { // 연환: 같은 줄을 한 번 더 (도트)

@@ -3,7 +3,7 @@
 // 등급이 오를수록 '봉인의 반발'(불리한 규칙)이 하나씩 더 붙는다. 대신 보상 배율이 오른다.
 //   등급 0 = 반발 없음, 등급 7 = 반발 7개 전부
 //   화면에 보이는 번호는 0부터 (tierNo). 안에서는 1~8로 그대로 센다 (세이브 호환, 2026-10-18)
-//   영웅의 증표: 봉인 등급 0~4 를 처음 완주할 때마다 1개 (모두 5개, 2026-10-18). 등급 5 부터는 봉인의 핵 (무기 각성, 예정)
+//   영웅의 증표: 봉인 등급 0~4 를 처음 완주할 때마다 1개 (모두 5개, 2026-10-18). 봉인의 핵 · 각성의 불씨는 아래 CORE_ · EMBER_
 // 쉬움 모드로 깨도 모두 인정된다.
 
 const ROUTES = {
@@ -31,9 +31,14 @@ const TIER_MAX = 1 + CURSE_ORDER.length; // 11 (화면 번호 0 ~ 10)
 const EMBLEM_TIER_MAX = 5;
 // 무기의 정수는 봉인 등급 0~5 (안에서 세는 1~6) 에서만: 등급당 58 × 6 = 348 = 무기 6종 숙련 전부, 남는 정수 0 (2026-10-20)
 const ESSENCE_TIER_MAX = 6;
+// 무기 각성 재료 (2026-10-23, 각성_설계.md):
+//   봉인의 핵: 봉인 등급 4~9 (안에서 세는 5~10) 첫 완주 1개씩 = 6개 → 무기 하나 각성
+//   각성의 불씨: 봉인 등급 5~10 (안에서 6~11) 에서 세계 보스마다 1개, 등급마다 세계별 한 번씩 (실패해도 간 만큼) = 36개 → 강화 1 · 2 · 3 에 1 · 2 · 3개
+const CORE_TIER_MIN = 5, CORE_TIER_MAX = 10;
+const EMBER_TIER_MIN = 6;
 function tierInfo(n) {
   const curses = CURSE_ORDER.slice(0, n - 1);
-  return { n, route: 'all', curses, emblem: n <= EMBLEM_TIER_MAX, bonusShards: 0, rewardMult: 1 + 0.3 * (n - 1) };
+  return { n, route: 'all', curses, emblem: n <= EMBLEM_TIER_MAX, core: n >= CORE_TIER_MIN && n <= CORE_TIER_MAX, ember: n >= EMBER_TIER_MIN, bonusShards: 0, rewardMult: 1 + 0.3 * (n - 1) };
 }
 
 // 익숙한 숲: 내가 처음 깬 가장 높은 등급보다 2단계 이상 낮은 등급을 돌면 보상 절반

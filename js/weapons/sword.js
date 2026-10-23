@@ -123,19 +123,21 @@ extendPlayer({
     this.aim(mag, WAVE_AIM);
     const triple = this.finisherT > 0 && G.has('triple');
     // 삼연 검기: 세 갈래가 하나로 뭉쳐 보이지 않게 더 벌리고(±0.35 → ±0.55), 가운데는 크게 · 양옆은 작게 조금 뒤에서 출발 (2026-10-18)
-    const dirs = triple ? [-0.55, 0, 0.55] : [0];
+    const awk = triple && Awaken.lv('sword') > 0; // 각성: 사연 검기 (네 갈래, 2026-10-23)
+    const dirs = awk ? [-0.78, -0.26, 0.26, 0.78] : triple ? [-0.55, 0, 0.55] : [0];
     const cast = { healed: false }; // 치유의 검기: 한 번 쏠 때 한 번만 (삼연 검기 세 갈래도 함께)
     for (const o of dirs) {
-      const side = triple && o !== 0, back = side ? 14 : 0, f = this.facing + o;
+      const side = triple && (awk ? Math.abs(o) > 0.5 : o !== 0), back = side ? 14 : 0, f = this.facing + o;
       const w = new Wave(this.x - Math.cos(f) * back, this.y - 2 - Math.sin(f) * back, f, side);
-      w.cast = cast; G.projectiles.push(w);
+      w.cast = cast; if (awk) w.awk = 1 + Awaken.skillDmg('sword'); G.projectiles.push(w);
     }
-    if (triple) G.text(this.x, this.y - 24, '삼연 검기!', '#7fe0ff', 13, 0.7);
+    if (awk) { G.text(this.x, this.y - 26, '각성 · 사연 검기!', '#ffffff', 15, 0.8); Awaken.flash(this); }
+    else if (triple) G.text(this.x, this.y - 24, '삼연 검기!', '#7fe0ff', 13, 0.7);
     this.finisherT = 0;
     this.act = { kind: 'cast', t: 0, dur: 0.16, hit: new Set() };
     Sfx.wave(triple);
   },
-  get spinRange() { return 56 * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')); },
+  get spinRange() { return 56 * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')) * (1 + Awaken.val(this.weaponId, 'spinRange')); },
   drawSword(g, x, y) {
     const cy = y - 1, a = this.act;
     if (a && (a.kind === 'light' || a.kind === 'finisher')) {
@@ -220,7 +222,7 @@ class Wave {
   constructor(x, y, dir, small) {
     const big = 1 + 0.25 * FX.lv('atk_wave');
     this.x = x; this.y = y; this.dir = dir; this.life = (small ? 0.6 : 0.75) * big;
-    this.max = this.life; this.hit = new Set(); this.done = false; this.size = (small ? 16 : 22) * big;
+    this.max = this.life; this.hit = new Set(); this.done = false; this.size = (small ? 16 : 22) * big * (1 + Awaken.val('sword', 'waveSize')); // 각성: 섬광 검기 크기
   }
   update(dt) {
     const c = Math.cos(this.dir), s = Math.sin(this.dir);
@@ -234,7 +236,7 @@ class Wave {
       if (this.hit.has(t)) continue;
       if (Math.hypot(t.x - this.x, t.y - this.y) < t.r + this.size * 0.8) {
         this.hit.add(t);
-        G.player.deal(t, 'wave', c, s, { src: this });
+        G.player.deal(t, 'wave', c, s, { src: this, mult: this.awk || 1 }); // 사연 검기: 피해 +5 ~ 20%
       }
     }
   }

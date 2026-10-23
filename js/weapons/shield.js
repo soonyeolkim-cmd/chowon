@@ -179,7 +179,21 @@ extendPlayer({
     return Math.abs(angDiff(Math.atan2(src.y - this.y, src.x - this.x), f)) < SHIELD_FRONT;
   },
   // 막았다: 피해 없음 · 특수 · 대시 쿨타임 초기화 · 다음 밀치기 강화 · 때린 적은 밀려난다
+  // 각성 · 막을 때 충격파 (2026-10-23): 막으면(일반 · 저스트 모두) 둘레로 충격파. 범위 32 ~ 42, 피해 공격력의 5 ~ 20%
+  guardWave() {
+    if (!Awaken.lv('shield')) return;
+    const R = Awaken.val('shield', 'guardWaveR');
+    for (const t of G.targets()) {
+      const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
+      if (d > R + (t.r || 8)) continue;
+      this.deal(t, 'guardWave', dx / d, dy / d, { mult: Awaken.skillDmg('shield') });
+    }
+    G.projectiles.push(new DustRing(this.x, this.y - 4, R, 10, slotCol('special', null)));
+    pixRing(this.x, this.y, slotCol('special', FX_WHITE), R);
+    Awaken.flash(this);
+  },
   shieldBlock(src) {
+    this.guardWave(); // 각성: 막을 때 충격파
     const f = this.dashT > 0 ? this.dashDir : this.facing, c = Math.cos(f), s = Math.sin(f);
     const bx = this.x + c * 14, by = this.y - 8 + s * 14, isFoe = src && src.type && !src.dead && src.kvx !== undefined;
     const just = G.time - (this.guardOnset ?? -99) <= SHIELD_JUST_T;
@@ -231,7 +245,7 @@ extendPlayer({
     FX.onSwing(this, fin);
   },
   // 방패 강타 (차지): 방패로 땅을 내려쳐 앞쪽 부채꼴로 충격파
-  get quakeR() { return SHIELD_QUAKE_R * (1 + 0.1 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')); },
+  get quakeR() { return SHIELD_QUAKE_R * (1 + 0.1 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')) * (1 + Awaken.val('shield', 'quakeR')); },
   startQuake(mag) {
     this.finisherT = 0;
     this.aim(mag);
@@ -543,3 +557,6 @@ function shieldSprite(g, x, y, scale = 1, glow) {
   }
   g.drawImage(im, Math.round(x - w / 2), Math.round(y - w / 2), w, w);
 }
+
+// 각성 · 막을 때 충격파: 피해 배율은 deal 의 mult 로 (공격력의 5 ~ 20%). passive: 저절로 나가는 피해라 저스트 회피 반격을 안 쓴다
+MOVES.guardWave = { mult: 1, kb: 260, guardBreak: false, role: 'special', passive: true };

@@ -239,7 +239,7 @@ function bowSprite(g, x, y, ang, pull) {
 // 화살 (연사 · 덫 던지기): 곧게 날아가 처음 닿은 적에게 꽂힌다. 덫을 맞히면 덫이 터진다
 class BowArrow {
   constructor(p, dir, o) {
-    Object.assign(this, { dir, kind: o.kind, slot: o.slot, ghost: !!o.ghost, mult: o.mult || 1, delay: o.delay || 0, pierce: o.pierce || 0, dashRefund: !!o.dashRefund, trapped: false, hit: new Set(), born: G.time, t: 0, dist: 0, done: false, r: 4, range: o.range || BOW_RANGE, trapArrow: !!o.trapArrow });
+    Object.assign(this, { dir, kind: o.kind, slot: o.slot, ghost: !!o.ghost, mult: o.mult || 1, delay: o.delay || 0, pierce: o.pierce || 0, dashRefund: !!o.dashRefund, trapped: false, hit: new Set(), born: G.time, t: 0, dist: 0, done: false, r: 4, range: o.range || BOW_RANGE * (1 + Awaken.val('bow', 'reach')), trapArrow: !!o.trapArrow });
     this.x = p.x + Math.cos(dir) * 10; this.y = p.y - 4 + Math.sin(dir) * 10;
   }
   update(dt) {
@@ -255,6 +255,7 @@ class BowArrow {
       this.hit.add(t);
       G.player.deal(t, this.kind, c, s, { mult: this.mult, src: this });
       G.burst(this.x, this.y, 3, slotBurst(this.slot, ['#ffffff', '#e8e8e8']), 70);
+      if (this.kind === 'shotFin' && !this.ghost && Awaken.lv('bow')) bowAwakenBlast(this.x, this.y, t); // 각성: 3발째 폭발
       if (this.trapArrow && !this.trapped) { // 덫 화살: 처음 맞은 적 자리에서 덫이 바로 터진다
         this.trapped = true;
         placeTrap(t.x, t.y + 4, 'special');
@@ -423,6 +424,23 @@ class BowTrap {
 
 // 덫이 무는 · 터지는 그림: 방패 밀치기처럼 도트 흙먼지(FX/Smoke)가 둘레로 퍼진다 (바위 가시는 이질적이라 바꿈, 2026-10-20)
 //   속성이 없으면 흰색, 있으면 그 칸 속성 색. size = 퍼지는 둘레
+// 각성 · 폭발 화살 (2026-10-23): 3발째가 맞은 자리에서 작은 폭발 (반경 26). 피해 = 3발째의 5 ~ 20%, 둘레의 덫도 터뜨린다
+const BOW_BLAST_R = 26;
+MOVES.bowBlast = { mult: 0.8, kb: 140, guardBreak: false, role: 'basic', passive: true };
+function bowAwakenBlast(x, y, first) {
+  const p = G.player;
+  for (const t of G.targets()) {
+    if (t === first) continue;
+    const dx = t.x - x, dy = t.y - y, d = Math.hypot(dx, dy) || 1;
+    if (d > BOW_BLAST_R + (t.r || 8)) continue;
+    p.deal(t, 'bowBlast', dx / d, dy / d, { mult: Awaken.skillDmg('bow') });
+  }
+  if (first && !first.dead) p.deal(first, 'bowBlast', 0, 0, { mult: Awaken.skillDmg('bow'), kb: 0 });
+  for (const tr of bowTraps()) if (tr.armed && Math.hypot(tr.x - x, tr.y - 4 - y) < BOW_BLAST_R + TRAP_R) tr.detonate(); // 덫 연쇄
+  G.projectiles.push(new SpriteFx('fxBoom', 40, 40, 9, x, y - 4, BOW_BLAST_R * 2.2, 0.4, slotCol('basic', FX_WHITE)));
+  G.shake = Math.max(G.shake, 3); Sfx.boom();
+  Awaken.flash(p);
+}
 function trapFx(x, y, slot, size) {
   const tint = slotCol(slot, null);
   G.projectiles.push(new DustRing(x, y - 4, size * 0.6, size > 40 ? 8 : 6, tint));
