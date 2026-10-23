@@ -47,6 +47,7 @@ quake:      { mult: 2.6, kb: 260, guardBreak: true, role: 'charge' },   // 방�
 shieldSpin: { mult: 1.1, kb: 760, guardBreak: true, role: 'special', shove: true },  // 돌려치기 (특수): 넓은 둘레를 사방으로 날린다
 shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 후려치기 (대시 공격)
 shieldCharge: { mult: 1.4, kb: 520, guardBreak: true, role: 'special', shove: true }, // 방패 돌진 (대시 중 특수)
+shoveChain: { mult: 0.7, kb: 0, guardBreak: true, role: 'special', passive: true }, // 방패 돌진 연쇄: 날아간 적에 부딪힌 적 (2026-10-23)
 chargeShock: { mult: 0.9, kb: 320, guardBreak: false, role: 'special' }, // 방패 돌진 충격파 (맞은 적 둘레)
 shieldBump: { mult: 0.4, kb: 260, guardBreak: false, role: 'dash', light: true }, // 돌진하다 부딪힘
 });
@@ -79,7 +80,7 @@ addWeapon('shield', {
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 95까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍'],
-    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다'],
+    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 3번)'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (막으면 피해 0 · 다음 밀치기는 반격 밀치기) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
     ['후려치기', `${D} → ${A}`, '대시 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음', 'thrust'],
@@ -161,7 +162,7 @@ BOON_FORMS.shield = {
   atk_combo:      { name: '잔상 밀치기' },
   atk_spin:       { name: '강타 강화', desc: lv => `차지 시간 -${15 * lv}%, 강타 거리 +${10 * lv}%.` },
   atk_multispin:  { name: '여진', desc: lv => `방패 강타 뒤 땅이 ${lv}번 더 울린다. 여진은 피해 ${pct(MULTISPIN_MULT)}, 마지막에만 넉백.` },
-  atk_wave:       { name: '돌려치기 강화', desc: lv => `돌려치기 범위 +${10 * lv}%, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초).` },
+  atk_wave:       { name: '돌려치기 강화', desc: lv => `돌려치기 범위 +${10 * lv}%, 쿨타임 -${(0.4 * lv).toFixed(1)}초 (최소 1.5초). 쿨타임을 같이 쓰는 방패 돌진도 빨리 돌아오고 피해도 함께 오른다.` }, // 방패 돌진 설명 추가 (2026-10-23 사용자)
   atk_thrust:     { name: '후려치기 강화', desc: lv => `후려치기 범위 +${10 * lv}%.` },
   sharp:          { name: '날 선 방패' },
   ambush:         { name: '벽치기', desc: lv => `벽꿍 피해 +${60 * lv}%, 벽꿍 기절 +${(0.3 * lv).toFixed(1)}초.` }, // 기습 대신
@@ -285,6 +286,7 @@ extendPlayer({
       if (d > SHIELD_CHARGE_SHOCK_R + t.r) continue;
       a.shock.add(t);
       this.deal(t, 'chargeShock', dx / d, dy / d);
+      shoveChain(a).add(t, 1);
     }
     if (!a.ringed) { a.ringed = true; G.projectiles.push(new DustRing(cx, cy, SHIELD_CHARGE_SHOCK_R * 0.75, 6, slotCol('special', null))); } // 도트 흙먼지 고리: 돌진 한 번에 한 번만 (2026-10-18)
     G.shake = Math.max(G.shake, 5); Sfx.slam();
@@ -432,7 +434,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         for (const t of a.carry) if (!t.dead) { t.kvx = c * SHIELD_CHARGE_SPEED * 1.05; t.kvy = s * SHIELD_CHARGE_SPEED * 1.05; t.stun = Math.max(t.stun || 0, 0.3); }
       } else if (!a.ended) { // 끝: 붙잡은 적을 크게 밀쳐낸다
         a.ended = true;
-        for (const t of a.carry) if (!t.dead) { t.kvx = c * 520; t.kvy = s * 520; }
+        for (const t of a.carry) if (!t.dead) { t.kvx = c * 520; t.kvy = s * 520; shoveChain(a).add(t, 1); }
         G.projectiles.push(new DustRing(this.x + c * 16, this.y + s * 10, 20, 4, slotCol('special', null))); G.shake = Math.max(G.shake, 5); Sfx.slam();
       }
       return true;
@@ -557,6 +559,44 @@ function shieldSprite(g, x, y, scale = 1, glow) {
   }
   g.drawImage(im, Math.round(x - w / 2), Math.round(y - w / 2), w, w);
 }
+
+// 방패 돌진 연쇄 (2026-10-23): 날아가는 적(mover)이 다른 적에게 닿으면 그 적도 맞고 튕겨 나간다. 한 번의 돌진에 하나씩
+const CHAIN_MAX = 3, CHAIN_SPEED = 420, CHAIN_MIN_SPEED = 140, CHAIN_LIFE = 0.6, CHAIN_REACH = 10;
+class ShoveChain {
+  constructor() { this.movers = []; this.hit = new Set(); this.done = false; this.t = 0; }
+  add(t, depth) {
+    if (!t || t.dead || t.type === 'boss' || t.superArmor || t.type === 'totem' || this.movers.some(m => m.t === t)) return;
+    this.hit.add(t); this.movers.push({ t, depth, life: CHAIN_LIFE });
+  }
+  update(dt) {
+    this.t += dt;
+    const p = G.player;
+    for (const m of this.movers) {
+      m.life -= dt;
+      const t = m.t, sp = Math.hypot(t.kvx || 0, t.kvy || 0);
+      if (t.dead || m.life <= 0 || sp < CHAIN_MIN_SPEED) { m.life = 0; continue; }
+      const dx = t.kvx / sp, dy = t.kvy / sp;
+      for (const o of G.targets()) {
+        if (o === t || this.hit.has(o) || o.dead) continue;
+        if (Math.hypot(o.x - t.x, o.y - t.y) > (t.r || 8) + (o.r || 8) + CHAIN_REACH) continue; // 적끼리 서로 밀어내서 딱 붙지는 않으므로 조금 넉넉하게
+        this.hit.add(o);
+        p.deal(o, 'shoveChain', dx, dy);
+        G.projectiles.push(new DustRing(o.x, o.y - 2, 14, 5, slotCol('special', null)));
+        G.text(o.x, o.y - (o.r || 8) - 14, '연쇄!', '#ffd28a', 11, 0.5);
+        G.shake = Math.max(G.shake, 3); Sfx.slam();
+        if (o.type !== 'boss' && !o.superArmor && o.type !== 'totem') {
+          const k = Math.pow(0.85, m.depth);
+          o.kvx = dx * CHAIN_SPEED * k; o.kvy = dy * CHAIN_SPEED * k; o.slamT = Math.max(o.slamT || 0, 0.4); // 벽에 부딪히면 벽꿍
+          if (m.depth < CHAIN_MAX) this.movers.push({ t: o, depth: m.depth + 1, life: CHAIN_LIFE });
+        }
+      }
+    }
+    this.movers = this.movers.filter(m => m.life > 0);
+    if (!this.movers.length && this.t > 0.05) this.done = true;
+  }
+  draw() {}
+}
+function shoveChain(a) { if (!a.chain || a.chain.done) { a.chain = new ShoveChain(); G.projectiles.push(a.chain); } return a.chain; }
 
 // 각성 · 막을 때 충격파: 피해 배율은 deal 의 mult 로 (공격력의 5 ~ 20%). passive: 저절로 나가는 피해라 저스트 회피 반격을 안 쓴다
 MOVES.guardWave = { mult: 1, kb: 260, guardBreak: false, role: 'special', passive: true };

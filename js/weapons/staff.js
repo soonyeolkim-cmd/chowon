@@ -166,7 +166,7 @@ extendPlayer({
     this.atkCd = 0.4; this.charge = 0; this.comboT = 0;
     this.finisherT = 0.8; // 마법진을 깐 직후 특수공격 → 삼연 마력탄 (2026-10-18)
     G.text(this.x, this.y - 24, awk ? '각성 · 대마법진!' : '마법진', awk ? '#ffffff' : '#ffd24a', awk ? 15 : 12, 0.7);
-    Sfx.charged();
+    Sfx['staff.cast'](); // 마법진이 깔리는 소리: 충전 완료 소리(높은 삑)와 다르게 낮게 내려가는 울림 (2026-10-23)
     FX.onCircleCast(this);
   },
   // 마력 파동 (대시 직후 공격): 내 주변을 크게 밀어낸다
@@ -356,6 +356,12 @@ class MagicOrb {
 }
 
 // 마법진: 바닥에 그려졌다가 CIRCLE_DELAY 초 뒤 폭발. 연쇄 마법진이면 주변에 작은 마법진이 이어서 터진다
+// 마법진을 깔 때 소리: 낮게 내려가는 마법 울림 + 짧은 바람 (충전 완료의 높은 '삑'과 헷갈리지 않게, 2026-10-23)
+Sfx.register('staff.cast', { layers: [
+  { wave: 'tri', f0: 620, f1: 160, curve: 'exp', dur: 0.24, vol: 0.28, sus: 0.3 },
+  { wave: 'sq', duty: 0.25, f0: 310, f1: 120, curve: 'exp', dur: 0.18, vol: 0.06, delay: 0.02 },
+  { wave: 'noise', f0: 2500, f1: 500, dur: 0.16, vol: 0.06, delay: 0.03 },
+] });
 class MagicCircle {
   constructor(x, y, r, chain, small) {
     this.x = x; this.y = y; this.r = r; this.chain = chain || 0; this.small = !!small;

@@ -195,7 +195,7 @@ extendPlayer({
     const ms = FX.lv('atk_multispin');
     this.act = { kind: 'spearBeam', t: 0, dur: 0.42 + 0.1 * ms, dur0: 0.42, hit: new Set(), pierced: 0, len: this.beamLen, extra: ms, stabs: 0, awk: !!awk };
     this.atkCd = 0.6 + 0.1 * ms; this.charge = 0; this.comboT = 0;
-    G.text(this.x, this.y - 26, awk ? '각성 · 3단 차지!' : '창기 일섬!', awk ? '#ffffff' : '#7fe0ff', awk ? 16 : 14, 0.8);
+    G.text(this.x, this.y - 26, awk ? '심안 일섬!' : '창기 일섬!', awk ? '#ffffff' : '#7fe0ff', awk ? 16 : 14, 0.8);
     if (awk) Awaken.flash(this); // 각성 3단: 관통 찌르기가 함께 나가는 모습 + 일섬 피해 +5 ~ 20% (찌르기 피해를 따로 더하면 +20% 상한을 넘어서 모습만, 2026-10-23)
     Sfx.thrust(); Sfx.wave(true);
     FX.onPierce(this, this.act.len); // 속성 꿰뚫기 축복: 줄을 따라 불길 · 독안개, 수호의 자세
@@ -245,6 +245,20 @@ extendPlayer({
     }
   },
   // 직선 판정 + 관통 제한 + 창끝/창대 배율
+  // 각성 3단 차지: 땅속 · 물속에 숨거나 사라진 적도 줄 위에 있으면 꿰뚫는다. 두더지는 땅 위로 끌려 나온다
+  hitHidden(a, len, width) {
+    const fx = Math.cos(this.facing), fy = Math.sin(this.facing);
+    for (const t of G.enemies) {
+      if (t.dead || !t.burrowed || a.hit.has(t)) continue;
+      const dx = t.x - this.x, dy = t.y - this.y, along = dx * fx + dy * fy, perp = Math.abs(dx * fy - dy * fx);
+      if (along < -6 || along > len + t.r || perp > width + t.r) continue;
+      a.hit.add(t);
+      if (t.type === 'mole') { t.state = 'up'; t.st = 1.6; t.burrowed = false; t.attacking = false; t.stun = Math.max(t.stun || 0, 1); }
+      this.deal(t, a.kind, fx, fy, { mult: 1 + Awaken.skillDmg('spear') });
+      G.burst(t.x, t.y + 2, 10, ['#ffffff', '#c8ccd4'], 150);
+      G.text(t.x, t.y - (t.r || 8) - 14, '꿰뚫음!', '#ffffff', 11, 0.6);
+    }
+  },
   hitSpear(a, len, width, maxN) {
     const fx = Math.cos(this.facing), fy = Math.sin(this.facing), list = [];
     for (const t of G.targets()) {
@@ -347,6 +361,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         const wb = World.shotLineBlock(this.x, this.y, this.x + fx * a.len, this.y + fy * a.len);
         if (wb >= 0) a.len = Math.max(30, wb + 6); // 나무 · 바위에 막히면 거기까지 (2026-10-18)
         this.hitSpear(a, a.len, SPEAR_BEAM_WIDTH, 0);
+        if (a.awk) this.hitHidden(a, a.len, SPEAR_BEAM_WIDTH); // 각성 3단: 숨은 적도 꿰뚫는다
         G.shake = Math.max(G.shake, 6); G.hitstop = Math.max(G.hitstop, 0.05); Input.rumble(0.7, 160);
         G.burst(this.x + fx * a.len, this.y - 2 + fy * a.len, 12, slotBurst('charge', ['#ffffff', '#e8e8e8']), 200);
         FX.onLungeEnd(this, a.len); // 벼락 꿰뚫기: 끝 쪽 벼락

@@ -2317,7 +2317,16 @@ function drawVillage(blink) {
   overlay(0.7);
   drawHeat(tierNo(md.tier || 1));
   label('숲 마을 · 정령의 제단', W / 2, inset.t + 20, 22, '#ffe08a', 'center', '900');
-  label(`◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}` + (md.cores || md.embers || Object.keys(md.awaken).length ? `    ◈ 봉인의 핵 ${md.cores}    🔥 각성의 불씨 ${md.embers}` : ''), W / 2, inset.t + 43, 13, '#c8a0ff', 'center', '800');
+  { // 재료 줄: 처음 화면 버튼과 축복 도감 버튼 사이에 맞춘다. 길면 이름을 빼고 아이콘 + 숫자만, 그래도 길면 글씨를 줄인다 (2026-10-23 휴대폰에서 겹침)
+    const aw = md.cores || md.embers || Object.keys(md.awaken).length, hm = villageHome(), bk = villageBook();
+    const left = hm.x + hm.w + 10, right = bk.x - 10, avail = right - left, cx = (left + right) / 2;
+    const full = `◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}` + (aw ? `    ◈ 봉인의 핵 ${md.cores}    🔥 각성의 불씨 ${md.embers}` : '');
+    const short = `◆ ${md.shards}   ⚔ ${Meta.ess(md.weapon)}   ✦ ${md.emblems}` + (aw ? `   ◈ ${md.cores}   🔥 ${md.embers}` : '');
+    ctx.font = `800 13px ${FONT}`;
+    const txt = ctx.measureText(full).width <= avail ? full : short, w = ctx.measureText(txt).width;
+    label(txt, cx, inset.t + 43, w > avail ? Math.max(9, Math.floor(13 * avail / w)) : 13, '#c8a0ff', 'center', '800');
+  }
+
   label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
   drawHome(villageHome(), v.sel === -2);
   drawBookBtn(villageBook(), v.sel === -3);
