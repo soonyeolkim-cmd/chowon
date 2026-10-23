@@ -71,3 +71,9 @@ Sfx.register('giftOpen', { layers: [
   { wave: 'tri', notes: [[392, 0.07], [523, 0.07], [659, 0.07], [784, 0.32]], vol: 0.3 },
   { wave: 'noise', f0: 3000, f1: 9000, dur: 0.3, vol: 0.07, delay: 0.21 },
 ] });
+// 마법진을 깔 때 소리: 낮게 내려가는 마법 울림 + 짧은 바람 (충전 완료의 높은 '삑'과 헷갈리지 않게, 2026-10-23)
+Sfx.register('staff.cast', { layers: [
+  { wave: 'tri', f0: 620, f1: 160, curve: 'exp', dur: 0.24, vol: 0.28, sus: 0.3 },
+  { wave: 'sq', duty: 0.25, f0: 310, f1: 120, curve: 'exp', dur: 0.18, vol: 0.06, delay: 0.02 },
+  { wave: 'noise', f0: 2500, f1: 500, dur: 0.16, vol: 0.06, delay: 0.03 },
+] });

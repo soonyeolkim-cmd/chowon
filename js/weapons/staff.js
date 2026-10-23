@@ -356,12 +356,7 @@ class MagicOrb {
 }
 
 // 마법진: 바닥에 그려졌다가 CIRCLE_DELAY 초 뒤 폭발. 연쇄 마법진이면 주변에 작은 마법진이 이어서 터진다
-// 마법진을 깔 때 소리: 낮게 내려가는 마법 울림 + 짧은 바람 (충전 완료의 높은 '삑'과 헷갈리지 않게, 2026-10-23)
-Sfx.register('staff.cast', { layers: [
-  { wave: 'tri', f0: 620, f1: 160, curve: 'exp', dur: 0.24, vol: 0.28, sus: 0.3 },
-  { wave: 'sq', duty: 0.25, f0: 310, f1: 120, curve: 'exp', dur: 0.18, vol: 0.06, delay: 0.02 },
-  { wave: 'noise', f0: 2500, f1: 500, dur: 0.16, vol: 0.06, delay: 0.03 },
-] });
+// 마법진을 깔 때 소리는 sfx.js 의 staff.cast (사운드 테스트 페이지에서도 들을 수 있게 옮김)
 class MagicCircle {
   constructor(x, y, r, chain, small) {
     this.x = x; this.y = y; this.r = r; this.chain = chain || 0; this.small = !!small;
