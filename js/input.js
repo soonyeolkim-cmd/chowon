@@ -295,6 +295,22 @@ const Input = (() => {
     } catch (_) {}
   }
 
+  // 짧은 진동 n번 (충전 단계 알림, 2026-10-24): 몇 번 울렸는지로 1단 · 2단 · 3단을 구분한다
+  function pulse(n, strength, on = 45, gap = 70) {
+    if (!settings.rumble) return;
+    try {
+      if (state.device === 'gamepad' && lastPad && lastPad.vibrationActuator) {
+        const act = lastPad.vibrationActuator;
+        for (let i = 0; i < n; i++) setTimeout(() => act.playEffect('dual-rumble', {
+          duration: on, strongMagnitude: strength, weakMagnitude: Math.min(1, strength * 0.7),
+        }).catch(() => {}), i * (on + gap));
+      } else if (state.device === 'touch' && navigator.vibrate) {
+        const pat = []; for (let i = 0; i < n; i++) pat.push(on, gap); pat.pop();
+        navigator.vibrate(pat); // 휴대폰은 세기를 못 바꿔서 횟수로만 구분
+      }
+    } catch (_) {}
+  }
+
   // 행동 하나에 새 키(버튼)를 지정한다. 다른 행동이 쓰던 키면 서로 맞바꾼다.
   function bind(dev, action, code) {
     const B = binds[dev], old = B[action][0];
@@ -308,7 +324,7 @@ const Input = (() => {
   function resetBinds(dev) { binds[dev] = copy(DEFAULT_BINDS[dev]); save('binds', binds); }
   function saveSettings() { save('settings', settings); }
 
-  const api = { init, update, state, joy, buttons, pointers, setButton, rumble, onUi: null, onPadConnect: null,
+  const api = { init, update, state, joy, buttons, pointers, setButton, rumble, pulse, onUi: null, onPadConnect: null,
     rot: false, physW: innerWidth, viewW: innerWidth, wheel: 0,
     binds, settings, bind, resetBinds, saveSettings, phone, kbDev: () => (settings.kbMode === 'mouse' ? 'km' : 'kb'), capture: null, clearKeys: () => keys.clear(), padInfo: null, padOk, padNo, captureDev: null, lastKey: null };
   return api;

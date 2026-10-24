@@ -143,20 +143,20 @@ class Player {
       if (this.holdT > 0.22 && !this.act && this.dashT <= 0) {
         const before = this.charge;
         this.charge = Math.min(1, this.charge + dt / this.chargeTime);
-        if (before < 1 && this.charge >= 1) { Sfx.charged(); G.ring(this.x, this.y, '#ffd24a', 30); }
+        if (before < 1 && this.charge >= 1) { Sfx.charged(); G.ring(this.x, this.y, '#ffd24a', 30); Input.pulse(1, 0.35); } // 진동 1번
         // 차지 2단 (2026-10-18): 1단을 다 모은 뒤 계속 누르고 있으면 더 모인다
         const c2 = this.weapon.charge2Time;
         if (c2 && this.charge >= 1) {
           const b2 = this.charge2 || 0;
           this.charge2 = Math.min(1, b2 + dt / (c2 * this.chargeTime / this.weapon.chargeTime));
-          if (b2 < 1 && this.charge2 >= 1) { Sfx.charged(); Sfx.zap(); G.ring(this.x, this.y, '#7fe0ff', 44); G.text(this.x, this.y - 30, '최대 충전!', '#7fe0ff', 12, 0.6); }
+          if (b2 < 1 && this.charge2 >= 1) { Sfx.charged(); Sfx.zap(); G.ring(this.x, this.y, '#7fe0ff', 44); G.text(this.x, this.y - 30, '최대 충전!', '#7fe0ff', 12, 0.6); Input.pulse(2, 0.6); } // 진동 2번
         }
         // 무기 각성 차지 (2026-10-23): 앞 단계를 다 모은 뒤 0.5초 더 → 각성 기술 (창 3단 · 마법봉 대마법진)
         const aw = this.weapon.awakenChargeAfter;
         if (aw && Awaken.lv(this.weaponId) && (aw === 2 ? (this.charge2 || 0) >= 1 : this.charge >= 1)) {
           const bA = this.chargeA || 0;
           this.chargeA = Math.min(1, bA + dt / AWAKEN_CHARGE_T);
-          if (bA < 1 && this.chargeA >= 1) { Sfx.charged(); G.text(this.x, this.y - 34, '각성 충전!', '#ffffff', 13, 0.7); }
+          if (bA < 1 && this.chargeA >= 1) { Sfx.charged(); G.text(this.x, this.y - 34, '각성 충전!', '#ffffff', 13, 0.7); Input.pulse(aw === 2 ? 3 : 2, 0.85); } // 진동: 단계 수만큼 (창 3단 3번 · 마법봉 2단 2번)
         }
       }
     } else {
