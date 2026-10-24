@@ -121,6 +121,7 @@ function musicTarget() {
   if (st === 'title' || st === 'profiles' || (st === 'settings' && G.settingsFrom === 'title')) return 'title';
   if (st === 'village' || (st === 'settings' && G.settingsFrom === 'village')) return 'village';
   if (st === 'ending') return 'ending';
+  if (st === 'trueEnd') return TrueEnd.i >= 6 ? 'ending' : 'title';
   if (st === 'over') return null;
   if (G.boss && !G.boss.dead) return 'boss';
   if (G.practice) return 'village';
@@ -912,7 +913,11 @@ const G = {
         // 최종 보스 뒤에는 이어지는 스테이지가 없으니 축복 없이 바로 엔딩
         // 세계 보스 보상: 가진 축복 중 하나를 강화 (최종 보스 뒤에는 바로 엔딩)
         const reward = this.stage === this.finalWorld ? done : () => this.openBoon(null, done, true);
-        this.storyOnce(this.stage, 'bossDown', reward);
+        // 진엔딩 '루미의 진실' (2026-10-24): 가장 높은 봉인 등급(10)을 처음 완주하면
+        if (this.stage === this.finalWorld && (this.tierInfo || tierInfo(1)).n === TIER_MAX && !Meta.data.trueEnd) {
+          Meta.data.trueEnd = true; Meta.save();
+          TrueEnd.start(done);
+        } else this.storyOnce(this.stage, 'bossDown', reward);
       }
     }
   },
@@ -1003,7 +1008,7 @@ function layoutButtons() {
   Input.joy.radius = clamp(Math.min(W, H) * 0.12, 44, 70);
   const ty = inset.t + 30, rx = W - inset.r - 30;
   Input.setButton('pause', rx, ty, 18, G.state === 'play' || G.state === 'paused');
-  Input.setButton('skip', W - inset.r - 52, ty, 26, G.state === 'story');
+  Input.setButton('skip', W - inset.r - 52, ty, 26, G.state === 'story' || G.state === 'trueEnd');
   const canFs = document.fullscreenEnabled || document.webkitFullscreenEnabled;
   Input.setButton('fullscreen', rx - 46, ty, 18, !!canFs && Input.state.device === 'touch' && (G.state === 'play' || G.state === 'paused'));
 }
@@ -1022,7 +1027,7 @@ function toggleFullscreen() {
 }
 
 Input.onUi = id => {
-  if (id === 'skip') G.skipDialog();
+  if (id === 'skip') { if (G.state === 'trueEnd') TrueEnd.finish(); else G.skipDialog(); }
   else if (id === 'fullscreen') toggleFullscreen();
   else if (id === 'pause') { if (G.state === 'play') openPause(); else if (G.state === 'paused') G.state = 'play'; }
 };
@@ -2341,7 +2346,7 @@ function drawVillage(blink) {
   drawHeat(tierNo(md.tier || 1));
   label('숲 마을 · 정령의 제단', W / 2, inset.t + 20, 22, '#ffe08a', 'center', '900');
   { // 재료 줄: 처음 화면 버튼과 축복 도감 버튼 사이에 맞춘다. 길면 이름을 빼고 아이콘 + 숫자만, 그래도 길면 글씨를 줄인다 (2026-10-23 휴대폰에서 겹침)
-    const aw = md.cores || md.embers || Object.keys(md.awaken).length, hm = villageHome(), bk = villagePractice();
+    const aw = md.cores || md.embers || Object.keys(md.awaken).length, hm = villageHome(), bk = villageTrueEndShown() ? villageTrueEnd() : villagePractice();
     const left = hm.x + hm.w + 10, right = bk.x - 10, avail = right - left, cx = (left + right) / 2;
     const full = `◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}` + (aw ? `    ◈ 봉인의 핵 ${md.cores}    🔥 각성의 불씨 ${md.embers}` : '');
     const short = `◆ ${md.shards}   ⚔ ${Meta.ess(md.weapon)}   ✦ ${md.emblems}` + (aw ? `   ◈ ${md.cores}   🔥 ${md.embers}` : '');
@@ -2355,6 +2360,7 @@ function drawVillage(blink) {
   drawHome(villageHome(), v.sel === -2);
   drawBookBtn(villageBook(), v.sel === -3);
   drawPracticeBtn(villagePractice(), v.sel === -4);
+  if (villageTrueEndShown()) drawTrueEndBtn(villageTrueEnd(), v.sel === -5);
   ['공통 강화', '무기 해금 · 선택'].forEach((name, i) => {
     const t = L.tabs[i], on = v.tab === i;
     ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(30,34,44,0.85)';
@@ -2720,6 +2726,7 @@ function villageAct(i) {
   if (i === -2) { villageGoTitle(); return; }        // 처음 화면
   if (i === -3) { openBoonBook('village'); return; } // 축복 도감
   if (i === -4) { G.startPractice(); return; }       // 연습실
+  if (i === -5) { replayTrueEnd(); return; }         // 진엔딩 다시 보기
   if (i === items.length) { G.startRun(); return; }
   if (i === items.length + 2) { openTierView(); return; } // 봉인 등급 창 (목록 + 내역, 2026-10-17)
   if (i === items.length + 1) { // 난이도 바꾸기
@@ -2804,6 +2811,7 @@ function handleVillageInput(dt, inp) {
     if (inRect(inp.tap, villageHome())) { villageGoTitle(); return; }
     if (inRect(inp.tap, villageBook())) { openBoonBook('village'); return; }
     if (inRect(inp.tap, villagePractice())) { G.startPractice(); return; }
+    if (villageTrueEndShown() && inRect(inp.tap, villageTrueEnd())) { replayTrueEnd(); return; }
     const ti = L.tabs.findIndex(r => inRect(inp.tap, r));
     if (ti >= 0) { setTab(ti); return; }
     if (inRect(inp.tap, L.start)) { villageAct(n); return; }
@@ -2839,7 +2847,7 @@ function handleVillageInput(dt, inp) {
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
   if (hx && hx !== v.axisX) {
     // 위쪽 줄 (왼쪽부터): 처음 화면(-2) · 연습실(-4) · 축복 도감(-3) · ⚙(-1)
-    const TOP = [-2, -4, -3, -1];
+    const TOP = villageTrueEndShown() ? [-2, -5, -4, -3, -1] : [-2, -4, -3, -1]; // -5: 진엔딩 다시 보기 (본 뒤에만)
     if (TOP.includes(v.sel)) { const k = clamp(TOP.indexOf(v.sel) + hx, 0, TOP.length - 1); if (TOP[k] !== v.sel) { v.sel = TOP[k]; Sfx.pickup(); } }
     else if (inBar) barMove(hx); else tabTo(nextTab(hx));
   }
@@ -3289,22 +3297,25 @@ function render() {
   const big = clamp(Math.min(W, H) * 0.1, 28, 54);
   const tap = Input.state.device === 'touch' ? '화면을 탭해서' : '아무 버튼이나 눌러서';
   if (G.state === 'title') {
-    TitleArt.scene(G.time);
+    TitleArt.scene(G.time, dawnTitle() ? { dawn: 1, sprout: 1 } : undefined); // 진엔딩을 보면 새벽 · 봉인석 대신 어린 나무
     const logoBottom = TitleArt.drawLogo(W / 2, Math.max(inset.t + 8, H * 0.08), G.time);
     // 시작 화면 이야기 (2026-10-17, A안): 두 문장, 문장마다 줄을 나눈다
-    const story = ['어느 밤, 숲의 봉인석이 깨어나 마물을 불러냈다.', '불타는 마을을 뒤로하고, 견습 검사 리안은 작은 정령 루미와 함께 숲으로 향한다.'];
+    const story = dawnTitle() ? ['봉인이 풀린 숲에 새벽이 왔다.', '리안과 루미는 오늘도 약속을 지키러 숲으로 향한다.']
+      : ['어느 밤, 숲의 봉인석이 깨어나 마물을 불러냈다.', '불타는 마을을 뒤로하고, 견습 검사 리안은 작은 정령 루미와 함께 숲으로 향한다.'];
     const lines = story.flatMap(t => wrap(t, Math.min(W * 0.86, 620), 14, '600'));
     lines.forEach((l, i) => label(l, W / 2, logoBottom + 16 + i * 21, 14, '#e8eef8', 'center', '600'));
     if (blink) label(`${tap} 시작`, W / 2, Math.max(H * 0.88, H - inset.b - 36), 20, '#ffd24a');
     label('© 2026 웨폰마스터. All rights reserved.', W / 2, H - inset.b - 10, 10, 'rgba(220,226,240,0.7)', 'center', '600'); // 저작권 표시
   } else if (G.state === 'profiles') {
-    TitleArt.scene(G.time);
+    TitleArt.scene(G.time, dawnTitle() ? { dawn: 1, sprout: 1 } : undefined);
     drawProfiles(blink);
   } else if (G.state === 'village' || (G.state === 'settings' && G.settingsFrom === 'village')) {
     drawVillage(blink);
     drawTestMark();
   } else if (G.state === 'settings' && G.settingsFrom === 'title') {
     overlay(0.5);
+  } else if (G.state === 'trueEnd') {
+    TrueEnd.draw();
   } else {
     drawHud();
     drawBanner();
@@ -3411,6 +3422,8 @@ function frame(now) {
     G.dialog.chars += dt * 40;
     if (inp.pause) G.skipDialog();
     else if (inp.start) G.advanceDialog();
+  } else if (G.state === 'trueEnd') {
+    TrueEnd.update(dt, inp);
   } else if (G.state === 'boon') {
     handleBoonInput(dt, inp);
   } else if (G.state === 'paused') {

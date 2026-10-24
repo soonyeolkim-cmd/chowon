@@ -201,6 +201,7 @@ const Meta = {
       playT: d.playT || 0,
       // 무기 각성 (2026-10-23): awaken = { sword: 1 ~ 4 } (1 = 각성, 2 ~ 4 = 강화 1 ~ 3) · 봉인의 핵 · 각성의 불씨 · 등급별 불씨를 받은 가장 먼 세계
       awaken: d.awaken || {}, cores: d.cores || 0, embers: d.embers || 0, emberBest: d.emberBest || {}, awakenV1: !!d.awakenV1,
+      trueEnd: !!d.trueEnd, // 진엔딩 '루미의 진실'을 봤다 (봉인 등급 10 첫 완주, 2026-10-24)
     };
     // 건틀릿은 쌍검으로 바뀌었다 (2026-10-17): 해금 · 장착 · 숙련을 그대로 옮긴다
     { const D = this.data;
