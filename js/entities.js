@@ -143,13 +143,13 @@ class Player {
       if (this.holdT > 0.22 && !this.act && this.dashT <= 0) {
         const before = this.charge;
         this.charge = Math.min(1, this.charge + dt / this.chargeTime);
-        if (before < 1 && this.charge >= 1) { Sfx.charged(); G.ring(this.x, this.y, '#ffd24a', 30); Input.pulse(1, 0.35); } // 진동 1번
+        if (before < 1 && this.charge >= 1) { Sfx.charged(); G.ring(this.x, this.y, slotCol('charge', FX_WHITE), 30); Input.pulse(1, 0.35); } // 진동 1번
         // 차지 2단 (2026-10-18): 1단을 다 모은 뒤 계속 누르고 있으면 더 모인다
         const c2 = this.weapon.charge2Time;
         if (c2 && this.charge >= 1) {
           const b2 = this.charge2 || 0;
           this.charge2 = Math.min(1, b2 + dt / (c2 * this.chargeTime / this.weapon.chargeTime));
-          if (b2 < 1 && this.charge2 >= 1) { Sfx.charged(); Sfx.zap(); G.ring(this.x, this.y, '#7fe0ff', 44); G.text(this.x, this.y - 30, '최대 충전!', '#7fe0ff', 12, 0.6); Input.pulse(2, 0.6); } // 진동 2번
+          if (b2 < 1 && this.charge2 >= 1) { Sfx.charged(); Sfx.zap(); G.ring(this.x, this.y, slotCol('charge', FX_WHITE), 44); G.text(this.x, this.y - 30, '최대 충전!', slotCol('charge', FX_WHITE), 12, 0.6); Input.pulse(2, 0.6); } // 진동 2번
         }
         // 무기 각성 차지 (2026-10-23): 앞 단계를 다 모은 뒤 0.5초 더 → 각성 기술 (창 3단 · 마법봉 대마법진)
         const aw = this.weapon.awakenChargeAfter;
@@ -366,15 +366,20 @@ class Player {
         ElFx.arc(g, cs, this.x, this.y + 2, 16, -Math.PI / 2, a1, full ? 3 : 2, full ? 0.7 + Math.sin(G.time * 30) * 0.3 : 0.55);
         if (full && Math.random() < 0.45) ElFx.spark(cs, this.x + rand(-14, 14), this.y + rand(-10, 10));
       } else {
-        g.strokeStyle = full ? `rgba(255,210,74,${0.6 + Math.sin(G.time * 30) * 0.3})` : 'rgba(255,255,255,0.6)';
+        g.strokeStyle = full ? `rgba(255,255,255,${0.7 + Math.sin(G.time * 30) * 0.3})` : 'rgba(255,255,255,0.6)'; // 속성이 없으면 흰색 (다 모으면 굵게 깜빡임)
         g.lineWidth = full ? 3 : 2;
         g.beginPath(); g.arc(this.x, this.y + 2, 16, -Math.PI / 2, a1); g.stroke();
       }
       if (this.charge2 > 0) { // 차지 2단
         const full2 = this.charge2 >= 1, b1 = -Math.PI / 2 + Math.PI * 2 * this.charge2;
-        g.strokeStyle = full2 ? `rgba(127,224,255,${0.7 + Math.sin(G.time * 34) * 0.3})` : 'rgba(127,224,255,0.7)';
-        g.lineWidth = full2 ? 3 : 2;
-        g.beginPath(); g.arc(this.x, this.y + 2, 21, -Math.PI / 2, b1); g.stroke();
+        if (cs) { // 2단 링도 차지 칸 속성 색
+          ElFx.arc(g, cs, this.x, this.y + 2, 21, -Math.PI / 2, b1, full2 ? 3 : 2, full2 ? 0.75 + Math.sin(G.time * 34) * 0.25 : 0.6);
+          if (full2 && Math.random() < 0.5) ElFx.spark(cs, this.x + rand(-18, 18), this.y + rand(-12, 12));
+        } else {
+          g.strokeStyle = full2 ? `rgba(255,255,255,${0.75 + Math.sin(G.time * 34) * 0.25})` : 'rgba(255,255,255,0.6)';
+          g.lineWidth = full2 ? 3 : 2;
+          g.beginPath(); g.arc(this.x, this.y + 2, 21, -Math.PI / 2, b1); g.stroke();
+        }
       }
     }
     // 대시 잔상

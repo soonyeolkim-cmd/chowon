@@ -190,9 +190,10 @@ extendPlayer({
       else if (!a.freed) {
         this.invuln = Math.max(this.invuln, RUSH_TIME + RUSH_HIT_INV); // 맞히면 지나간 뒤에도 잠깐 무적 // 첫 적중: 반짝 + 푸른 원, 받아치기 무료
         a.freed = true; this.freeSpecialT = RUSH_FREE_T;
-        pixRing(this.x, this.y, '#7fe0ff', 40);
-        G.burst(this.x, this.y - 4, 14, ['#ffffff', '#bff4ff', '#7fe0ff'], 200);
-        G.text(this.x, this.y - 34, '받아치기 준비!', '#7fe0ff', 12, 0.8); Sfx.charged();
+        const fc = slotCol('special', FX_WHITE); // 받아치기(특수) 칸 색 (2026-10-24, 고정 하늘색 → 칸 색 · 기본 흰색)
+        pixRing(this.x, this.y, fc, 40);
+        G.burst(this.x, this.y - 4, 14, slotBurst('special', ['#ffffff', '#e8e8e8']), 200);
+        G.text(this.x, this.y - 34, '받아치기 준비!', fc, 12, 0.8); Sfx.charged();
       }
       G.burst(t.x, t.y - 4, 6, slotBurst(a.echo ? 'special' : 'charge', ['#fff', '#e8e8e8']), 140);
     }
@@ -276,7 +277,7 @@ extendPlayer({
   drawSai(g, x, y) {
     if (this.freeSpecialT > 0) { // 무료 받아치기 준비: 몸을 두른 푸른 원 (끝나 갈수록 깜빡임)
       if (this.freeSpecialT > 0.5 || Math.sin(G.time * 30) > 0) {
-        g.globalAlpha = 0.5 + 0.25 * Math.sin(G.time * 12); g.strokeStyle = '#7fe0ff'; g.lineWidth = 1.5;
+        g.globalAlpha = 0.5 + 0.25 * Math.sin(G.time * 12); g.strokeStyle = slotCol('special', FX_WHITE); g.lineWidth = 1.5;
         g.beginPath(); g.arc(x, y - 4, 12, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
       }
     }

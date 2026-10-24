@@ -255,7 +255,7 @@ extendPlayer({
       a.hit.add(t);
       if (t.type === 'mole') { t.state = 'up'; t.st = 1.6; t.burrowed = false; t.attacking = false; t.stun = Math.max(t.stun || 0, 1); }
       this.deal(t, a.kind, fx, fy, { mult: 1 + Awaken.skillDmg('spear') });
-      G.burst(t.x, t.y + 2, 10, ['#ffffff', '#c8ccd4'], 150);
+      G.burst(t.x, t.y + 2, 10, slotBurst('charge', ['#ffffff', '#c8ccd4']), 150);
       G.text(t.x, t.y - (t.r || 8) - 14, '꿰뚫음!', '#ffffff', 11, 0.6);
     }
   },

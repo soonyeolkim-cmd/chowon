@@ -124,7 +124,7 @@ Object.assign(WEAPONS.shield, {
     for (const t of G.targets()) {
       const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy);
       if (d > t.r + SHIELD_BUMP || dx * fx + dy * fy < 0) continue;
-      if (!p.dashBumped) { p.dashBumped = true; p.deal(t, 'shieldBump', fx, fy); G.burst(p.x + fx * 12, p.y - 6 + fy * 12, 6, slotBurst('dash', ['#ffd28a', '#fff']), 120); Sfx.block(); }
+      if (!p.dashBumped) { p.dashBumped = true; p.deal(t, 'shieldBump', fx, fy); G.burst(p.x + fx * 12, p.y - 6 + fy * 12, 6, slotBurst('dash', ['#ffffff', '#e8e8e8']), 120); Sfx.block(); }
       return true;
     }
     return false;
@@ -403,7 +403,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         this.hitFan(a, this.x, this.y, QUAKE_NEAR, SHIELD_QUAKE_HALF, 'quake', SHIELD_QUAKE_STUN, a.extra ? { kb: 60 } : undefined);
         G.projectiles.push(new QuakeWave(this, a.r * QUAKE_WAVE_REACH, a.hit, SHIELD_QUAKE_STUN, a.extra ? { kb: 60 } : undefined)); // 부채꼴 충격파
         G.shake = Math.max(G.shake, 6); Sfx.slam();
-        G.burst(this.x + fx * 16, this.y + fy * 10, 12, ['#d8c8a8', '#ffe08a', '#fff'], 160);
+        G.burst(this.x + fx * 16, this.y + fy * 10, 12, ['#d8c8a8', slotCol('charge', '#ffffff'), '#fff'], 160);
         FX.onQuake(this, this.x + fx * a.r * 0.6, this.y + fy * a.r * 0.6);
       }
       // 여진: 같은 부채꼴을 다시 울린다
@@ -436,7 +436,7 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
         for (const t of G.targets()) {
           const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
           if (d > SHIELD_CHARGE_GRAB + t.r + 8 || Math.abs(angDiff(Math.atan2(dy, dx), a.dir)) > SHIELD_CHARGE_HALF) continue;
-          if (!a.hit.has(t)) { a.hit.add(t); this.deal(t, 'shieldCharge', c, s, { kb: 0 }); G.burst(t.x, t.y - 4, 6, slotBurst('special', ['#fff', '#ffd28a']), 140); Sfx.block(); this.chargeShock(a, t); }
+          if (!a.hit.has(t)) { a.hit.add(t); this.deal(t, 'shieldCharge', c, s, { kb: 0 }); G.burst(t.x, t.y - 4, 6, slotBurst('special', ['#ffffff', '#e8e8e8']), 140); Sfx.block(); this.chargeShock(a, t); }
           if (t.type !== 'boss' && !t.superArmor && t.type !== 'totem' && !a.carry.has(t)) { a.carry.add(t); t.slamT = 0.6; } // 벽꿍은 한 번만
         }
         for (const t of a.carry) if (!t.dead) { t.kvx = c * SHIELD_CHARGE_SPEED * 1.05; t.kvy = s * SHIELD_CHARGE_SPEED * 1.05; t.stun = Math.max(t.stun || 0, 0.3); }
@@ -537,7 +537,7 @@ class QuakeWave {
       this.hit.add(t);
       p.deal(t, 'quake', dx / d, dy / d, this.opts);
       if (this.stun && !t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, this.stun);
-      G.burst(t.x, t.y + 2, 6, ['#d8c8a8', '#ffe08a'], 120);
+      G.burst(t.x, t.y + 2, 6, ['#d8c8a8', slotCol('charge', '#ffffff')], 120);
     }
     if (Math.random() < 0.7) { // 앞머리를 따라 흙먼지
       const a = this.dir + (Math.random() * 2 - 1) * SHIELD_QUAKE_HALF;
