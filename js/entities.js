@@ -1754,6 +1754,89 @@ function drawStump(g, x, y, t) {
   g.beginPath(); g.ellipse(x, y - 10, 4, 1.5, 0, 0, Math.PI * 2); g.stroke();
   g.fillStyle = '#5a9a3a'; g.fillRect(x + 8, y - 16 + Math.sin(t * 3) * 1, 4, 5); // 새싹
 }
+// ───────── 연습실 더미 (2026-10-24) ─────────
+// 체력 무한 · 반격 없음. 상태 이상은 그대로 걸린다. 보스 더미는 보스처럼 밀리지 않고 얼지 않는다 (얼음 균열)
+// 움직임은 G.practice.move: 'still' 가만히 · 'knock' 밀렸다가 제자리로 · 'chase' 천천히 다가오기
+const DUMMY = {
+  small: { name: '작은 더미', r: 10, s: 0.75 },
+  mid:   { name: '보통 더미', r: 13, s: 1 },
+  boss:  { name: '보스 더미', r: 28, s: 2.1, bossLike: true },
+  dev:   { name: '개발자', r: 12, s: 1.3, human: true }, // 인간형: 후드티 · 안경 · 커피 (2026-10-24 사용자)
+};
+// 개발자가 맞을 때 가끔 하는 말
+const DEV_LINES = ['아야!', '버그 아니에요, 기획이에요!', '밸런스 패치 할게요…', '그 축복 너무 센데…', '야근 중이에요', '살살 해 주세요', '커피 쏟아요!', '테스트 고마워요!'];
+const DUMMY_HP = 1e9;
+class Dummy extends Enemy {
+  constructor(size, x, y) {
+    super('slime', x, y, 1, 1);
+    const D = DUMMY[size];
+    this.type = 'dummy'; this.size = size; this.r = D.r; this.sc = D.s;
+    this.bossLike = !!D.bossLike; this.heavy = this.bossLike; this.human = !!D.human; this.talkCd = 0;
+    this.maxHp = this.hp = DUMMY_HP; this.dmg = this.shotDmg = 0;
+    this.home = { x, y }; this.keep = true; this.color = '#c8a070'; this.speed = 34; this.spawnT = 0.3;
+    this.def = Object.assign({}, ENEMY.slime, { dummy: true }); this.ranged = false;
+  }
+  update(dt, p) {
+    this.t += dt; this.flash -= dt; this.stun -= dt; this.spawnT -= dt;
+    if (this.hp < DUMMY_HP / 2) this.hp = this.maxHp; // 체력 무한
+    this.talkCd -= dt;
+    if (this.struck) {
+      this.struck = false;
+      if (this.human && this.talkCd <= 0 && Math.random() < 0.3) { G.text(this.x, this.y - 44, DEV_LINES[(Math.random() * DEV_LINES.length) | 0], '#ffffff', 11, 1.4); this.talkCd = 2.5; }
+    }
+    const mode = (G.practice && G.practice.move) || 'still';
+    this.superArmor = this.bossLike || mode === 'still';
+    if (mode === 'still') { this.kvx = this.kvy = 0; this.wob = Math.max(0, (this.wob || 0) - dt); return; }
+    applyKnockback(this, dt);
+    if (Math.hypot(this.kvx, this.kvy) > 30 || this.frozenT > 0) return;
+    const slow = 1 - 0.1 * (this.chill || 0);
+    let tx = this.home.x, ty = this.home.y, near = 2;
+    if (mode === 'chase') { tx = p.x; ty = p.y; near = this.r + 26; }
+    const dx = tx - this.x, dy = ty - this.y, d = Math.hypot(dx, dy);
+    if (d > near) { const s = Math.min(d - near, this.speed * (mode === 'chase' ? 1 : 2.2) * slow * dt); World.move(this, dx / d * s, dy / d * s); }
+    if (mode === 'chase') { this.home.x = this.x; this.home.y = this.y; }
+  }
+  draw(g) {
+    g.globalAlpha = clamp(1 - this.spawnT / 0.3, 0, 1);
+    const k = this.sc, u = 2 * k, x = Math.round(this.x), y = Math.round(this.y);
+    const white = this.flash > 0, sway = this.flash > 0 ? Math.sin(this.t * 40) * u * 0.6 : 0;
+    const R = (cx, cy, w, h, c) => { g.fillStyle = white ? '#fff' : c; g.fillRect(Math.round(x + cx * u + sway * (cy < 0 ? 1 : 0)), Math.round(y + cy * u), w * u, h * u); };
+    g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(x, y + (this.human ? 0 : 4) * u, (this.human ? 5 : 7) * u, (this.human ? 1.6 : 2.5) * u, 0, 0, Math.PI * 2); g.fill(); // 사람은 발밑에 작게
+    if (this.human) { this.drawDev(g, R); FX.drawStatus(g, this); g.globalAlpha = 1; return; }
+    R(-1, -4, 2, 8, '#6a4424');                  // 기둥
+    R(-6, -11, 12, 2, '#7a5230');                // 팔 막대
+    R(-7, -12, 2, 4, '#d8b878'); R(5, -12, 2, 4, '#d8b878'); // 지푸라기 손
+    R(-4, -13, 8, 10, '#c8a070');                // 짚 몸통
+    R(-4, -13, 2, 10, '#b08a58'); R(3, -13, 1, 10, '#d8b878');
+    R(-4, -6, 8, 1, '#8a5a2a');                  // 허리끈
+    R(-2, -11, 4, 4, '#f0f0f0'); R(-1, -10, 2, 2, '#e04848'); // 과녁
+    R(-3, -18, 6, 5, '#d8b878');                 // 머리
+    R(-3, -18, 6, 1, '#b08a58'); R(-1, -16, 1, 1, '#4a3420'); R(1, -16, 1, 1, '#4a3420');
+    if (this.bossLike) { R(-3, -20, 6, 2, '#ffd24a'); R(-3, -21, 1, 1, '#ffd24a'); R(0, -21, 1, 1, '#ffd24a'); R(2, -21, 1, 1, '#ffd24a'); } // 왕관
+    FX.drawStatus(g, this);
+    g.globalAlpha = 1;
+  }
+  // 개발자: 후드티 · 안경 · 커피잔. 플레이어를 바라보고, 가만히 있을 때도 숨 쉬듯 살짝 들썩인다
+  drawDev(g, R) {
+    const p = G.player, flip = p && p.x < this.x ? -1 : 1;
+    const bob = this.flash > 0 ? 0 : (Math.sin(this.t * 3) > 0.6 ? -1 : 0);
+    const F = (cx, cy, w, h, c) => R(flip > 0 ? cx : -cx - w, cy + (cy < -5 ? bob : 0), w, h, c);
+    F(-3, -5, 2, 4, '#2f3a5a'); F(1, -5, 2, 4, '#2f3a5a');            // 바지
+    F(-4, -1, 3, 1, '#e8e8e8'); F(1, -1, 3, 1, '#e8e8e8');            // 운동화
+    F(-4, -11, 8, 6, '#4a6a9a'); F(-4, -11, 1, 6, '#3a5580');        // 후드티
+    F(-1, -11, 2, 1, '#e8e8e8');                                      // 후드 끈
+    F(-1, -8, 2, 2, '#ffd24a');                                       // 가슴 로고
+    F(-5, -10, 1, 4, '#4a6a9a'); F(4, -10, 1, 3, '#4a6a9a');          // 팔
+    F(-5, -6, 1, 1, '#f0c8a0');                                       // 손
+    F(4, -8, 3, 3, '#f4f4f4'); F(7, -7, 1, 1, '#f4f4f4'); F(4, -8, 3, 1, '#6a4424'); // 커피잔
+    F(-4, -12, 8, 1, '#3a5580');                                      // 후드 깃
+    F(-3, -17, 6, 5, '#f0c8a0');                                      // 얼굴
+    F(-3, -18, 6, 2, '#3a2a20'); F(-3, -16, 1, 2, '#3a2a20'); F(2, -18, 2, 1, '#4a3628'); // 머리
+    F(-2, -15, 2, 1, '#202020'); F(1, -15, 2, 1, '#202020'); F(0, -15, 1, 1, '#202020'); // 안경
+    F(-1, -13, 2, 1, '#c88a70');                                      // 입
+  }
+}
+
 const BOSS_SUMMON = [['slime'], ['racoon'], ['skull', 'eye'], ['tadpole'], ['lion']];
 const TONGUE_LEN = 250; // 개굴대왕 혀 길이
 

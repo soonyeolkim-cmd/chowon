@@ -232,6 +232,28 @@ for (const b of BOONS) if (b.mergedInto) {
 }
 const boonColor = b => (b.duo ? '#ffb8f0' : ELEMENTS[b.el].color);
 const boonIcon = b => (b.duo ? b.duo.map(e => ELEMENTS[e].icon).join('') : ELEMENTS[b.el].icon);
+// 잠든 축복 (2026-10-24 사용자 A안): 칸 축복을 교체해 속성이 끊기면 그 속성의 패시브 · 듀오는 남지만 작동하지 않는다 (걸어 줄 화상 · 냉기 등이 없다).
+// 그 속성의 칸 축복을 다시 얻으면 깨어난다. 화면에는 회색 + '잠듦'으로 보이고, 교체 카드에 미리 알려 준다
+const boonActiveEl = el => BOONS.some(b => b.el === el && G.boons[b.id] && !boonDormant(b));
+function boonDormant(b) {
+  if (b.duo) return !b.duo.every(boonActiveEl);
+  return !b.needs && !!b.req && !b.req();
+}
+function boonDormantWhy(b) {
+  const els = b.duo ? b.duo.filter(e => !boonActiveEl(e)) : [b.el];
+  return `${els.map(e => ELEMENTS[e].name).join(' · ')} 칸 축복이 없어서 잠들었어요 (다시 얻으면 깨어나요)`;
+}
+// 이 교체 카드를 고르면 새로 잠드는 축복들
+function boonSleepersAfter(c) {
+  if (!c.replaces) return [];
+  const saved = G.boons, was = new Set(BOONS.filter(b => saved[b.id] && boonDormant(b)));
+  const sim = { ...saved };
+  delete sim[c.replaces.id];
+  for (const b of BOONS) if (b.needs === c.replaces.id) delete sim[b.id];
+  sim[c.boon.id] = c.lv;
+  G.boons = sim;
+  try { return BOONS.filter(b => sim[b.id] && !was.has(b) && boonDormant(b)); } finally { G.boons = saved; }
+}
 // 최대 레벨: 슬롯 축복 · 그 강화 축복은 5 (1~6세계 동안 키울 거리), 패시브는 3, 듀오는 1 (2026-10-17)
 const boonMaxLv = b => b.maxLv || (b.duo ? 1 : (b.slot || b.needs) ? 5 : 3);
 // 이 레벨 이상 키운 슬롯은 잠긴다: 다른 속성으로 바꾸는 카드가 안 나온다
@@ -467,6 +489,7 @@ const FX = {
     dmg = Math.max(1, Math.round(dmg));
     if (t.vulnerable) dmg = Math.round(dmg * 1.5);
     t.hp -= dmg; t.flash = Math.max(t.flash, 0.06);
+    if (G.practice) G.practiceLog(t, dmg, this.dmgTag || 'fx'); // 연습실 피해 측정
     G.text(t.x + rand(-6, 6), t.y - t.r - 4, String(dmg), color, size, 0.55);
     G.checkDeath(t);
   },
@@ -539,14 +562,14 @@ const FX = {
     if (t.type === 'totem' || t.frozenT > 0) return;
     // 막 녹은 적은 잠깐 다시 얼지 않는다 (냉기는 쌓이지만 빙결 직전에서 멈춘다)
     t.chill = Math.min(t.thawT > 0 ? FREEZE_AT - 1 : FREEZE_AT, (t.chill || 0) + n); t.chillT = 3;
-    if (t.chill >= FREEZE_AT && (t.type === 'boss' || t.type === 'dragon')) { // 얼음 균열: 보스는 얼지 않는 대신 잠깐 멈추고 약해진다
+    if (t.chill >= FREEZE_AT && (t.type === 'boss' || t.type === 'dragon' || t.bossLike)) { // 얼음 균열: 보스는 얼지 않는 대신 잠깐 멈추고 약해진다
       t.chill = 0; t.thawT = FREEZE_IMMUNE; t.crackT = ICE_CRACK_T; t.iceStagger = ICE_CRACK_STAGGER;
       G.text(t.x, t.y - (t.r || 20) - 18, '얼음 균열!', '#bfefff', 14, 0.9);
       G.burst(t.x, t.y - 6, 18, ['#bfefff', '#ffffff', '#7fd8ff'], 200); G.projectiles.push(new SpriteFx('fxIce', 32, 32, 10, t.x, t.y - 8, 70, 0.45)); // 도트 얼음
       Sfx.shatter ? Sfx.shatter() : Sfx.freeze();
       return;
     }
-    if (t.chill >= FREEZE_AT && t.type !== 'boss') {
+    if (t.chill >= FREEZE_AT && t.type !== 'boss' && !t.bossLike) {
       t.frozenT = freezeTime(this.lv('ice_basic'));
       t.thawT = t.frozenT + FREEZE_IMMUNE;
       t.chill = 0; t.attacking = false;
@@ -587,7 +610,7 @@ const FX = {
         ps.tick = 0.5;
         ps.ramp = Math.min(POISON_RAMP_MAX, ps.ramp + 0.08);   // 걸려 있을수록 점점 아프다
         const power = (0.04 + 0.01 * this.poisonLv()) * (1 + 0.25 * Math.max(0, this.lv('poison_basic') - 1)) * (1 + 0.2 * this.lv('virulence'));
-        this.damage(t, this.atk() * power * ps.stacks * ps.ramp, '#9be15d', 10);
+        this.dmgTag = 'poison'; this.damage(t, this.atk() * power * ps.stacks * ps.ramp, '#9be15d', 10); this.dmgTag = null;
       }
       if (ps.t <= 0) { ps.stacks = 0; ps.ramp = 1; }
     }
@@ -599,7 +622,7 @@ const FX = {
       if (b.tick <= 0) {
         b.tick = 0.5;
         const power = Math.min(BURN_POWER_MAX, 0.1 + 0.03 * this.fireLv() + 0.03 * Math.max(0, this.lv('fire_basic') - 1)); // 한 중첩 세기 상한
-        this.damage(t, this.atk() * power * b.stacks, '#ff9a4a', 10);
+        this.dmgTag = 'burn'; this.damage(t, this.atk() * power * b.stacks, '#ff9a4a', 10); this.dmgTag = null;
       }
       if (b.t <= 0) b.stacks = 0;
     }

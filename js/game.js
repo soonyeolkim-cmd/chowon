@@ -123,6 +123,7 @@ function musicTarget() {
   if (st === 'ending') return 'ending';
   if (st === 'over') return null;
   if (G.boss && !G.boss.dead) return 'boss';
+  if (G.practice) return 'village';
   return 'w' + clamp(G.stage || 1, 1, 6);
 }
 
@@ -218,6 +219,7 @@ const G = {
   },
   // ── 로그라이트: 런 시작 / 마을 ──
   startRun() {
+    this.practice = null;
     if (!tierPlayable(Meta.data.tier)) Meta.data.tier = 1;
     this.tierInfo = tierInfo(Meta.data.tier); this.tier = this.tierInfo.n; this.tierCurses = this.tierInfo.curses;
     Meta.data.runs++; Meta.save(); this.runCommitted = false;
@@ -235,6 +237,7 @@ const G = {
     if (familiarMult(this.tier) < 1) this.hintBox = { text: '여긴 이제 너무 익숙해요. 정령들이 더 깊은 곳에서 기다려요… (보상 ×0.5)', t: 5 };
   },
   goVillage() {
+    this.practice = null;
     Meta.save();
     World.generate((Math.random() * 1e9) | 0, 0);
     this.player = null; this.boss = null; this.enemies = []; this.totems = [];
@@ -531,6 +534,7 @@ const G = {
     t.struck = true;
     if (t.vulnerable) dmg = Math.round(dmg * 1.5);
     t.hp -= dmg; t.flash = 0.1;
+    if (this.practice) this.practiceLog(t, dmg, practiceCat(info.kind)); // 연습실 피해 측정
     const armored = t.superArmor || (t.heavy && (t.state === 'windup' || t.state === 'lunge'));
     if (!armored) {
       t.stun = Math.max(t.stun, 0.15);
@@ -1171,6 +1175,7 @@ function drawHud() {
   drawLumiHeal(x + 6, y + 28);
   if (Meta.data.mode === 'easy') { drawModeIcon('easy', bx + bw + 4, y - 4, 20); label('쉬움', bx + bw + 26, y + 7, 10, '#8ff0b0', 'left', '800'); }
   drawBoonIcons(x, y + 52); // 루미 아이콘 아래로 한 줄 띄운다
+  if (G.practice) { drawPracticeHud(); drawChainHits(); return; }
 
   // 목표
   const cxm = W / 2;
@@ -1192,14 +1197,7 @@ function drawHud() {
   { const best = bestRunT();
     label('⏱ ' + fmtRunT(G.runT) + (best ? `   최고 ${fmtRunT(best)}` : ''), cxm, inset.t + 52, 12, best && G.runT > best ? '#ffb0a0' : '#d8e4ff', 'center', '700'); } // 최고 기록보다 늦어지면 붉게
 
-  // 연속 타격
-  if (G.chain >= 2) {
-    const s = 1 + Math.max(0, G.chainPulse) * 2;
-    // 축복 아이콘 줄 아래에 (아이콘이 늘어나면 그만큼 내려간다)
-    const rows = Math.ceil(BOONS.filter(b => G.boons[b.id]).length / 8);
-    const lx = inset.l + 16, ly = inset.t + 66 + Math.max(1, rows) * 27 + 4;
-    label(`${G.chain} HIT`, lx, ly, 22 * s, '#ffd24a', 'left', '900');
-  }
+  drawChainHits();
   { // 이번 런에서 모은 조각 (끝나야 받는다)과 지금 받을 배율
     const rp = G.rewardParts(false);
     label(`◆ ${G.runShards}`, W - inset.r - 112, inset.t + 30, 14, '#c8a0ff', 'right', '800');
@@ -1207,6 +1205,16 @@ function drawHud() {
     if (rp.fam < 1) label('익숙한 숲', W - inset.r - 112, inset.t + 62, 10, '#ff8a7a', 'right', '700');
   }
   drawObjectiveArrow();
+}
+
+// 연속 타격
+function drawChainHits() {
+  if (G.chain < 2) return;
+  const s = 1 + Math.max(0, G.chainPulse) * 2;
+  // 축복 아이콘 줄 아래에 (아이콘이 늘어나면 그만큼 내려간다)
+  const rows = Math.ceil(BOONS.filter(b => G.boons[b.id]).length / 8);
+  const lx = inset.l + 16, ly = inset.t + 66 + Math.max(1, rows) * 27 + 4;
+  label(`${G.chain} HIT`, lx, ly, 22 * s, '#ffd24a', 'left', '900');
 }
 
 function drawObjectiveArrow() {
@@ -1481,6 +1489,7 @@ const PAUSE_ITEMS = [
 ];
 function openPause() {
   G.state = 'paused';
+  if (G.practice) G.practice.msg = null;
   G.pm = { sel: 0, view: 'menu', axis: 0, t: 0, qsel: 1 };
 }
 function pauseLayout() {
@@ -1522,6 +1531,7 @@ function handlePauseInput(dt, inp) {
   const m = G.pm || (G.pm = { sel: 0, view: 'menu', axis: 0, t: 0, qsel: 1 });
   m.t += dt;
   if (m.t < 0.15) return;
+  if (G.practice) { handlePracticeMenu(dt, inp); return; } // 연습실 메뉴
   const { dy, dx, rep } = menuAxis(m, inp, dt);
   if (m.view === 'moves') { // 기술 · 축복: 위아래 · 휠 · 끌어서 스크롤, B · Esc · 돌아가기 버튼으로 닫기
     const L = movesLayout();
@@ -1571,6 +1581,7 @@ function handlePauseInput(dt, inp) {
 function drawPauseMenu(big, blink, tap) {
   const m = G.pm || { sel: 0, view: 'menu' };
   if (G.book) { drawBoonBook(); return; }
+  if (G.practice) { drawPracticeMenu(); return; }
   if (m.view === 'moves') { drawPauseScreen(big, blink, tap); return; }
   overlay(0.6);
   if (m.view === 'quit') {
@@ -1886,8 +1897,8 @@ function drawBoonGlyph(b, cx, cy, s, col) {
   }
   g.restore();
 }
-function drawBoonIcon(b, cx, cy, r, lv) {
-  const col = boonColor(b), max = lv >= boonMaxLv(b);
+function drawBoonIcon(b, cx, cy, r, lv, dormant) {
+  const col = dormant ? '#5a6270' : boonColor(b), max = lv >= boonMaxLv(b); // 잠든 축복은 회색
   ctx.fillStyle = 'rgba(10,14,18,0.78)';
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
@@ -1897,11 +1908,12 @@ function drawBoonIcon(b, cx, cy, r, lv) {
   ctx.fillStyle = max ? '#ffd24a' : '#1a1f28'; ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = max ? '#fff3c0' : col; ctx.lineWidth = 1; ctx.stroke();
   label(String(lv), bx, by + 0.5, Math.round(br * 1.5), max ? '#3a2a00' : '#fff', 'center', '900');
+  if (dormant) { ctx.fillStyle = 'rgba(10,14,18,0.45)'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); label('z', cx - r * 0.75, cy - r * 0.75, Math.round(r * 1.0), '#bcd', 'center', '900'); }
 }
 function drawBoonIcons(x, y) {
   const owned = BOONS.filter(b => G.boons[b.id]).sort((a, b) => boonSortKey(a) - boonSortKey(b));
   const r = 11, step = 27, perRow = 8;
-  owned.forEach((b, i) => drawBoonIcon(b, x + r + (i % perRow) * step, y + Math.floor(i / perRow) * step, r, G.boons[b.id]));
+  owned.forEach((b, i) => drawBoonIcon(b, x + r + (i % perRow) * step, y + Math.floor(i / perRow) * step, r, G.boons[b.id], boonDormant(b)));
 }
 
 // 강화 카드 설명: 지금 단계와 다음 단계 설명을 비교해 바뀌는 숫자만 '전→후' 로 (예: 피해 +30% → 피해 +30→60%) (2026-10-17)
@@ -2006,6 +2018,11 @@ function drawBoonScreen() {
     }
     const up = c.lv > 1 && !c.replaces; // 강화 카드: 바뀌는 숫자를 '전 → 후' 로
     wrap(up ? boonDescDiff(b, c.lv) : b.desc(c.lv), tw, 12, '500').forEach((l, k) => label(l, tx, ty + k * 16, 12, up ? '#d8ffe0' : '#e8e8e8', 'left', '500'));
+    const sleepers = boonSleepersAfter(c);
+    if (sleepers.length) { // 교체하면 잠드는 축복 (속성이 끊겨서). 카드 맨 아래에
+      const wl = wrap(`💤 ${sleepers.map(s => s.name).join(' · ')} 잠듦`, L.horiz ? r.w - 24 : r.w - 66, 11, '700').slice(0, 2);
+      wl.forEach((l, k) => label(l, L.horiz ? x + 12 : x + 56, y + r.h - 26 - (wl.length - 1 - k) * 14, 11, '#ffb07a', 'left', '700'));
+    }
     if (o.auto && sel) { // 시간 초과로 고른 카드: 빛나는 테두리 + 퍼지는 빛 + 테두리를 도는 반짝이
       const t = o.auto.t, on = ((t * 14) | 0) % 2 === 0, pulse = 0.5 + 0.5 * Math.sin(t * 28);
       ctx.save();
@@ -2153,7 +2170,7 @@ function movesLayout() {
   y += 6; head(`정령의 축복 (${owned.length})`, '#e8ff9c');
   if (!owned.length) { items.push({ t: 'note', lines: ['봉인석을 부수면 축복을 받을 수 있어요'], y, dim: true }); y += 22; }
   for (const b of owned) {
-    const lv = G.boons[b.id], lines = wrap(b.desc(lv), cw - 16, 11, '500');
+    const lv = G.boons[b.id], lines = wrap((boonDormant(b) ? '💤 ' + boonDormantWhy(b) + ' ' : '') + b.desc(lv), cw - 16, 11, '500');
     items.push({ t: 'boon', b, lv, lines, y }); y += 20 + lines.length * 14 + 8;
   }
   return { view, close, items, maxScroll: Math.max(0, y - view.h + 8) };
@@ -2323,7 +2340,7 @@ function drawVillage(blink) {
   drawHeat(tierNo(md.tier || 1));
   label('숲 마을 · 정령의 제단', W / 2, inset.t + 20, 22, '#ffe08a', 'center', '900');
   { // 재료 줄: 처음 화면 버튼과 축복 도감 버튼 사이에 맞춘다. 길면 이름을 빼고 아이콘 + 숫자만, 그래도 길면 글씨를 줄인다 (2026-10-23 휴대폰에서 겹침)
-    const aw = md.cores || md.embers || Object.keys(md.awaken).length, hm = villageHome(), bk = villageBook();
+    const aw = md.cores || md.embers || Object.keys(md.awaken).length, hm = villageHome(), bk = villagePractice();
     const left = hm.x + hm.w + 10, right = bk.x - 10, avail = right - left, cx = (left + right) / 2;
     const full = `◆ 정령의 조각 ${md.shards}    ⚔ ${WEAPONS[md.weapon].essence} ${Meta.ess(md.weapon)}    ✦ 영웅의 증표 ${md.emblems}` + (aw ? `    ◈ 봉인의 핵 ${md.cores}    🔥 각성의 불씨 ${md.embers}` : '');
     const short = `◆ ${md.shards}   ⚔ ${Meta.ess(md.weapon)}   ✦ ${md.emblems}` + (aw ? `   ◈ ${md.cores}   🔥 ${md.embers}` : '');
@@ -2336,6 +2353,7 @@ function drawVillage(blink) {
   label(`런 ${md.runs}회 · 최고 ${md.best ? stageLabel(md.best) : '-'}${md.bestEasy ? ` (쉬움 ${stageLabel(md.bestEasy)})` : ''}${md.clears ? ` · 클리어 ${md.clears}회` : ''}`, W - inset.r - 16, inset.t + 20, 11, '#aab', 'right', '600');
   drawHome(villageHome(), v.sel === -2);
   drawBookBtn(villageBook(), v.sel === -3);
+  drawPracticeBtn(villagePractice(), v.sel === -4);
   ['공통 강화', '무기 해금 · 선택'].forEach((name, i) => {
     const t = L.tabs[i], on = v.tab === i;
     ctx.fillStyle = on ? 'rgba(106,63,176,0.9)' : 'rgba(30,34,44,0.85)';
@@ -2700,6 +2718,7 @@ function villageAct(i) {
   if (i === -1) { openSettings('village'); return; } // ⚙ 설정
   if (i === -2) { villageGoTitle(); return; }        // 처음 화면
   if (i === -3) { openBoonBook('village'); return; } // 축복 도감
+  if (i === -4) { G.startPractice(); return; }       // 연습실
   if (i === items.length) { G.startRun(); return; }
   if (i === items.length + 2) { openTierView(); return; } // 봉인 등급 창 (목록 + 내역, 2026-10-17)
   if (i === items.length + 1) { // 난이도 바꾸기
@@ -2783,6 +2802,7 @@ function handleVillageInput(dt, inp) {
     if (inRect(inp.tap, villageGear())) { openSettings('village'); return; }
     if (inRect(inp.tap, villageHome())) { villageGoTitle(); return; }
     if (inRect(inp.tap, villageBook())) { openBoonBook('village'); return; }
+    if (inRect(inp.tap, villagePractice())) { G.startPractice(); return; }
     const ti = L.tabs.findIndex(r => inRect(inp.tap, r));
     if (ti >= 0) { setTab(ti); return; }
     if (inRect(inp.tap, L.start)) { villageAct(n); return; }
@@ -2817,9 +2837,9 @@ function handleVillageInput(dt, inp) {
   // ←→: 아래 버튼 줄에선 버튼 사이 이동, 목록에선 탭 전환
   const hx = inp.mx > 0.5 ? 1 : inp.mx < -0.5 ? -1 : 0;
   if (hx && hx !== v.axisX) {
-    // 위쪽 줄 (왼쪽부터): 처음 화면(-2) · 축복 도감(-3) · ⚙(-1)
-    const TOP = [-2, -3, -1];
-    if (TOP.includes(v.sel)) { const k = clamp(TOP.indexOf(v.sel) + hx, 0, 2); if (TOP[k] !== v.sel) { v.sel = TOP[k]; Sfx.pickup(); } }
+    // 위쪽 줄 (왼쪽부터): 처음 화면(-2) · 연습실(-4) · 축복 도감(-3) · ⚙(-1)
+    const TOP = [-2, -4, -3, -1];
+    if (TOP.includes(v.sel)) { const k = clamp(TOP.indexOf(v.sel) + hx, 0, TOP.length - 1); if (TOP[k] !== v.sel) { v.sel = TOP[k]; Sfx.pickup(); } }
     else if (inBar) barMove(hx); else tabTo(nextTab(hx));
   }
   v.axisX = hx;
