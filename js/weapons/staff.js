@@ -8,7 +8,12 @@ const ORB_INTERVAL = 0.12;      // 누르고 있을 때 연사 간격
 const ORB_REFUND = 0.25;        // 기본공격이 맞으면 충전이 이만큼 빨라진다
 const ORB_RANGE = 136;          // 마력탄 사거리 (220 → 170 → 136, 2026-10-17)
 const STAFF_REACH = 46;         // 마법봉 휘두르기 사거리 (34 → 46: 봉 끝의 마법 구체를 살짝 휘둘러 친다, 2026-10-18)
-const CIRCLE_R = 55;            // 마법진 반경
+const CIRCLE_R = 55;            // 마법진 반경 (아무 강화 없을 때 크기는 그대로)
+const CIRCLE_RANGE_LV = 0.03;   // 연쇄 마법진(마법진 강화 합침) 레벨당 범위 (0.15 → 0.03, 2026-10-24: 강화로 커지는 폭을 크게 줄임)
+const CIRCLE_MASTERY_LV = 0.03; // 마법진 숙련 레벨당 범위 (0.08 → 0.03)
+const CIRCLE_AWK = 1.1;         // 대마법진 크기 (1.35 → 1.1, 2026-10-24)
+const CIRCLE_CHAIN_SIZE = 0.35;        // 작은(연쇄) 마법진 크기: 보통 마법진 반경의 배수 (0.6 → 0.35, 대마법진이어도 보통 크기 기준)
+const CIRCLE_CHAIN_REACH = 1.2;        // 작은 마법진이 놓이는 가장 먼 거리: 큰 마법진 반경의 배수 (1.6 → 1.2)
 const CIRCLE_DELAY = 0.5;       // 마법진이 터지기까지
 const PULSE_R = 50;             // 마력 파동 반경
 const STAFF_FIRE_EVERY = 4; // 화염구 마력탄: 이 발수마다 화염구
@@ -66,7 +71,7 @@ addWeapon('staff', {
   shieldHint: '저 방패병은 정면 공격을 막아요! 2타째 휘두르기나 마법진은 방패를 깨요. 마력탄으로 등 뒤를 노려도 돼요.',
   mastery: [
     { id: 'combo',  name: '휘두르기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `기본공격 피해 +${6 * lv}%, 2타째는 +${8 * lv}% 더` },
-    { id: 'spin',   name: '마법진 숙련',     max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 마법진 범위 +${8 * lv}%` },
+    { id: 'spin',   name: '마법진 숙련',     max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 마법진 범위 +${Math.round(CIRCLE_MASTERY_LV * 100 * lv)}%` },
     { id: 'wave',   name: '마력탄 숙련',     max: 3, cost: [3, 5, 8], desc: lv => `마력 구슬 최대 개수 +${lv}` },
     { id: 'thrust', name: '마력 파동 숙련',  max: 3, cost: [2, 4, 7], desc: lv => `마력 파동 피해 +${20 * lv}%` },
   ],
@@ -110,7 +115,7 @@ BOON_FORMS.staff = {
   poison_charge:  { name: '독안개 마법진', desc: lv => `마법진이 터진 자리에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독 마력탄', desc: lv => `마력탄에 맞은 적에게 독 ${1 + Math.floor(lv / 2)}중첩.` },
   atk_combo:      { name: '잔상 휘두르기', desc: lv => `2타째를 잔상이 ${COMBO_ECHO_HITS}번 더 친다 (잔상 한 번에 2타째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 2타째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
-  atk_spin:       { name: '마법진 강화', desc: lv => `차지 시간 -${15 * lv}%, 마법진 범위 +${15 * lv}%.` },
+  atk_spin:       { name: '마법진 강화', desc: lv => `차지 시간 -${15 * lv}%, 마법진 범위 +${Math.round(CIRCLE_RANGE_LV * 100 * lv)}%.` },
   atk_multispin:  { name: '연쇄 마법진', desc: lv => `마법진이 터진 뒤 주변에 작은 마법진 ${lv}개가 이어서 터진다 (피해 ${pct(MULTISPIN_MULT)}).` },
   atk_wave:       { name: '마력 증폭', desc: lv => `마력 구슬 최대 개수 +${lv} (기본 ${ORB_BASE}개).` },
   atk_thrust:     { name: '마력 파동 강화', desc: lv => `마력 파동 범위 +${10 * lv}%.` },
@@ -153,13 +158,14 @@ extendPlayer({
     Sfx.orb();
   },
   // 마법진 (차지): 앞쪽(가까운 적 발밑)에 깔고 잠시 뒤 폭발
-  get circleR() { return CIRCLE_R * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')) * (1 + Awaken.val('staff', 'circleR')); },
+  get circleR() { return CIRCLE_R * (1 + CIRCLE_RANGE_LV * FX.lv('atk_spin') + CIRCLE_MASTERY_LV * this.mastery('spin')) * (1 + Awaken.val('staff', 'circleR')); },
   startCircle(mag, awk) {
     this.finisherT = 0;
     this.aim(mag, ORB_AIM);
     const t = this.aimTarget && !this.aimTarget.dead && Math.hypot(this.aimTarget.x - this.x, this.aimTarget.y - this.y) < 150 ? this.aimTarget : null;
     const cx = t ? t.x : this.x + Math.cos(this.facing) * 80, cy = t ? t.y : this.y + Math.sin(this.facing) * 80;
-    const mc = new MagicCircle(cx, cy, this.circleR * (awk ? 1.35 : 1), FX.lv('atk_multispin')); // 대마법진: 35% 크게
+    const mc = new MagicCircle(cx, cy, this.circleR * (awk ? CIRCLE_AWK : 1), FX.lv('atk_multispin')); // 대마법진: 10% 크게
+    mc.baseR = this.circleR; // 작은 마법진 크기는 보통 마법진 기준 (대마법진이어도 커지지 않게)
     if (awk) { mc.awk = 1 + Awaken.skillDmg('staff'); Awaken.flash(this); }
     G.projectiles.push(mc);
     this.act = { kind: 'cast', t: 0, dur: 0.25, hit: new Set(), circleCast: true };
@@ -355,6 +361,32 @@ class MagicOrb {
   }
 }
 
+// 연쇄 마법진 자리 (2026-10-24 사용자: "추가 폭발이 무조건 오른쪽으로 간다 → 몹 많은 쪽으로"):
+// 큰 마법진 둘레(반지름의 0.5 ~ CIRCLE_CHAIN_REACH 배)에서 작은 마법진 하나에 적이 가장 많이 들어가는 곳부터 차례로 고른다 (이미 고른 곳에 든 적은 다시 세지 않는다).
+// 둘레에 적이 없으면 보는 방향부터 고르게 나눈다
+function chainSpots(x, y, r, n, facing, sr = r * CIRCLE_CHAIN_SIZE) {
+  const out = [], covered = new Set();
+  const foes = G.targets().filter(t => { const d = Math.hypot(t.x - x, t.y - y); return d > r * 0.3 && d < r * CIRCLE_CHAIN_REACH + sr; });
+  for (let i = 0; i < n; i++) {
+    let best = null, bestN = 0;
+    for (const f of foes) { // 적 하나하나를 중심 후보로 (너무 가깝거나 멀면 둘레로 당긴다)
+      const dx = f.x - x, dy = f.y - y, d = Math.hypot(dx, dy) || 1, dd = clamp(d, r * 0.5, r * CIRCLE_CHAIN_REACH);
+      const cx = x + dx / d * dd, cy = y + dy / d * dd;
+      if (out.some(([ox, oy]) => Math.hypot(ox - cx, oy - cy) < sr)) continue; // 이미 고른 곳과 겹치지 않게
+      let k = 0; for (const t of foes) if (!covered.has(t) && Math.hypot(t.x - cx, t.y - cy) < sr + t.r) k++;
+      if (k > bestN) { bestN = k; best = [cx, cy]; }
+    }
+    if (!best) break;
+    out.push(best);
+    for (const t of foes) if (Math.hypot(t.x - best[0], t.y - best[1]) < sr + t.r) covered.add(t);
+  }
+  for (let i = out.length; i < n; i++) { // 남은 것: 보는 방향부터 고르게
+    const a = facing + i / n * Math.PI * 2, d = r * 0.85;
+    out.push([x + Math.cos(a) * d, y + Math.sin(a) * d * 0.8]);
+  }
+  return out;
+}
+
 // 마법진: 바닥에 그려졌다가 CIRCLE_DELAY 초 뒤 폭발. 연쇄 마법진이면 주변에 작은 마법진이 이어서 터진다
 // 마법진을 깔 때 소리는 sfx.js 의 staff.cast (사운드 테스트 페이지에서도 들을 수 있게 옮김)
 class MagicCircle {
@@ -376,11 +408,11 @@ class MagicCircle {
       G.burst(this.x, this.y, this.small ? 8 : 16, slotBurst('charge', ['#ffffff', '#e8e8e8']), 170);
       G.shake = Math.max(G.shake, this.small ? 2 : 5); Sfx.boom();
       if (!this.small) FX.onCircle(p, this.x, this.y, this.r);
-      for (let i = 0; i < this.chain; i++) { // 연쇄 마법진
-        const a = i / this.chain * Math.PI * 2 + rand(-0.3, 0.3), d = this.r * 0.9;
-        const c = new MagicCircle(this.x + Math.cos(a) * d, this.y + Math.sin(a) * d * 0.8, this.r * 0.6, 0, true);
+      const sr = (this.baseR || this.r) * CIRCLE_CHAIN_SIZE;
+      chainSpots(this.x, this.y, this.r, this.chain, p.facing, sr).forEach(([cx, cy], i) => { // 연쇄 마법진
+        const c = new MagicCircle(cx, cy, sr, 0, true);
         c.delay += 0.12 * i; G.projectiles.push(c);
-      }
+      });
     }
     if (this.boomT >= 0 && (this.boomT += dt) > 0.25) this.done = true;
   }
