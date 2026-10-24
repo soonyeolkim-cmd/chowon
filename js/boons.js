@@ -97,7 +97,7 @@ const BOONS = [
   { id: 'fire_special', el: 'fire', slot: 'special', name: '작열 검기',
     desc: lv => `검기에 맞은 적이 폭발한다. 주변에 공격력의 ${pct(0.6 + 0.3 * lv)} 피해 + 화상.` },
   { id: 'fire_dash', el: 'fire', slot: 'dash', name: '화염 질주',
-    desc: lv => `대시한 길에 ${1.5 + 0.5 * lv}초간 불길이 남아 밟은 적에게 화상.` },
+    desc: lv => `대시한 길에 ${1.5 + 0.5 * lv}초간 불길이 남아 밟은 적에게 화상. 대시 공격에 맞은 적에게도 화상 2중첩.` },
   { id: 'kindling', el: 'fire', name: '불씨', req: () => ownsAny(BURN_SRC),
     desc: lv => `화상 최대 중첩 +${lv}, 지속 시간 +1초.` },
   { id: 'chain_burst', el: 'fire', name: '연쇄 폭발', req: () => ownsAny(BURN_SRC),
@@ -113,7 +113,7 @@ const BOONS = [
   { id: 'ice_special', el: 'frost', slot: 'special', name: '빙창 검기',
     desc: lv => `검기에 맞은 적에게 냉기 ${iceBig(lv)}중첩, 검기가 지나간 길이 얼어붙는다.` },
   { id: 'ice_dash', el: 'frost', slot: 'dash', name: '얼음 길',
-    desc: lv => `대시한 길이 ${1.5 + 0.5 * lv}초간 얼어붙어 위에 선 적에게 냉기.` },
+    desc: lv => `대시한 길이 ${1.5 + 0.5 * lv}초간 얼어붙어 위에 선 적에게 냉기. 대시 공격에 맞은 적에게도 냉기 ${iceBig(lv)}중첩.` },
   { id: 'shatter', el: 'frost', name: '파쇄', req: () => ownsAny(CHILL_SRC),
     desc: lv => `빙결된 적을 때리면 얼음이 깨지며 공격력의 ${pct(1.5 + lv)} 추가 피해, 주변에 냉기 2중첩.` },
   { id: 'frostbite', el: 'frost', name: '한기', req: () => ownsAny(CHILL_SRC),
@@ -129,7 +129,7 @@ const BOONS = [
   { id: 'elec_special', el: 'thunder', slot: 'special', name: '벼락 검기',
     desc: lv => `검기에 맞은 적마다 벼락 (공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전.` },
   { id: 'elec_dash', el: 'thunder', slot: 'dash', name: '벼락 발자국',
-    desc: lv => `대시가 끝나는 자리에 벼락. 주변에 공격력의 ${pct(1 + 0.5 * lv)} 피해 + 감전.` },
+    desc: lv => `대시가 끝나는 자리에 벼락. 주변에 공격력의 ${pct(1 + 0.5 * lv)} 피해 + 감전. 대시 공격에 맞은 적도 감전.` },
   { id: 'static', el: 'thunder', name: '날벼락',
     desc: lv => `적을 때릴 때 ${8 + 4 * lv}% 확률로 하늘에서 벼락 (공격력의 150%).` },
   { id: 'overcharge', el: 'thunder', name: '고전압', req: () => ownsAny(SHOCK_SRC),
@@ -145,7 +145,7 @@ const BOONS = [
   { id: 'poison_special', el: 'poison', slot: 'special', name: '독침 검기',
     desc: lv => `검기에 맞은 적에게 독 ${1 + lv}중첩.` },
   { id: 'poison_dash', el: 'poison', slot: 'dash', name: '독 발자국',
-    desc: lv => `대시한 길에 ${1.5 + 0.5 * lv}초간 독 웅덩이가 남는다.` },
+    desc: lv => `대시한 길에 ${1.5 + 0.5 * lv}초간 독 웅덩이가 남는다. 대시 공격에 맞은 적에게도 독 ${1 + lv}중첩.` },
   { id: 'virulence', el: 'poison', name: '맹독', req: () => ownsAny(POISON_SRC),
     desc: lv => `독 최대 중첩 +${5 * lv}, 독 피해 +${20 * lv}%.` },
   { id: 'venom_burst', el: 'poison', name: '독 폭발', req: () => ownsAny(POISON_SRC),
@@ -621,6 +621,14 @@ const FX = {
       const ch = enhanceSlot() === 'basic' ? this.lv('elec_chain') : 0, act = G.player.act;
       if (ch && act && !act.chained) { act.chained = true; this.chainJump(t, 2 + ch, this.atk() * (0.45 + 0.15 * ch)); }
       if (act) W.onBasicHit?.(this, t, info, act, atk);
+      if (MOVES[kind] && MOVES[kind].role === 'dash') { // 대시 공격: 대시 칸 속성 축복도 걸린다 (특수 칸과 같은 세기, 2026-10-24)
+        if (this.lv('fire_dash')) this.burn(t, 2);
+        const idl = this.lv('ice_dash');
+        if (idl && !t.dead) this.chill(t, iceBig(idl));
+        if (this.lv('elec_dash')) this.shock(t);
+        const pdl = this.lv('poison_dash');
+        if (pdl && !t.dead) this.poison(t, 1 + pdl);
+      }
     } else if (MOVES[kind] && MOVES[kind].role === 'charge') {
       if (this.lv('fire_charge')) this.burn(t, 2);
       const ic = this.lv('ice_charge');
