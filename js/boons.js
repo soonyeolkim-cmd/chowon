@@ -47,6 +47,8 @@ const iceBig = lv => 1 + Math.ceil(lv / 2);
 // 잔상 일격 (2026-10-18 다시): 다단히트처럼 1레벨부터 잔상 1번(고정), 2 · 3레벨은 마지막 타 피해만 레벨마다 +15%
 const COMBO_SPEED = 0;
 const COMBO_FIN = 0.15;
+const COMBO_ALL = 0.08;        // 잔상 일격: 레벨마다 기본공격 전체(1 · 2 · 3타) 피해 +8% (2026-10-24, 예전엔 마지막 타만 강해졌다)
+const BASIC_BOON_BONUS = 0.10; // 평타 축복(기본 칸 속성 · 그 강화 축복)을 1레벨만 가져도 각각 평타 피해 +10% (1레벨을 세게, 2026-10-24)
 const COMBO_ECHO_HITS = 1; // 마지막 타를 잔상이 1번 더 (2 → 1, 2026-10-18)
 const ECHO_MULT = 0.5;      // 잔상 한 번의 피해 (마지막 타의 50%)
 const ECHO_DELAY = 0.16;    // 처음 잔상이 치기까지 · 잔상 사이 간격 (초)
@@ -152,7 +154,7 @@ const BOONS = [
   // ── ⚔ 공격: 누적 패시브 (위력 · 범위 · 속도) ──
   { id: 'atk_combo', el: 'might', name: '잔상 일격', desc: lv => `3타째를 잔상이 ${COMBO_ECHO_HITS}번 더 친다 (잔상 한 번에 3타째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 3타째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
   // 일섬 회전: 따로 나오지 않는다. 효과는 회전 연참 레벨을 그대로 따른다 (mergedInto, 2026-10-18)
-  { id: 'atk_spin', el: 'might', name: '일섬 회전', mergedInto: 'atk_multispin', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${15 * lv}%.` },
+  { id: 'atk_spin', el: 'might', name: '일섬 회전', mergedInto: 'atk_multispin', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${10 * lv}%.` },
   { id: 'atk_multispin', el: 'might', name: '회전 연참',
     desc: lv => `회전베기가 ${1 + lv}번 몰아쳐 벤다. 추가 타격은 피해 ${pct(MULTISPIN_MULT)}, 마지막 타격에만 넉백.` },
   { id: 'atk_wave', el: 'might', name: '거대 검기', desc: lv => `검기 크기·사거리 +${25 * lv}%, 특수공격 쿨타임 -${(0.6 * lv).toFixed(1)}초.` },
@@ -212,6 +214,13 @@ const BOON_BY_ID = Object.fromEntries(BOONS.map(b => [b.id, b]));
   Object.defineProperty(w, 'desc', { get: () => { const a = g(); return lv => a(lv) + ` 특수공격 피해 +${Math.round(WAVE_DMG * 100 * lv)}%.`; } }); }
 { const w = BOON_BY_ID.atk_thrust, g = Object.getOwnPropertyDescriptor(w, 'desc').get;
   Object.defineProperty(w, 'desc', { get: () => { const a = g(); return lv => ((curWeaponDef().dashEcho ? `다단히트: 대시 공격이 ${DASH_ECHO_HITS}번 더 몰아친다 (추가 타격 피해 ${pct(ECHO_MULT)}).` : '') + (lv > 1 ? ` 대시 공격 피해 +${Math.round(THRUST_DMG * 100 * (lv - 1))}%.` : '') + ' ' + a(lv)).trim(); } }); } // 다단히트 문구는 dashEcho 가 있는 무기만 (활은 없음)
+{ const w = BOON_BY_ID.atk_combo, g = Object.getOwnPropertyDescriptor(w, 'desc').get;
+  Object.defineProperty(w, 'desc', { get: () => { const a = g(); return lv => `기본공격 피해 +${Math.round(COMBO_ALL * 100 * lv)}%. ` + a(lv); } }); }
+// 평타 축복(기본 칸 속성 · 강화 축복): 1레벨부터 붙는 평타 피해 +10% 를 설명 끝에 (마법봉의 강화 축복은 특수공격에 붙는다)
+for (const b of BOONS) if (b.slot === 'basic' || b.needs) {
+  const g = Object.getOwnPropertyDescriptor(b, 'desc').get;
+  Object.defineProperty(b, 'desc', { get: () => { const a = g(); return lv => a(lv) + ` ${b.needs && enhanceSlot() === 'special' ? '특수공격' : '기본공격'} 피해 +${BASIC_BOON_BONUS * 100}%.`; } });
+}
 // 합쳐진 축복: 설명에 합쳐진 쪽 효과를 이어 붙인다 (회전 연참 = 회전 연참 + 일섬 회전)
 for (const b of BOONS) if (b.mergedInto) {
   const host = BOON_BY_ID[b.mergedInto], hostDesc = Object.getOwnPropertyDescriptor(host, 'desc').get;
@@ -783,7 +792,15 @@ const FX = {
   damageMult(p, kind, t) {
     let m = 1 + 0.1 * this.lv('sharp');
     const role = MOVES[kind] && MOVES[kind].role;
-    if (role === 'fin') m *= (1 + COMBO_FIN * Math.max(0, this.lv('atk_combo') - 1)) * (1 + 0.15 * p.mastery('combo'));
+    if (role === 'basic' || role === 'fin') {
+      m *= (1 + COMBO_ALL * this.lv('atk_combo')) * (1 + 0.06 * p.mastery('combo')); // 잔상 일격 · 연속 숙련: 평타 전체
+      if (ElFx.slot('basic')) m *= 1 + BASIC_BOON_BONUS;                             // 기본 칸 속성 축복 (1레벨부터)
+    }
+    if (role === 'fin') m *= (1 + COMBO_FIN * Math.max(0, this.lv('atk_combo') - 1)) * (1 + 0.08 * p.mastery('combo')); // 마지막 타는 조금 더 (숙련 0.15 → 0.08, 평타 전체 +6% 와 합쳐서)
+    { // 평타 강화 축복 (화염구 · 얼음 파편 · 연쇄 번개 · 독 분사 …): 강화가 붙는 칸의 피해 +10% (1레벨부터)
+      const es = enhanceSlot(), hit = es === 'basic' ? role === 'basic' || role === 'fin' : role === es;
+      if (hit && BOONS.some(b => b.needs && this.lv(b.id))) m *= 1 + BASIC_BOON_BONUS;
+    }
     if (role === 'special') m *= 1 + WAVE_DMG * this.lv('atk_wave'); // 특수 강화 축복: 특수공격 피해도 조금
     if (role === 'dash') m *= (1 + THRUST_DMG * Math.max(0, this.lv('atk_thrust') - 1)) * (1 + 0.2 * p.mastery('thrust'));
     if (this.lv('rally')) m *= 1 + 0.5 * (1 - p.hp / p.maxHp);

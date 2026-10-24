@@ -65,7 +65,7 @@ addWeapon('staff', {
   ],
   shieldHint: '저 방패병은 정면 공격을 막아요! 2타째 휘두르기나 마법진은 방패를 깨요. 마력탄으로 등 뒤를 노려도 돼요.',
   mastery: [
-    { id: 'combo',  name: '휘두르기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `2타째 피해 +${15 * lv}%` },
+    { id: 'combo',  name: '휘두르기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `기본공격 피해 +${6 * lv}%, 2타째는 +${8 * lv}% 더` },
     { id: 'spin',   name: '마법진 숙련',     max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 마법진 범위 +${8 * lv}%` },
     { id: 'wave',   name: '마력탄 숙련',     max: 3, cost: [3, 5, 8], desc: lv => `마력 구슬 최대 개수 +${lv}` },
     { id: 'thrust', name: '마력 파동 숙련',  max: 3, cost: [2, 4, 7], desc: lv => `마력 파동 피해 +${20 * lv}%` },

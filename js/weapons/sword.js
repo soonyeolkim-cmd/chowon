@@ -43,8 +43,8 @@ addWeapon('sword', {
   shieldHint: '저 방패병은 정면 공격을 막아요! 공격을 길게 눌렀다 떼는 회전베기로 방패를 깨거나, 뒤로 돌아가서 공격해요.',
   // 무기 숙련 (마을에서 무기의 정수로 강화)
   mastery: [
-    { id: 'combo',  name: '연속베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `3타째 피해 +${15 * lv}%` },
-    { id: 'spin',   name: '회전베기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 회전베기 범위 +${8 * lv}%` },
+    { id: 'combo',  name: '연속베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `기본공격 피해 +${6 * lv}%, 3타째는 +${8 * lv}% 더` },
+    { id: 'spin',   name: '회전베기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 회전베기 범위 +${5 * lv}%` },
     { id: 'wave',   name: '섬광 검기 숙련',  max: 3, cost: [3, 5, 8], desc: lv => `섬광 검기 쿨타임 -${(0.5 * lv).toFixed(1)}초 (최소 1.5초)` },
     { id: 'thrust', name: '대시 찌르기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `대시 찌르기 피해 +${20 * lv}%` },
   ],
@@ -137,7 +137,7 @@ extendPlayer({
     this.act = { kind: 'cast', t: 0, dur: 0.16, hit: new Set() };
     Sfx.wave(triple);
   },
-  get spinRange() { return 56 * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')) * (1 + Awaken.val(this.weaponId, 'spinRange')); },
+  get spinRange() { return 56 * (1 + 0.10 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')) /* 범위 줄임 (2026-10-24): 축복 +15→+10%/lv, 숙련 +8→+5%/lv, 최대 약 104 → 89 */ * (1 + Awaken.val(this.weaponId, 'spinRange')); },
   drawSword(g, x, y) {
     const cy = y - 1, a = this.act;
     if (a && (a.kind === 'light' || a.kind === 'finisher')) {

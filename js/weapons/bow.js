@@ -67,7 +67,7 @@ addWeapon('bow', {
   ],
   shieldHint: '저 방패병은 정면 화살을 막아요! 꿰뚫는 화살이나 덫 폭발은 방패를 깨요.',
   mastery: [
-    { id: 'combo',  name: '연사 숙련',           max: 3, cost: [2, 4, 7], desc: lv => `3발째 피해 +${15 * lv}%` },
+    { id: 'combo',  name: '연사 숙련',           max: 3, cost: [2, 4, 7], desc: lv => `연사 피해 +${6 * lv}%, 3발째는 +${8 * lv}% 더` },
     { id: 'spin',   name: '꿰뚫는 화살 숙련',    max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 사거리 +${8 * lv}%` },
     { id: 'wave',   name: '덫 숙련',             max: 3, cost: [3, 5, 8], desc: lv => `덫 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 2초)` },
     { id: 'thrust', name: '덫 던지기 숙련',     max: 3, cost: [2, 4, 7], desc: lv => `덫 던지기 화살 피해 +${20 * lv}%` },

@@ -77,7 +77,7 @@ addWeapon('spear', {
   comboLen: 2,
   shieldHint: '저 방패병은 정면 공격을 막아요! 2타째 찌르기나 관통 찌르기는 방패를 뚫어요. 뒤로 돌아가도 돼요.',
   mastery: [
-    { id: 'combo',  name: '연속 찌르기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `2타째 찌르기 피해 +${15 * lv}%` },
+    { id: 'combo',  name: '연속 찌르기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `기본공격 피해 +${6 * lv}%, 2타째는 +${8 * lv}% 더` },
     { id: 'spin',   name: '관통 찌르기 숙련', max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 관통 찌르기 길이 +${5 * lv}%` },
     { id: 'wave',   name: '투척 숙련',        max: 3, cost: [3, 5, 8], desc: lv => `창 투척 쿨타임 -${(0.1 * lv).toFixed(1)}초 (최소 0.5초)` },
     { id: 'thrust', name: '후려치기 숙련',    max: 3, cost: [2, 4, 7], desc: lv => `후려치기 피해 +${20 * lv}%` },

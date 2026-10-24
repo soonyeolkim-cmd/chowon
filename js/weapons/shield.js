@@ -96,7 +96,7 @@ addWeapon('shield', {
   comboLen: 3,
   shieldHint: '저 방패병은 정면 공격을 막아요! 3타째 밀치기나 방패 강타는 방패를 깨요.',
   mastery: [
-    { id: 'combo',  name: '3연 밀치기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `3타째 밀치기 피해 +${15 * lv}%` },
+    { id: 'combo',  name: '3연 밀치기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `기본공격 피해 +${6 * lv}%, 3타째 밀치기는 +${8 * lv}% 더` },
     { id: 'spin',   name: '방패 강타 숙련',  max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 강타 거리 +${5 * lv}%` },
     { id: 'wave',   name: '돌려치기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `돌려치기 쿨타임 -${(0.3 * lv).toFixed(1)}초 (최소 1.5초)` },
     { id: 'thrust', name: '방패 후리기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `방패 후리기 피해 +${20 * lv}%` },
