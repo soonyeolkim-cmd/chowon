@@ -154,7 +154,7 @@ const BOONS = [
   // ── ⚔ 공격: 누적 패시브 (위력 · 범위 · 속도) ──
   { id: 'atk_combo', el: 'might', name: '잔상 일격', desc: lv => `3타째를 잔상이 ${COMBO_ECHO_HITS}번 더 친다 (잔상 한 번에 3타째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 3타째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
   // 일섬 회전: 따로 나오지 않는다. 효과는 회전 연참 레벨을 그대로 따른다 (mergedInto, 2026-10-18)
-  { id: 'atk_spin', el: 'might', name: '일섬 회전', mergedInto: 'atk_multispin', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${10 * lv}%.` },
+  { id: 'atk_spin', el: 'might', name: '일섬 회전', mergedInto: 'atk_multispin', desc: lv => `차지 시간 -${15 * lv}%, 회전베기 범위 +${15 * lv}%.` },
   { id: 'atk_multispin', el: 'might', name: '회전 연참',
     desc: lv => `회전베기가 ${1 + lv}번 몰아쳐 벤다. 추가 타격은 피해 ${pct(MULTISPIN_MULT)}, 마지막 타격에만 넉백.` },
   { id: 'atk_wave', el: 'might', name: '거대 검기', desc: lv => `검기 크기·사거리 +${25 * lv}%, 특수공격 쿨타임 -${(0.6 * lv).toFixed(1)}초.` },

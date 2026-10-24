@@ -44,7 +44,7 @@ addWeapon('sword', {
   // 무기 숙련 (마을에서 무기의 정수로 강화)
   mastery: [
     { id: 'combo',  name: '연속베기 숙련',   max: 3, cost: [2, 4, 7], desc: lv => `기본공격 피해 +${6 * lv}%, 3타째는 +${8 * lv}% 더` },
-    { id: 'spin',   name: '회전베기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 회전베기 범위 +${5 * lv}%` },
+    { id: 'spin',   name: '회전베기 숙련',   max: 3, cost: [3, 5, 8], desc: lv => `차지 시간 -${10 * lv}%, 회전베기 범위 +${8 * lv}%` },
     { id: 'wave',   name: '섬광 검기 숙련',  max: 3, cost: [3, 5, 8], desc: lv => `섬광 검기 쿨타임 -${(0.5 * lv).toFixed(1)}초 (최소 1.5초)` },
     { id: 'thrust', name: '대시 찌르기 숙련', max: 3, cost: [2, 4, 7], desc: lv => `대시 찌르기 피해 +${20 * lv}%` },
   ],
@@ -137,7 +137,7 @@ extendPlayer({
     this.act = { kind: 'cast', t: 0, dur: 0.16, hit: new Set() };
     Sfx.wave(triple);
   },
-  get spinRange() { return 56 * (1 + 0.10 * FX.lv('atk_spin') + 0.05 * this.mastery('spin')) /* 범위 줄임 (2026-10-24): 축복 +15→+10%/lv, 숙련 +8→+5%/lv, 최대 약 104 → 89 */ * (1 + Awaken.val(this.weaponId, 'spinRange')); },
+  get spinRange() { return 56 * (1 + 0.15 * FX.lv('atk_spin') + 0.08 * this.mastery('spin')) /* 최대 약 104. 2026-10-24: 줄였다가(A안) 되돌림 — '너무 크다'는 느낌은 이펙트가 판정보다 크게 그려진 탓이었다 */ * (1 + Awaken.val(this.weaponId, 'spinRange')); },
   drawSword(g, x, y) {
     const cy = y - 1, a = this.act;
     if (a && (a.kind === 'light' || a.kind === 'finisher')) {
@@ -161,7 +161,7 @@ extendPlayer({
       const p = a.t / a.dur, ang = this.facing + p * Math.PI * 2.2;
       const sr = this.spinRange, cs = ElFx.slot('charge');
       // 회전베기: 굵은 호 선 대신 도트 둥근 베기 그림(쌍검 선풍 베기와 같은 FX/Attack/CircularSlash). 차지 칸 속성이면 그 색 (2026-10-18)
-      const im = slimRing(tintedBy(ART.img.circSlash, cs ? EL_STYLE[cs.el].main : FX_WHITE)), sz = (sr + 10) * 2 / 0.94, fr = Math.min(3, Math.floor(p * 4)); // 그림 속 고리 반지름 = 칸의 94%. 실제로 맞는 거리(범위 + 적 몸 반지름 약 10)에 맞춘다
+      const fr = Math.min(3, Math.floor(p * 4)), im = slimRing(tintedBy(ART.img.circSlash, cs ? EL_STYLE[cs.el].main : FX_WHITE)), sz = (sr + SPIN_FX_GRACE) * 32 / RING_OUT[fr]; // 고리 바깥 끝 = 판정 거리 (2026-10-24: 예전엔 고리 가운데를 '범위 + 10'에 맞춰서 바깥 끝이 판정보다 최대 40% 컸다)
       g.save(); g.globalAlpha *= 0.95; g.translate(x, cy); // 방향에 따라 돌리지 않는다: 늘 같은 모양의 원 (바라보는 쪽마다 좌우로 길어 보여 헷갈렸다, 2026-10-18)
       g.drawImage(im, fr * 32, 0, 32, 32, -sz / 2, -sz / 2, sz, sz);
       g.restore();
@@ -207,6 +207,10 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
 // 회전베기 고리를 날씬하게: 둥근 베기 그림(32x32 4장)에서 고리 안쪽을 깎아 낸 그림을 한 번 만들어 둔다 (2026-10-18)
 // 장마다 고리가 놓인 반지름이 달라서 깎는 반지름도 장마다 (그림 칸 기준, 가운데 16)
 const RING_CUT = [14.2, 12.4, 13.8, 14.6];
+// 장마다 고리 바깥 끝의 반지름 (그림 칸 기준, 실제 그림 픽셀로 잼, 2026-10-24) — 이 끝이 회전베기 판정 거리에 오도록 크기를 맞춘다
+const RING_OUT = [17.9, 16.3, 17.1, 16.0];
+// 적은 몸(반지름)이 '범위' 안에 닿으면 맞는다 → 고리 바깥 끝 = 범위 + 조금 (몸이 고리에 닿으면 맞는 느낌)
+const SPIN_FX_GRACE = 0; // 고리 바깥 끝 = 판정 반지름 그대로 (2026-10-24 사용자: 판정 104 · 이펙트 104)
 const _slimRing = new Map();
 function slimRing(img) {
   let cv = _slimRing.get(img); if (cv) return cv;
