@@ -109,9 +109,9 @@ Object.assign(WEAPONS.spear, {
       // 빙결 찌르기: 뒤쪽에서 관통당한 적일수록 냉기 추가
       const isd = fx.lv('ice_shard');
       if (isd && act.pierced > 1 && !t.dead) fx.chill(t, Math.min(2, act.pierced - 1));
-      // 독 찌르기 (창끝)
+      // 독 찌르기 (2026-10-24 C안): 찌를 때마다 독 1중첩 + 피해, 2타째는 쌓인 독을 터뜨린다
       const pss = fx.lv('poison_spray');
-      if (pss && info.tip && !t.dead) fx.poison(t, 1 + pss);
+      if (pss && !t.dead) { if (act.kind === 'pokeFin') fx.poisonPop(t, pss, atk); else fx.poisonNip(t, pss, atk); }
   },
   // 던진 창에 맞았을 때 (폭발 · 장판 · 벼락은 반환점에서: onSpearApex)
   onSpecialHit(fx, t, info, atk) {
@@ -143,7 +143,7 @@ BOON_FORMS.spear = {
   elec_charge:    { name: '벼락 꿰뚫기', desc: lv => `관통 찌르기 · 창기 일섬 직후 창끝 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
   elec_special:   { name: '피뢰 창', desc: lv => `반환점에 벼락이 떨어진다 (주변에 공격력의 ${pct(0.8 + 0.4 * lv)}) + 감전. 날아가는 창에 맞은 적도 감전.` },
   poison_basic:   { name: '독 창날' },
-  poison_spray:   { name: '독 찌르기', desc: lv => `창끝으로 맞히면 독이 ${1 + lv}중첩 더 쌓인다.` },
+  poison_spray:   { name: '독 찌르기', desc: lv => `찌르기에 맞은 적에게 독 1중첩 + 공격력의 ${pct(SPRAY_NIP(lv))} 피해. 2타째는 독 ${SPRAY_ADD(lv)}중첩을 더 걸고 쌓인 독 1중첩마다 공격력의 ${pct(SPRAY_POP(lv))} 피해.` },
   poison_charge:  { name: '독안개 꿰뚫기', desc: lv => `찌른 줄을 따라 ${2 + 0.5 * lv}초간 독안개가 남는다. 안에 있는 적에게 계속 독.` },
   poison_special: { name: '독창', desc: lv => `창에 맞은 적에게 독 ${1 + lv}중첩, 반환점에 ${2 + 0.5 * lv}초간 독 웅덩이가 생긴다.` },
   atk_combo:      { name: '잔상 찌르기', desc: lv => `2타째를 잔상이 ${COMBO_ECHO_HITS}번 더 친다 (잔상 한 번에 2타째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 2타째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },

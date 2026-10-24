@@ -103,7 +103,7 @@ BOON_FORMS.bow = {
   elec_charge:    { name: '벼락 화살', desc: lv => `꿰뚫는 화살이 끝나는 곳 주변 적 ${2 + lv}명에게 벼락 (공격력의 ${pct(0.8 + 0.3 * lv)}) + 감전.` },
   elec_special:   { name: '번개 덫', desc: lv => `덫이 터지면 번개가 옆 적에게 ${2 + lv}번 튄다 (한 번에 공격력의 ${pct(0.4 + 0.15 * lv)}) + 감전.` },
   poison_basic:   { name: '독 화살' },
-  poison_spray:   { name: '독 분사 사격', desc: lv => `3발째에 앞쪽으로 독을 뿜어 부채꼴 안의 적에게 독 ${3 + lv}중첩 + 공격력의 ${pct(0.4 + 0.1 * lv)} 피해.` },
+  poison_spray:   { name: '독 분사 사격', desc: lv => `쏠 때마다 독을 뿜어 독 1중첩 + 공격력의 ${pct(SPRAY_NIP(lv))} 피해. 3발째는 독 ${SPRAY_ADD(lv)}중첩을 더 걸고 쌓인 독 1중첩마다 공격력의 ${pct(SPRAY_POP(lv))} 피해.` },
   poison_charge:  { name: '독안개 화살', desc: lv => `꿰뚫는 화살이 지나간 줄에 ${2 + 0.5 * lv}초간 독안개.` },
   poison_special: { name: '독 덫', desc: lv => `덫이 터지면 독 ${1 + lv}중첩 + 그 자리에 독안개.` },
   atk_combo:      { name: '잔상 사격', desc: lv => `3발째를 잔상 화살이 ${COMBO_ECHO_HITS}번 더 쏜다 (잔상 한 번에 3발째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 3발째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },

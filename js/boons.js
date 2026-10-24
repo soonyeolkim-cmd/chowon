@@ -48,6 +48,10 @@ const iceBig = lv => 1 + Math.ceil(lv / 2);
 const COMBO_SPEED = 0;
 const COMBO_FIN = 0.15;
 const COMBO_ALL = 0.08;        // 잔상 일격: 레벨마다 기본공격 전체(1 · 2 · 3타) 피해 +8% (2026-10-24, 예전엔 마지막 타만 강해졌다)
+// 독 분사 (2026-10-24 C안): 독이 독 칼날만으로 금방 가득 차서 분사 중첩이 버려지던 문제 → 쌓인 독을 터뜨리는 피해로
+const SPRAY_NIP = lv => 0.2 + 0.12 * lv;    // 매 타 작은 분사: 공격력 배율 (+ 독 1중첩)
+const SPRAY_POP = lv => 0.05 + 0.12 * lv;   // 마지막 타 터뜨리기: 쌓인 독 1중첩마다 공격력 배율 (독은 줄지 않는다)
+const SPRAY_ADD = lv => 2 + lv;             // 마지막 타가 터뜨리기 전에 더 거는 독
 const BASIC_BOON_BONUS = 0.10; // 평타 축복(기본 칸 속성 · 그 강화 축복)을 1레벨만 가져도 각각 평타 피해 +10% (1레벨을 세게, 2026-10-24)
 const COMBO_ECHO_HITS = 1; // 마지막 타를 잔상이 1번 더 (2 → 1, 2026-10-18)
 const ECHO_MULT = 0.5;      // 잔상 한 번의 피해 (마지막 타의 50%)
@@ -139,7 +143,7 @@ const BOONS = [
   { id: 'poison_basic', el: 'poison', slot: 'basic', name: '독 칼날',
     desc: lv => `기본공격이 독을 1중첩 건다. 독 피해 +${25 * (lv - 1)}%.` },
   { id: 'poison_spray', el: 'poison', needs: 'poison_basic', name: '독 분사 베기',
-    desc: lv => `3타째에 앞쪽으로 독을 뿜어 부채꼴 안의 적에게 독 ${3 + lv}중첩 + 공격력의 ${pct(0.4 + 0.1 * lv)} 피해.` },
+    desc: lv => `휘두를 때마다 독을 뿜어 독 1중첩 + 공격력의 ${pct(SPRAY_NIP(lv))} 피해. 3타째는 독 ${SPRAY_ADD(lv)}중첩을 더 걸고 쌓인 독 1중첩마다 공격력의 ${pct(SPRAY_POP(lv))} 피해.` },
   { id: 'poison_charge', el: 'poison', slot: 'charge', name: '독안개 회오리',
     desc: lv => `회전베기 후 주변에 ${2 + 0.5 * lv}초간 독안개. 안에 있는 적에게 계속 독.` },
   { id: 'poison_special', el: 'poison', slot: 'special', name: '독침 검기',
@@ -511,6 +515,13 @@ const FX = {
     const b = t.burn || (t.burn = { stacks: 0, t: 0, tick: 0.5 });
     b.stacks = Math.min(max, b.stacks + n); b.t = 3 + (k ? 1 : 0);
   },
+  // 독 분사 (기본공격 강화): 작은 분사 · 터뜨리기
+  poisonNip(t, lv, atk) { this.poison(t, 1); if (!t.dead) this.damage(t, atk * SPRAY_NIP(lv), '#9be15d', 10); },
+  poisonPop(t, lv, atk) {
+    this.poison(t, SPRAY_ADD(lv)); if (t.dead) return;
+    const st = t.poison ? t.poison.stacks : 0;
+    if (st) { this.damage(t, atk * SPRAY_POP(lv) * st, '#b6ff6a', 12); G.burst(t.x, t.y - 4, 8, ['#9be15d', '#5fae3a', '#d8ff9a'], 120); }
+  },
   poisonLv() { return POISON_SRC.concat(['virulence', 'venom_burst']).reduce((s, id) => s + this.lv(id), 0); },
   poison(t, n) {
     if (t.type === 'totem' || t.dead) return;
@@ -680,15 +691,15 @@ const FX = {
       Sfx.freeze();
     }
     const ps = this.lv('poison_spray');
-    if (ps && fin) {
-      for (let i = 0; i < 18; i++) {
-        const a = f + rand(-0.7, 0.7), sp = rand(80, 200);
-        G.particles.push({ x: p.x, y: p.y - 4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.45, max: 0.45, color: Math.random() < 0.5 ? '#9be15d' : '#5fae3a', size: 3.5, grav: 0 });
+    if (ps) { // 독 분사: 매 타 작게, 마지막 타는 크게 뿜어 쌓인 독을 터뜨린다
+      const R = fin ? 85 : 70, W = fin ? 0.75 : 0.6;
+      for (let i = 0; i < (fin ? 18 : 8); i++) {
+        const a = f + rand(-W, W), sp = rand(80, fin ? 200 : 160);
+        G.particles.push({ x: p.x, y: p.y - 4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.45, max: 0.45, color: Math.random() < 0.5 ? '#9be15d' : '#5fae3a', size: fin ? 3.5 : 2.5, grav: 0 });
       }
-      for (const t of this.near(p.x, p.y, 85)) {
-        if (Math.abs(angDiff(Math.atan2(t.y - p.y, t.x - p.x), f)) > 0.75) continue;
-        this.poison(t, 3 + ps);
-        this.damage(t, atk * (0.4 + 0.1 * ps), '#9be15d', 11);
+      for (const t of this.near(p.x, p.y, R)) {
+        if (Math.abs(angDiff(Math.atan2(t.y - p.y, t.x - p.x), f)) > W) continue;
+        if (fin) this.poisonPop(t, ps, atk); else this.poisonNip(t, ps, atk);
       }
     }
   },
