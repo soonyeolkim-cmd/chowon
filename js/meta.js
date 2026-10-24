@@ -93,6 +93,8 @@ const TEST_BUILDS = {
   // 검의 정령 축복 전부 만렙 + 무기 숙련 전부 만렙 (?build=bow_max, 2026-10-20). 다른 무기는 &w=sword 처럼
   // 재료 넉넉히 (?build=rich, 2026-10-23): 해금 · 숙련 · 공통 강화 · 각성을 직접 눌러 볼 수 있게 재료만 가득 (해금은 안 해 둠). 따로 저장
   rich: { weapon: 'sword', mastery: {}, boons: {}, rich: true },
+  // 평타 빌드 시험 (?build=basic, 2026-10-24): 불꽃 칼날 · 화염구 5 + 잔상 일격 3 + 연속 숙련 3. 다른 무기는 &w=spear 처럼
+  basic: { weapon: 'sword', mastery: { combo: 3 }, all: true, boons: { fire_basic: 5, fire_bolt: 5, atk_combo: 3, sharp: 3 } },
   bow_max: { weapon: 'bow', mastery: { combo: 3, spin: 3, wave: 3, thrust: 3 }, all: true, boons: { atk_combo: 3, atk_multispin: 3, atk_wave: 3, atk_thrust: 3, sharp: 3, vital: 3, ambush: 3 } },
   // 방패 첫 손맛 (?build=shield)
   shield: { weapon: 'shield', mastery: {}, boons: {} },
