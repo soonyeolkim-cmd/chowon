@@ -1660,7 +1660,7 @@ function settingsAct(row) {
     s.t = 0; return;
   }
   if (row.kind === 'mode') {
-    Input.settings.kbMode = Input.settings.kbMode === 'mouse' ? 'keys' : 'mouse'; Input.saveSettings(); Sfx.pickup();
+    Input.settings.kbMode = Input.settings.kbMode === 'mouse' ? 'keys' : 'mouse'; Input.settings.kbModeChosen = true; Input.saveSettings(); Sfx.pickup();
     s.msg = Input.settings.kbMode === 'mouse' ? '키보드+마우스: WASD 이동 · 왼쪽 클릭 공격 · 오른쪽 클릭 특수 · Space 대시' : '키보드만: 방향키 이동 · X 공격 · Z 특수 · C 대시';
     return;
   }

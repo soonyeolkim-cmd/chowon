@@ -44,10 +44,12 @@ const Input = (() => {
     return d; })();
   // kbMode: 컴퓨터 조작 방식 'mouse' = 키보드+마우스 (WASD · 클릭 · 커서 조준) / 'keys' = 키보드만 (방향키 · Z 특수 · X 공격 · C 대시)
   const pcFine = !!(window.matchMedia && matchMedia('(pointer: fine)').matches);
-  const settings = Object.assign({ sfx: true, bgm: true, rumble: true, shake: true, kbMode: pcFine ? 'mouse' : 'keys', cursorAim: false, padLayout: 'xbox', padAlpha: 0.55 }, load('settings', {}));
+  const settings = Object.assign({ sfx: true, bgm: true, rumble: true, shake: true, kbMode: 'keys', cursorAim: false, padLayout: 'xbox', padAlpha: 0.55 }, load('settings', {}));
   // 휴대폰(터치)에서는 키보드+마우스 방식을 쓰지 않는다 → 늘 키보드만 (2026-10-20 사용자)
   const phone = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches) && !pcFine;
   if (phone) settings.kbMode = 'keys';
+  // 기본은 늘 키보드만 (2026-10-24). 예전엔 컴퓨터면 키보드+마우스가 기본이라 그 값이 저장돼 있다 → 설정에서 직접 고른 적이 없으면 키보드만으로
+  if (!settings.kbModeChosen) settings.kbMode = 'keys';
   const kbSet = () => (settings.kbMode === 'mouse' ? binds.km : binds.kb); // 지금 조작 방식의 키
   const kbHas = (action, code) => kbSet()[action].includes(code);
   // 패드 종류: 버튼 '위치'는 같고 이름만 다르다. 엑박 = 아래 A · 오른쪽 B, 스위치 = 오른쪽 A · 아래 B
