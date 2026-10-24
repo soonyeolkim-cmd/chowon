@@ -58,6 +58,7 @@ const ECHO_MULT = 0.5;      // 잔상 한 번의 피해 (마지막 타의 50%)
 const ECHO_DELAY = 0.16;    // 처음 잔상이 치기까지 · 잔상 사이 간격 (초)
 const ECHO_FLASH = 0.12;    // 잔상 그림(도트 4장)이 넘어가는 시간: 빠르게 휙 (2026-10-18)
 const ECHO_COLOR = '#8fd8ff'; // 잔상 색: 방패 막기 이펙트 같은 푸른빛
+const ECHO_RING_SCALE = 1.2;  // 둘레 모양 추가 타격(마력 파동 · 선풍 베기 · 후려치기)은 첫 타보다 20% 크게 + 반대 방향으로 그린다
 // 그림을 한 색으로 물들여 둔다 (그림 · 색마다 한 번만 만든다)
 const _tintCache = new Map();
 // 속성이 없을 때 무기 이펙트의 기본 색 = 흰색 (2026-10-20): 에셋 그림 원래 색(흰색 → 노랑 · 주황)은 번개 · 불과 헷갈려서,
@@ -337,8 +338,10 @@ class EchoStrike {
     const k = clamp((this.t - this.delay) / ECHO_FLASH, 0, 0.999), fr = Math.floor(k * 4) * 32, S = this.shape, cy = this.y - 4, col = slotCol(this.o.slot, ECHO_COLOR);
     g.save(); g.globalAlpha = 0.95;
     if (!S.line && S.half >= Math.PI) { // 둘레 (선풍 베기 · 마력 파동 · 후려치기)
-      const img = tintedBy(ART.img.circSlash, col), sz = S.range * 2;
-      g.drawImage(img, fr, 0, 32, 32, Math.round(this.x - sz / 2), Math.round(cy - sz / 2), sz, sz);
+      // 둘레 모양은 첫 타와 그림이 같아서 한 번 더 친 게 안 보인다 → 색은 칸 속성 그대로, 20% 크게 + 반대 방향으로 돈다 (2026-10-24 사용자 '속성색 + 모양 차이')
+      const img = tintedBy(ART.img.circSlash, col), sz = S.range * 2 * ECHO_RING_SCALE;
+      g.translate(Math.round(this.x), Math.round(cy)); g.scale(-1, 1); // 좌우로 뒤집어 반대로 도는 모양
+      g.drawImage(img, fr, 0, 32, 32, -sz / 2, -sz / 2, sz, sz);
     } else {
       const img = tintedBy(ART.img.slash, col);
       g.translate(this.x, cy); g.rotate(this.dir);

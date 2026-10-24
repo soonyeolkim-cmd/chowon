@@ -298,9 +298,18 @@ function handlePracticeDummy(dt, inp) {
 
 // ── 축복 달기: 모든 축복을 속성별로. ←→ 로 레벨, 같은 칸 축복은 하나만 ──
 const PB_ROW = 30, PB_HEAD = 24;
+// 패시브 축복이 무엇을 강화하는지 (2026-10-24 사용자: "공격 칸은 뭘 강화시키는지 적어 줘야지")
+const PRACTICE_TAG = {
+  atk_combo: '기본공격 강화', atk_multispin: '차지공격 강화', atk_wave: '특수공격 강화', atk_thrust: '대시공격 강화',
+  sharp: '모든 피해', vital: '치명타', ambush: '옆 · 뒤 공격',
+  lifesteal: '처치 회복', guard_spin: '차지 중 보호', heal_wave: '특수 적중 회복', dash_guard: '대시 뒤 보호',
+  tough: '최대 체력', spring: '클리어 회복', leaf: '피격 1회 막기', skin: '받는 피해 감소', second: '부활',
+  kindling: '화상 강화', chain_burst: '화상 처치 폭발', shatter: '빙결 깨기', frostbite: '냉기 적 피해 감소',
+  static: '적중 시 벼락', overcharge: '감전 강화', virulence: '독 강화', venom_burst: '독 가득 폭발',
+};
 function practiceBoonRows() {
   const rows = [{ act: 'none', name: '축복 모두 빼기' }];
-  const tag = b => (b.slot ? SLOT_NAMES[b.slot].replace(' 슬롯', '') : b.needs ? '강화 축복' : b.duo ? '듀오' : '패시브');
+  const tag = b => (b.slot ? SLOT_NAMES[b.slot].replace(' 슬롯', '') : b.needs ? '강화 축복' : b.duo ? '듀오' : PRACTICE_TAG[b.id] || '패시브');
   for (const el of Object.keys(ELEMENTS)) {
     const list = BOONS.filter(b => b.el === el && !b.mergedInto && !b.duo);
     if (!list.length) continue;
