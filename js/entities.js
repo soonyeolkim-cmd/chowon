@@ -1766,6 +1766,8 @@ const DUMMY = {
 // 개발자가 맞을 때 가끔 하는 말
 const DEV_LINES = ['아야!', '버그 아니에요, 기획이에요!', '밸런스 패치 할게요…', '그 축복 너무 센데…', '야근 중이에요', '살살 해 주세요', '커피 쏟아요!', '테스트 고마워요!'];
 const DUMMY_HP = 1e9;
+// '공격하기' 움직임 (2026-10-24 사용자: 쌍검 반격 연습): 예고(빨간 원 + !) 뒤에 휘두른다. 받아치기 · 막기 · 저스트 회피 연습용
+const DUMMY_ATK_WIND = 0.7, DUMMY_ATK_GAP = 1.6, DUMMY_ATK_DMG = 0.08; // 예고 시간 · 다음 공격까지 · 피해 (최대 체력 비율)
 class Dummy extends Enemy {
   constructor(size, x, y) {
     super('slime', x, y, 1, 1);
@@ -1775,6 +1777,8 @@ class Dummy extends Enemy {
     this.maxHp = this.hp = DUMMY_HP; this.dmg = this.shotDmg = 0;
     this.home = { x, y }; this.keep = true; this.color = '#c8a070'; this.speed = 34; this.spawnT = 0.3;
     this.def = Object.assign({}, ENEMY.slime, { dummy: true }); this.ranged = false;
+    this.state = 'idle'; this.cd = 1.2; this.attacking = false;
+    this.atkR = this.r + (this.bossLike ? 46 : 30); // 공격 범위
   }
   update(dt, p) {
     this.t += dt; this.flash -= dt; this.stun -= dt; this.spawnT -= dt;
@@ -1786,6 +1790,7 @@ class Dummy extends Enemy {
     }
     const mode = (G.practice && G.practice.move) || 'still';
     this.superArmor = this.bossLike || mode === 'still';
+    if (mode === 'attack') this.attackAI(dt, p); else { this.state = 'idle'; this.attacking = false; }
     if (mode === 'still') { this.kvx = this.kvy = 0; this.wob = Math.max(0, (this.wob || 0) - dt); return; }
     applyKnockback(this, dt);
     if (Math.hypot(this.kvx, this.kvy) > 30 || this.frozenT > 0) return;
@@ -1796,13 +1801,34 @@ class Dummy extends Enemy {
     if (d > near) { const s = Math.min(d - near, this.speed * (mode === 'chase' ? 1 : 2.2) * slow * dt); World.move(this, dx / d * s, dy / d * s); }
     if (mode === 'chase') { this.home.x = this.x; this.home.y = this.y; }
   }
+  attackAI(dt, p) {
+    if (this.stun > 0 || this.frozenT > 0) { this.state = 'idle'; this.attacking = false; this.cd = Math.max(this.cd, 0.6); return; } // 받아치기 · 빙결에 끊긴다
+    const d = Math.hypot(p.x - this.x, p.y - this.y);
+    if (this.state === 'windup') {
+      this.st -= dt;
+      if (this.st <= 0) {
+        this.state = 'strike'; this.st = 0.15; this.attacking = true;
+        G.fxRing(this.x, this.y - 6, '#ffffff', this.atkR); Sfx.slam && Sfx.slam();
+        if (p.alive && d < this.atkR + p.hurtR) G.hurtPlayer(Math.max(1, Math.round(p.maxHp * DUMMY_ATK_DMG)), this);
+      }
+      return;
+    }
+    if (this.state === 'strike') { this.st -= dt; if (this.st <= 0) { this.state = 'idle'; this.attacking = false; this.cd = DUMMY_ATK_GAP; } return; }
+    this.cd -= dt;
+    if (this.cd <= 0 && p.alive && d < this.atkR + 80) { this.state = 'windup'; this.st = DUMMY_ATK_WIND; }
+  }
   draw(g) {
     g.globalAlpha = clamp(1 - this.spawnT / 0.3, 0, 1);
     const k = this.sc, u = 2 * k, x = Math.round(this.x), y = Math.round(this.y);
     const white = this.flash > 0, sway = this.flash > 0 ? Math.sin(this.t * 40) * u * 0.6 : 0;
     const R = (cx, cy, w, h, c) => { g.fillStyle = white ? '#fff' : c; g.fillRect(Math.round(x + cx * u + sway * (cy < 0 ? 1 : 0)), Math.round(y + cy * u), w * u, h * u); };
     g.fillStyle = 'rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(x, y + (this.human ? 0 : 4) * u, (this.human ? 5 : 7) * u, (this.human ? 1.6 : 2.5) * u, 0, 0, Math.PI * 2); g.fill(); // 사람은 발밑에 작게
-    if (this.human) { this.drawDev(g, R); FX.drawStatus(g, this); g.globalAlpha = 1; return; }
+    if (this.state === 'windup' || this.state === 'strike') {
+      const k2 = this.state === 'strike' ? 1 : 1 - this.st / DUMMY_ATK_WIND;
+      g.fillStyle = `rgba(255,70,50,${0.12 + 0.18 * k2})`; g.beginPath(); g.ellipse(x, y, this.atkR, this.atkR * 0.7, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = `rgba(255,90,60,${0.5 + 0.4 * k2})`; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, this.atkR * k2, this.atkR * 0.7 * k2, 0, 0, Math.PI * 2); g.stroke();
+    }
+    if (this.human) { this.drawDev(g, R); FX.drawStatus(g, this); if (this.state === 'windup') this.bang(g, x, y - 22 * u); g.globalAlpha = 1; return; }
     R(-1, -4, 2, 8, '#6a4424');                  // 기둥
     R(-6, -11, 12, 2, '#7a5230');                // 팔 막대
     R(-7, -12, 2, 4, '#d8b878'); R(5, -12, 2, 4, '#d8b878'); // 지푸라기 손
@@ -1812,6 +1838,7 @@ class Dummy extends Enemy {
     R(-2, -11, 4, 4, '#f0f0f0'); R(-1, -10, 2, 2, '#e04848'); // 과녁
     R(-3, -18, 6, 5, '#d8b878');                 // 머리
     R(-3, -18, 6, 1, '#b08a58'); R(-1, -16, 1, 1, '#4a3420'); R(1, -16, 1, 1, '#4a3420');
+    if (this.state === 'windup') this.bang(g, x, y - (this.bossLike ? 23 : 21) * u);
     if (this.bossLike) { R(-3, -20, 6, 2, '#ffd24a'); R(-3, -21, 1, 1, '#ffd24a'); R(0, -21, 1, 1, '#ffd24a'); R(2, -21, 1, 1, '#ffd24a'); } // 왕관
     FX.drawStatus(g, this);
     g.globalAlpha = 1;

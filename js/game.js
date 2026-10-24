@@ -630,6 +630,7 @@ const G = {
     if (!dmg) return;
     if (p.gapT > 0 && p.gapMult > 0) { dmg = Math.round(dmg * (1 + p.gapMult)); p.gapT = 0; this.text(p.x, p.y - 34, '빈틈 피격!', '#ff7a6a', 11, 0.6); } // 쌍검 받아치기 실패 빈틈: 한 번만
     p.hp -= dmg; p.invuln = p.hurtT = chip ? 0.35 : 0.8;
+    if (this.practice && p.hp < 1) p.hp = 1; // 연습실: 쓰러지지 않는다 (체력은 천천히 찬다)
     this.hintHurt(src);
     if (p.momentum > 0) { p.momentum = 0; this.text(p.x, p.y - 30, '기세 끊김', '#c8b8a8', 10, 0.5); } // 쌍검: 맞으면 기세가 사라진다
     const dx = p.x - src.x, dy = p.y - src.y, d = Math.hypot(dx, dy) || 1;
@@ -2254,7 +2255,7 @@ function villageItems(tab) {
 function villageLayout() {
   const v = G.village, items = villageItems(v.tab);
   const rw = Math.min(W - 32 - inset.l - inset.r, 660), x0 = (W - rw) / 2;
-  const view = { x: x0, y: inset.t + 92, w: rw, h: H - inset.b - 68 - (inset.t + 92) };
+  const view = { x: x0, y: inset.t + 100, w: rw, h: H - inset.b - 68 - (inset.t + 100) }; // 위쪽 버튼 줄과 탭 사이 여백 (2026-10-24 휴대폰에서 맞닿음)
   let y = 0;
   const rows = items.map(it => {
     const h = it.header ? V_HEAD : V_ROW;
@@ -2264,7 +2265,7 @@ function villageLayout() {
   });
   const contentH = y;
   const tw = rw / 2;
-  const tabs = [0, 1].map(i => ({ x: x0 + i * tw, y: inset.t + 58, w: tw - 4, h: 28 }));
+  const tabs = [0, 1].map(i => ({ x: x0 + i * tw, y: inset.t + 66, w: tw - 4, h: 28 }));
   const start = { x: W / 2 - 110, y: H - inset.b - 48, w: 220, h: 38 };
   const mode = { x: start.x - 152, y: start.y, w: 140, h: 38 };
   const tier = { x: start.x + start.w + 12, y: start.y, w: 132, h: 38 };

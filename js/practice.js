@@ -1,11 +1,18 @@
 // ── 연습실 (2026-10-24) ─────────────────────────────────────
 // 마을의 '🎯 연습실'에서 들어간다. 보상 · 런 기록 · 봉인 등급과 상관없는 빈 경기장.
 // 더미(작은 · 보통 · 보스 크기)를 불러 때리며 피해를 잰다. 축복은 아무거나 레벨을 골라 달고 뺄 수 있다.
-// 일시정지 메뉴가 연습실 메뉴로 바뀐다 (더미 부르기 · 움직임 · 축복 달기 · 측정 초기화 · 마을로)
+// 일시정지 메뉴가 연습실 메뉴로 바뀐다 (더미 · 축복 달기 · 측정 초기화 · 설정 · 마을로). '더미' 안에서 부르기 · 움직임 · 모두 치우기
 
 const PRACTICE_RECENT = 3;   // '최근 DPS' 구간 (초)
 const PRACTICE_MAX_DUMMY = 12;
-const PRACTICE_MOVES = [['still', '가만히'], ['knock', '밀렸다 돌아오기'], ['chase', '천천히 다가오기']];
+const PRACTICE_REGEN = 0.25; // 연습실: 맞은 뒤 체력이 초당 최대 체력의 25%씩 다시 찬다
+const PRACTICE_MOVES = [['still', '가만히'], ['knock', '밀렸다 돌아오기'], ['chase', '다가오기'], ['attack', '공격하기']];
+const PRACTICE_MOVE_TIP = {
+  still: '맞아도 꿈쩍하지 않아요 (피해 측정용)',
+  knock: '맞으면 밀려났다가 제자리로 돌아와요',
+  chase: '천천히 다가와요',
+  attack: '빨간 원으로 예고한 뒤 휘둘러요 · 받아치기 · 막기 · 저스트 회피 연습',
+};
 // 피해 갈래: 무기 기술은 MOVES 의 role 로, 축복이 따로 주는 피해는 FX.damage 에서
 const PRACTICE_CATS = [
   { id: 'basic',   name: '기본공격', col: '#ffd24a' },
@@ -22,12 +29,9 @@ const practiceCat = kind => {
   return r === 'basic' || r === 'fin' ? 'basic' : r === 'charge' || r === 'special' || r === 'dash' ? r : 'other';
 };
 const PRACTICE_ITEMS = [
-  { id: 'resume', name: '계속하기' },          { id: 'reset', name: '측정 초기화' },
-  { id: 'small', name: '작은 더미 부르기' },   { id: 'mid', name: '보통 더미 부르기' },
-  { id: 'boss', name: '보스 더미 부르기' },    { id: 'dev', name: '개발자 부르기' },
-  { id: 'move', name: '움직임' },             { id: 'clear', name: '더미 모두 치우기' },
-  { id: 'boons', name: '축복 달기' },          { id: 'settings', name: '설정' },
-  { id: 'leave', name: '마을로 돌아가기' },
+  { id: 'resume', name: '계속하기' },   { id: 'dummy', name: '더미' },
+  { id: 'boons', name: '축복 달기' },   { id: 'reset', name: '측정 초기화' },
+  { id: 'settings', name: '설정' },     { id: 'leave', name: '마을로 돌아가기' },
 ];
 
 Object.assign(G, {
@@ -119,6 +123,14 @@ Object.assign(G, {
   },
 });
 
+// 연습실: 맞고 나서 체력이 다시 찬다 (쓰러지지 않는 건 hurtPlayer 에서)
+{ const upd = G.update;
+  G.update = function (dt) {
+    upd.call(this, dt);
+    const p = this.practice && this.player;
+    if (p && p.hurtT <= 0 && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * PRACTICE_REGEN * dt);
+  }; }
+
 // 지금 이 축복을 새로 달 수 없는 까닭 (달 수 있으면 null). 강화 축복은 칸 축복을 같이 달아 주므로 막지 않는다
 function practiceBlock(b) {
   if (b.duo && !b.duo.every(e => FX.hasEl(e))) return `${b.duo.map(e => ELEMENTS[e].name).join(' · ')} 축복을 모두 가져야 달 수 있어요`;
@@ -152,6 +164,7 @@ function drawPracticeHud() {
     label('🎯 연습실', W / 2, inset.t + 20, 15, '#ffe08a', 'center', '800');
     label(`공격력 ${p.atk} · 더미 ${G.enemies.length}개 · 움직임: ${mv}`, W / 2, inset.t + 40, 11, '#d8e4ff', 'center', '700');
   }
+  if (G.state === 'paused' && G.pm && G.pm.view !== 'menu') return; // 더미 · 축복 메뉴 안에서는 측정판을 가린다 (버튼과 겹치지 않게)
   // 측정판 (오른쪽 위, 일시정지 버튼 아래). 낮은 화면(휴대폰 가로)은 줄 간격을 좁혀 오른쪽 아래 버튼과 겹치지 않게
   const w = Math.min(196, W * 0.3), x = W - inset.r - 12 - w, y = inset.t + 52;
   let cats = PRACTICE_CATS.filter(c => P.cat[c.id] > 0).map(c => ({ ...c, v: P.cat[c.id] }));
@@ -186,25 +199,26 @@ function drawPracticeHud() {
 function practiceLayout() {
   const cols = 2, rows = Math.ceil(PRACTICE_ITEMS.length / cols), gap = 8;
   const top = inset.t + 64, bottom = H - inset.b - 40;
-  const h = clamp((bottom - top - gap * (rows - 1)) / rows, 28, 42), w = Math.min(230, (W - 40 - gap) / 2);
+  const h = clamp((bottom - top - gap * (rows - 1)) / rows, 28, 44), w = Math.min(230, (W - 40 - gap) / 2);
   const x0 = W / 2 - w - gap / 2, y0 = Math.max(top, (top + bottom) / 2 - (rows * (h + gap) - gap) / 2);
   const n = PRACTICE_ITEMS.length;
   return PRACTICE_ITEMS.map((it, i) => ({ it, x: i === n - 1 && n % cols ? W / 2 - w / 2 : x0 + (i % cols) * (w + gap), y: y0 + Math.floor(i / cols) * (h + gap), w, h })); // 마지막 한 칸은 가운데
 }
-const practiceItemName = it => it.id === 'move' ? '움직임: ' + PRACTICE_MOVES.find(m => m[0] === G.practice.move)[1] : it.name;
+// 메뉴 칸 하나 그리기 (on: 지금 고른 값 표시)
+function practiceBtn(r, text, sel, on, col = '#fff', size = 14) {
+  ctx.fillStyle = sel ? 'rgba(70,60,110,0.97)' : on ? 'rgba(40,70,52,0.95)' : 'rgba(24,28,40,0.92)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
+  ctx.strokeStyle = sel ? '#ffd24a' : on ? '#8ff0b0' : 'rgba(255,255,255,0.18)'; ctx.lineWidth = sel || on ? 2 : 1; (rrPath(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 7), ctx.stroke());
+  label(text, r.x + r.w / 2, r.y + r.h / 2, size, col, 'center', '800');
+}
 function drawPracticeMenu() {
   const m = G.pm;
   if (m.view === 'boons') { drawPracticeBoons(); return; }
+  if (m.view === 'dummy') { drawPracticeDummy(); return; }
   overlay(0.6);
   const L = practiceLayout();
   label('🎯 연습실', W / 2, L[0].y - 34, 22, '#ffe08a', 'center', '900');
   label(G.practice.msg || '보상도 기록도 없는 연습 공간이에요', W / 2, L[0].y - 12, 12, G.practice.msg ? '#8ff0b0' : '#ccd', 'center', '700');
-  L.forEach((r, i) => {
-    const sel = m.sel === i;
-    ctx.fillStyle = sel ? 'rgba(70,60,110,0.97)' : 'rgba(24,28,40,0.92)'; (rrPath(r.x, r.y, r.w, r.h, 7), ctx.fill());
-    ctx.strokeStyle = sel ? '#ffd24a' : 'rgba(255,255,255,0.18)'; ctx.lineWidth = sel ? 2 : 1; (rrPath(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 7), ctx.stroke());
-    label((sel ? '▶ ' : '') + practiceItemName(r.it), r.x + r.w / 2, r.y + r.h / 2, 14, r.it.id === 'leave' ? '#ffb0a0' : '#fff', 'center', '800');
-  });
+  L.forEach((r, i) => practiceBtn(r, (m.sel === i ? '▶ ' : '') + r.it.name, m.sel === i, false, r.it.id === 'leave' ? '#ffb0a0' : '#fff'));
   const d = Input.state.device;
   const how = d === 'touch' ? '항목을 탭하세요' : d === 'gamepad' ? '↑↓←→ 고르기 · A 결정 · B 돌아가기' : `방향키 고르기 · ${menuKeys().ok} 결정 · ${menuKeys().no} 돌아가기`;
   label(how, W / 2, H - inset.b - 18, 12, '#aab', 'center', '600');
@@ -212,6 +226,7 @@ function drawPracticeMenu() {
 function handlePracticeMenu(dt, inp) {
   const m = G.pm, P = G.practice;
   if (m.view === 'boons') { handlePracticeBoons(dt, inp); return; }
+  if (m.view === 'dummy') { handlePracticeDummy(dt, inp); return; }
   const { dy, dx } = menuAxis(m, inp, dt), n = PRACTICE_ITEMS.length;
   if (dy) { const rows = Math.ceil(n / 2), r = (Math.floor(m.sel / 2) + dy + rows) % rows; m.sel = Math.min(n - 1, r * 2 + m.sel % 2); Sfx.pickup(); } // 마지막 줄이 한 칸뿐이면 그 칸으로
   if (dx) { const k = m.sel % 2 ? m.sel - 1 : Math.min(n - 1, m.sel + 1); if (k !== m.sel) { m.sel = k; Sfx.pickup(); } }
@@ -223,17 +238,62 @@ function handlePracticeMenu(dt, inp) {
   const id = PRACTICE_ITEMS[pick].id;
   Sfx.pickup();
   if (id === 'resume') { G.state = 'play'; P.msg = null; }
+  else if (id === 'dummy') { P.msg = null; m.view = 'dummy'; m.dr = 0; m.dc = 1; }
   else if (id === 'reset') { G.practiceReset(); P.msg = '측정을 처음부터 다시 해요'; }
-  else if (DUMMY[id]) G.practiceSpawn(id);
-  else if (id === 'clear') { G.enemies = []; G.practiceReset(); P.msg = '더미를 모두 치웠어요'; }
-  else if (id === 'move') {
-    const k = PRACTICE_MOVES.findIndex(mm => mm[0] === P.move), nx = PRACTICE_MOVES[(k + 1) % PRACTICE_MOVES.length];
-    P.move = nx[0]; P.msg = `더미 움직임: ${nx[1]}`;
-    if (nx[0] === 'chase') for (const e of G.enemies) e.home = { x: e.x, y: e.y };
-  }
   else if (id === 'boons') { P.msg = null; m.view = 'boons'; m.bsel = practiceBoonRows().findIndex(r => r.b || r.act); m.bscroll = 0; m.drag = null; }
   else if (id === 'settings') openSettings('paused');
   else if (id === 'leave') { G.practice = null; G.goVillage(); }
+}
+
+// ── 더미 메뉴: 부르기(종류 4) · 움직임(4) · 모두 치우기 · 돌아가기 ──
+const PD_KINDS = ['small', 'mid', 'boss', 'dev'];
+function practiceDummyLayout() {
+  const gap = 8, w = Math.min(150, (W - 40 - gap * 3) / 4), h = clamp((H - inset.t - inset.b - 170) / 3, 30, 42);
+  const x0 = W / 2 - (w * 4 + gap * 3) / 2, top = inset.t + 70;
+  const rowY = i => top + i * (h + 26);
+  const rows = [
+    PD_KINDS.map((k, i) => ({ id: 'spawn', k, x: x0 + i * (w + gap), y: rowY(0), w, h })),
+    PRACTICE_MOVES.map((mv, i) => ({ id: 'move', k: mv[0], x: x0 + i * (w + gap), y: rowY(1), w, h })),
+    [{ id: 'clear', x: W / 2 - w - gap / 2, y: rowY(2), w, h }, { id: 'back', x: W / 2 + gap / 2, y: rowY(2), w, h }],
+  ];
+  return { rows, heads: [rowY(0) - 12, rowY(1) - 12] };
+}
+function drawPracticeDummy() {
+  const m = G.pm, P = G.practice, L = practiceDummyLayout();
+  overlay(0.65);
+  label('더미', W / 2, inset.t + 26, 20, '#ffe08a', 'center', '900');
+  label(P.msg || `지금 ${G.enemies.length}개 · 최대 ${PRACTICE_MAX_DUMMY}개`, W / 2, inset.t + 46, 11, P.msg ? '#8ff0b0' : '#aab', 'center', '700');
+  const x0 = L.rows[0][0].x;
+  label('부르기 (누를 때마다 하나씩)', x0, L.heads[0], 11, '#ccd', 'left', '700');
+  label('움직임 · ' + PRACTICE_MOVE_TIP[P.move], x0, L.heads[1], 11, '#ccd', 'left', '700');
+  L.rows.forEach((row, ri) => row.forEach((b, ci) => {
+    const sel = m.dr === ri && m.dc === ci, on = b.id === 'move' && P.move === b.k;
+    const text = b.id === 'spawn' ? DUMMY[b.k].name : b.id === 'move' ? PRACTICE_MOVES.find(mv => mv[0] === b.k)[1] : b.id === 'clear' ? '모두 치우기' : '돌아가기';
+    practiceBtn(b, text, sel, on, b.id === 'clear' ? '#ffb0a0' : '#fff', 13);
+  }));
+  const d = Input.state.device;
+  const how = d === 'touch' ? '항목을 탭하세요' : d === 'gamepad' ? '↑↓←→ 고르기 · A 결정 · B 돌아가기' : `방향키 고르기 · ${menuKeys().ok} 결정 · ${menuKeys().no} 돌아가기`;
+  label(how, W / 2, H - inset.b - 18, 12, '#aab', 'center', '600');
+}
+function handlePracticeDummy(dt, inp) {
+  const m = G.pm, P = G.practice, L = practiceDummyLayout();
+  const back = () => { m.view = 'menu'; P.msg = null; Sfx.pickup(); };
+  if (inp.back || inp.pause) { back(); return; }
+  const { dy, dx } = menuAxis(m, inp, dt);
+  if (dy) { m.dr = (m.dr + dy + L.rows.length) % L.rows.length; m.dc = Math.min(m.dc, L.rows[m.dr].length - 1); Sfx.pickup(); }
+  if (dx) { const n = L.rows[m.dr].length; m.dc = (m.dc + dx + n) % n; Sfx.pickup(); }
+  let b = null;
+  if (inp.tap) { L.rows.forEach((row, ri) => row.forEach((r, ci) => { if (inRectPt(inp.tap, r)) { m.dr = ri; m.dc = ci; b = r; } })); }
+  else if (inp.confirm) b = L.rows[m.dr][m.dc];
+  if (!b) return;
+  Sfx.pickup();
+  if (b.id === 'spawn') G.practiceSpawn(b.k);
+  else if (b.id === 'move') {
+    P.move = b.k; P.msg = '움직임: ' + PRACTICE_MOVES.find(mv => mv[0] === b.k)[1];
+    for (const e of G.enemies) { e.home = { x: e.x, y: e.y }; e.cd = 1; }
+  }
+  else if (b.id === 'clear') { G.enemies = []; G.practiceReset(); P.msg = '더미를 모두 치웠어요'; }
+  else back();
 }
 
 // ── 축복 달기: 모든 축복을 속성별로. ←→ 로 레벨, 같은 칸 축복은 하나만 ──
