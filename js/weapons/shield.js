@@ -11,6 +11,7 @@ const SHIELD_HALF = 1.3;        // 밀치기 좌우 각도 (검 1.05) — 방패
 const SHIELD_FIN_REACH = 58;    // 3타째 몸으로 밀어치기
 const SHIELD_FIN_HALF = 1.55;
 const SHIELD_FIN_CD = 0.45;     // 3타 뒤 다음 공격까지
+const SHIELD_FIN_LINK = 0.35;   // 3타가 끝난 뒤 이 시간 안에 특수를 누르면 돌려치기 대신 방패 돌진 (2026-10-31 사용자)
 const SHIELD_BODY_LUNGE = 190;  // 몸으로 밀어치기: 앞으로 뛰어드는 속도 (동작 앞쪽 45% 동안)
 const SHIELD_GUARD_AFTER = 0.15; // 돌진이 끝난 뒤에도 이만큼 정면을 막는다
 const SHIELD_FRONT = 2.0;       // 막을 수 있는 각도 (정면에서 좌우 약 115°, 1.6 → 2.0 2026-10-31 사용자: 가드 범위 넓게)
@@ -88,14 +89,18 @@ addWeapon('shield', {
   basicAfterDash: p => p.startShieldSlam(),
   dashEcho: p => ({ x: p.x + Math.cos(p.facing) * 14, y: p.y + Math.sin(p.facing) * 10, dir: p.facing, shape: { range: SHIELD_SLAM_R * (1 + 0.1 * FX.lv('atk_thrust')), half: Math.PI } }), // 방패 후리기 다단히트: 땅이 한 번 더 울린다
   charged: (p, mag) => p.startQuake(mag),
-  special: (p, mag) => (p.postDashT > 0 ? p.startShieldCharge(mag) : p.startShieldSpin(mag)), // 대시 직후면 방패 돌진
+  special: (p, mag) => {
+    if (p.postDashT > 0) return p.startShieldCharge(mag); // 대시 직후면 방패 돌진
+    if ((p.act && p.act.kind === 'bashFin') || G.time < (p.finLinkAt || 0)) { p.aim(mag); return p.startShieldCharge(mag); } // 3타째 밀치기에서 이어 누르면 방패 돌진
+    return p.startShieldSpin(mag);
+  },
   specialInDash: p => p.startShieldCharge(0), // 대시 중 특수 → 방패 돌진 (돌려치기와 쿨타임 같이 씀)
   skill: null,
   rows: (A, P, D) => [
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
     ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '모으는 동안 정면을 막는다 (저스트 가드 없음 · 막아도 안 끊김) · 땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 95까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
-    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐내고, 내 둘레에 작은 충격파로 주변 적을 밀어낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
+    ['방패 돌진', `${D} 중 ${P} · 3타째 밀치기 뒤 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐내고, 내 둘레에 작은 충격파로 주변 적을 밀어낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (막으면 피해 0 · 다음 밀치기는 반격 밀치기) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
     ['벽꿍', '3타째 밀치기 · 돌려치기 · 방패 돌진으로 벽에 밀기', '추가 피해 + 기절 · 특수 · 대시 쿨타임 초기화'],
@@ -320,6 +325,7 @@ extendPlayer({
     this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.24 : 0.15, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? SHIELD_FIN_HALF : SHIELD_HALF,
       opts: mult !== 1 ? { mult } : undefined, counter };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
+    this.finLinkAt = fin ? G.time + this.act.dur + SHIELD_FIN_LINK : 0; // 3타 → 특수 = 방패 돌진 연계
     this.atkCd = (fin ? SHIELD_FIN_CD : 0.28) * (1 - COMBO_SPEED * FX.lv('atk_combo'));
     this.guardSrc = 'bash'; // 밀치는 중 막기는 피해 일부
     this.comboT = this.atkCd + 0.35;
@@ -360,7 +366,7 @@ extendPlayer({
     this.guardT = Math.max(this.guardT, this.act.dur + 0.05); // 달리는 내내 정면을 막는다
     this.guardOnset = G.time; // 방패 돌진을 누른 순간부터 저스트 가드
     this.guardSrc = 'dash';
-    this.postDashT = 0; this.atkBuffer = 0; this.comboT = 0; this.finisherT = 0; this.charge = 0;
+    this.postDashT = 0; this.atkBuffer = 0; this.comboT = 0; this.finisherT = 0; this.charge = 0; this.finLinkAt = 0;
     G.text(this.x, this.y - 26, '방패 돌진!', '#ffd28a', 13, 0.6);
     G.shake = Math.max(G.shake, 3); Sfx.lunge(); Input.rumble(0.5, 140);
   },
