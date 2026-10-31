@@ -1,7 +1,7 @@
 'use strict';
 // ── 사냥꾼의 활: 사냥형 · 빠른 연사, 꿰뚫는 화살, 덫, 덫 던지기 (2026-10-20) ──
 // 멀리서 쏘되 원거리 마물 절반보다는 사거리가 짧아서, 덫을 깔고 몰아넣으며 계속 자리를 잡는 무기.
-// 덫은 근접 마물이 밟고, 원거리 마물 · 보스는 덫 근처로 몰아 화살로 쏴서 터뜨린다.
+// 덫은 근접 마물이 밟고, 원거리 마물 · 보스는 덫 근처로 몰아 화살로 쏴서 터뜨린다. 덫 놓기는 사거리 안 마물 앞에 던진다 (2026-10-31).
 
 const BOW_RANGE = 150;          // 기본 연사 사거리 (마법봉 136 보다 조금 길고, 원거리 마물 절반보다 짧게)
 const ARROW_SPEED = 380;        // 화살 속도 (휘지 않는다)
@@ -13,7 +13,12 @@ const TRAP_LIFE = 12;           // 덫이 남아 있는 시간
 const TRAP_R = 16;              // 밟는 판정
 const TRAP_BOOM_R = 40;         // 마물이 밟으면 바로 터지는 범위
 const TRAP_SHOT_R = 64;         // 화살로 쏴서 터뜨리면 더 크게 (연계 보너스)
-const TRAP_FRONT = 28;          // 덫을 놓는 거리 (발밑 ~ 바로 앞)
+// 덫 놓기 (2026-10-31 사용자: 발밑 → 사거리를 두고 몹 근처에): 사거리 안 앞쪽의 마물 앞(내 쪽)에 던진다. 몸 바로 밑이 아니라
+// 한 걸음 앞이라 다가오는 근접 마물은 밟고, 안 오는 원거리 마물 · 보스는 화살로 쏴서 터뜨린다. 마물이 없으면 앞쪽 TRAP_NEAR
+const TRAP_CAST_RANGE = 100;    // 덫을 던지는 사거리 (연사 150 · 덫 던지기 110 보다 짧게)
+const TRAP_NEAR = 60;           // 노릴 마물이 없을 때 앞쪽 거리
+const TRAP_GAP = 8;             // 밟는 판정(TRAP_R + 몸 60%) 바깥으로 이만큼 더 떨어진 곳 → 가만히 있는 마물 밑에서 저절로 터지지 않는다
+const TRAP_AIM = { range: TRAP_CAST_RANGE, half: AIM_HALF_ANGLE, moveHalf: 25 * Math.PI / 180 };
 const TRAP_ARROW_RANGE = 110;   // 덫 던지기 덫 화살 사거리 (기본 연사 150 보다 짧게, 2026-10-20)
 const DASH_SHOT_RECOIL = 15;    // 덫 던지기 반동: 쏘는 순간 화살 반대쪽으로 튕겨난다 (2026-10-20, 예전엔 앞으로 22 미끄러짐 → 들어가서 박고 빠지기)
 const DASH_SHOT_AIM = 45 * Math.PI / 180; // 덫 던지기 조준: 대시 방향 좌우 45° 안의 적 쪽으로 꺾여 나간다 (옆으로 스치며 박기)
@@ -47,6 +52,7 @@ addWeapon('bow', {
   notesTitle: '활 특성 · 덫',
   notes: [
     `연사 사거리는 ${BOW_RANGE}. 멀리 있는 원거리 마물(부엉이 · 해골 · 눈알 …)보다는 짧아서 다가가야 해요.`,
+    `덫 놓기는 사거리 ${TRAP_CAST_RANGE} 안 앞쪽 마물의 바로 앞(내 쪽)에 덫을 던져요. 노릴 마물이 없으면 앞쪽 ${TRAP_NEAR}, 마우스로 하면 커서 자리에 떨어져요.`,
     `덫은 동시에 ${TRAP_MAX}개까지, ${TRAP_LIFE}초 동안 남아요. 마물이 밟으면 바로 터져요 (범위 ${TRAP_BOOM_R}).`,
     `깔린 덫을 화살로 맞히면 더 크게 터져요 (범위 ${TRAP_SHOT_R}, 피해도 더 큼). 안 밟는 원거리 마물 · 보스에게 써요.`,
     `덫 던지기는 대시하던 쪽으로 덫 화살을 쏴요 (사거리 ${TRAP_ARROW_RANGE}). 맞은 적 자리에서 덫이 바로 터지고, 빗나가면 떨어진 곳에 덫이 꽂혀요.`,
@@ -60,7 +66,7 @@ addWeapon('bow', {
   rows: (A, P, D) => [
     ['기본 · 연사', `${A} ${A} ${A}`, `빠르게 쏜다 (사거리 ${BOW_RANGE}) · 3발째는 조금 강함 · 덫을 맞히면 터짐`],
     ['차지 · 꿰뚫는 화살', `${A} 길게 눌렀다 떼기`, `일직선 관통 (사거리 ${PIERCE_RANGE}) · 기절 · 빙결된 적에게 더 아픔`],
-    ['특수 · 덫 놓기', `${P} (쿨타임 3.5초)`, `발밑에 덫 · 동시에 ${TRAP_MAX}개 · 밟으면 터짐 · 화살로 쏘면 더 크게 터짐`],
+    ['특수 · 덫 놓기', `${P} (쿨타임 3.5초)`, `사거리 ${TRAP_CAST_RANGE} 안 앞쪽 마물 바로 앞에 덫을 던진다 (없으면 앞쪽 ${TRAP_NEAR}) · 동시에 ${TRAP_MAX}개 · 밟으면 터짐 · 화살로 쏘면 더 크게 터짐`],
     ['대시', `${D} (쿨타임 ${DASH_CD}초)`, '짧은 무적 이동'],
     ['덫 던지기', `${D} → ${A}`, `덫 화살 (사거리 ${TRAP_ARROW_RANGE}) · 맞으면 그 자리에서 덫이 터지고, 빗나가면 떨어진 곳에 덫`, 'thrust'],
     ['저스트 회피', `공격 직전에 ${D}`, '슬로우 + 확정 치명타', 'dodge'],
@@ -150,13 +156,25 @@ extendPlayer({
     G.text(this.x, this.y - 24, ms ? `꿰뚫는 화살 ×${1 + ms}` : '꿰뚫는 화살', '#ffd24a', 12, 0.6);
     Sfx.lunge();
   },
-  // 덫 놓기 (특수): 발밑 ~ 바로 앞. 최대 개수를 넘으면 가장 오래된 덫이 사라진다
+  // 덫 놓기 (특수): 사거리 안 앞쪽 마물 앞에 던진다 (없으면 앞쪽 TRAP_NEAR, 마우스면 커서 자리). 최대 개수를 넘으면 가장 오래된 덫이 사라진다
   startTrap(mag) {
-    this.aim(mag, BOW_AIM);
-    const x = this.x + Math.cos(this.facing) * TRAP_FRONT, y = this.y + 4 + Math.sin(this.facing) * TRAP_FRONT * 0.8;
+    const [x, y] = this.trapSpot(mag);
     placeTrap(x, y, 'special');
-    this.act = { kind: 'bowCast', t: 0, dur: 0.18, hit: new Set(), trapCast: true };
+    this.act = { kind: 'bowCast', t: 0, dur: 0.18, hit: new Set(), trapCast: true, tx: x, ty: y };
+    const tr = bowTraps().pop(); if (tr) tr.landT = 0.16; // 날아가는 동안은 안 보이게 (떨어지는 순간 나타난다)
     Sfx.block();
+  },
+  // 덫 던질 자리: 나무 · 바위 앞에서 멈춘다 (벽 속에 박히지 않게)
+  trapSpot(mag) {
+    this.aimTarget = null;
+    this.aim(mag, TRAP_AIM);
+    const ms = Input.state, f = this.facing, t = this.aimTarget;
+    let d = TRAP_NEAR;
+    if (ms.mouseAim && ms.mouse && G.view) d = Math.min(TRAP_CAST_RANGE, Math.hypot(G.view.x + ms.mouse.x / SCALE - this.x, G.view.y + ms.mouse.y / SCALE - this.y)); // 마우스: 커서 자리 (사거리까지)
+    else if (t && !t.dead) d = Math.max(0, Math.hypot(t.x - this.x, t.y - this.y) - (TRAP_R + (t.r || 8) * 0.6 + TRAP_GAP)); // 마물 앞 (내 쪽), 밟는 판정 바로 바깥
+    let x = this.x + Math.cos(f) * d, y = this.y + 4 + Math.sin(f) * d;
+    for (let back = 0; back < d && World.shotBlockedAt(x, y + 2); back += 6) { x -= Math.cos(f) * 6; y -= Math.sin(f) * 6; }
+    return [x, y];
   },
   // 덫 던지기 (대시 공격): 대시하던 쪽으로 덫 화살. 맞으면 그 적을 덫이 바로 물고, 빗나가면 떨어진 곳에 덫이 꽂힌다 (2026-10-20)
   startBackShot() {
@@ -198,7 +216,11 @@ extendPlayer({
     else if (!a && this.charge > 0) pull = this.charge; // 차지: 시위를 당기고 있다
     else if (!a) ang = f + 0.9; // 평소: 비스듬히
     bowSprite(g, x + Math.cos(ang) * 10, cy + 2 + Math.sin(ang) * 8, ang, pull);
-    if (a && a.trapCast) { const k = a.t / a.dur; g.globalAlpha = 1 - k; g.fillStyle = slotCol('special', FX_WHITE); g.fillRect(Math.round(x + Math.cos(f) * TRAP_FRONT * k) - 1, Math.round(y + 4 + Math.sin(f) * TRAP_FRONT * 0.8 * k) - 1, 3, 3); g.globalAlpha = 1; }
+    if (a && a.trapCast) { // 던진 덫: 손에서 떨어질 자리까지 포물선으로 날아가는 점 (특수 칸 색)
+      const k = Math.min(1, a.t / a.dur), sx = x, sy = y + 4, hop = Math.sin(k * Math.PI) * Math.min(24, Math.hypot(a.tx - sx, a.ty - sy) * 0.3);
+      g.globalAlpha = 1 - k * 0.5; g.fillStyle = slotCol('special', FX_WHITE);
+      g.fillRect(Math.round(sx + (a.tx - sx) * k) - 1, Math.round(sy + (a.ty - sy) * k - hop) - 1, 3, 3); g.globalAlpha = 1;
+    }
   },
 });
 
@@ -389,6 +411,7 @@ class BowTrap {
   }
   // 그림: 바닥에 놓인 도트 덫 (이빨 달린 고리) + 가운데 빛. 사라질 때가 되면 깜빡인다
   draw(g) {
+    if (this.t < (this.landT || 0)) return; // 던진 덫: 아직 날아가는 중
     const a0 = g.globalAlpha, col = slotCol(this.slot, FX_WHITE);
     const fadeIn = clamp(this.t / 0.25, 0, 1), blink = this.life < 2 && Math.sin(this.life * 20) < 0 ? 0.35 : 1;
     g.globalAlpha = a0 * fadeIn * blink;
