@@ -24,7 +24,11 @@ const DASH_SHOT_RECOIL = 15;    // 덫 던지기 반동: 쏘는 순간 화살 �
 const DASH_SHOT_AIM = 45 * Math.PI / 180; // 덫 던지기 조준: 대시 방향 좌우 45° 안의 적 쪽으로 꺾여 나간다 (옆으로 스치며 박기)
 const DASH_SHOT_SLIDE_OLD = 22;     // 덫 던지기 (예전 이름 대시 사격, 2026-10-20 이름만 바꿈: 화살에 덫을 달아 날린다): 대시하던 쪽으로 조금 더 미끄러진다 (물러서기는 적응이 어렵다는 의견으로 바꿈, 2026-10-20)
 const LURE_R = [0, 60, 80, 100]; // 덫 유인 (특수 강화) 레벨별 끌어당기는 범위
-const LURE_PULL = 55;           // 끌어당기는 속도 (초당 거리, 마물 걸음보다 조금 느리게)
+const LURE_PULL = 40;           // 끌어당기는 속도 (초당 거리, 마물 걸음보다 느리게. 55 → 40, 2026-10-31 사용자)
+// 유인 덫 (2026-10-31 사용자): 덫이 마물 바로 앞에 떨어지게 바뀌자 유인이 노린 마물을 0.4초 만에 끌어와 터뜨려 버렸다 →
+// 처음 끌어당기기 시작한 뒤 LURE_TIME 동안 모으고 터진다. 끌려온 마물은 덫 가장자리에서 멈추고(끌려와 밟은 걸로 치지 않음),
+// 스스로 걸어와 밟으면 그때는 바로 터진다
+const LURE_TIME = 1.3;
 const BOW_AIM = { range: 160, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 const PIERCE_AIM = { range: 240, half: AIM_HALF_ANGLE, moveHalf: 20 * Math.PI / 180 };
 
@@ -115,7 +119,7 @@ BOON_FORMS.bow = {
   atk_combo:      { name: '잔상 사격', desc: lv => `3발째를 잔상 화살이 ${COMBO_ECHO_HITS}번 더 쏜다 (잔상 한 번에 3발째 피해의 ${pct(ECHO_MULT)}).` + (lv > 1 ? ` 3발째 피해 +${Math.round(COMBO_FIN * 100 * (lv - 1))}%.` : '') },
   atk_spin:       { name: '꿰뚫는 화살 강화', desc: lv => `차지 시간 -${15 * lv}%, 꿰뚫는 화살 사거리 +${10 * lv}%.` }, // 예전엔 검 설명(회전베기 범위)이 그대로 나왔다
   atk_multispin:  { name: '연환 관통', desc: lv => `꿰뚫는 화살 뒤 정령의 화살이 같은 줄을 ${lv}번 더 꿰뚫는다 (피해 ${pct(MULTISPIN_MULT)}).` },
-  atk_wave:       { name: '덫 유인', desc: lv => `덫이 둘레 ${LURE_R[Math.min(lv, 3)]} 안의 마물을 천천히 끌어당긴다 (보스 제외).` + (lv >= 2 ? ` 동시에 깔 수 있는 덫 +1.` : '') },
+  atk_wave:       { name: '덫 유인', desc: lv => `덫이 둘레 ${LURE_R[Math.min(lv, 3)]} 안의 마물을 ${LURE_TIME}초 동안 끌어모은 뒤 터진다 (보스 제외, 스스로 밟으면 바로 터짐).` + (lv >= 2 ? ` 동시에 깔 수 있는 덫 +1.` : '') },
   atk_thrust:     { name: '덫 던지기 강화', desc: lv => ['', '사거리 +10% · 1명 관통.', '사거리 +20% · 1명 관통 · 맞히면 대시 충전.', '사거리 +30% · 2명 관통 · 맞히면 대시 충전.'][Math.min(lv, 3)] + ' (덫은 덫 놓기 축복을 따름)' },
   sharp:          { name: '예리한 화살촉' },
   lifesteal:      { name: '흡혈 화살' },
@@ -370,13 +374,21 @@ class BowTrap {
     if (this.chainT !== undefined) { this.chainT -= dt; if (this.chainT <= 0) this.boom(this.chainShot, null, true); return; }
     if (this.life <= 0) { this.done = true; return; }
     if (!this.armed) return;
-    // 덫 유인 (특수 강화): 둘레의 마물을 천천히 끌어당긴다 (보스 · 단단히 선 적 제외)
+    // 덫 유인 (특수 강화): 둘레의 마물을 천천히 끌어당긴다 (보스 · 단단히 선 적 제외). 끌기 시작하고 LURE_TIME 뒤 터진다
     const lure = this.slot === 'special' ? LURE_R[Math.min(FX.lv('atk_wave'), 3)] : 0;
+    if (lure && this.lureAt !== undefined && this.t - this.lureAt >= LURE_TIME) { this.boom(false, null); return; }
     for (const t of G.targets()) {
       if (t.dead || t.hidden || t.spawnT > 0) continue;
-      const dx = this.x - t.x, dy = this.y - 4 - t.y, d = Math.hypot(dx, dy) || 1;
-      if (d < TRAP_R + (t.r || 8) * 0.6) { this.spring(t); return; }
-      if (lure && d < lure && t.type !== 'boss' && !t.superArmor && !(t.stun > 0)) { const vx = dx / d * LURE_PULL * dt, vy = dy / d * LURE_PULL * dt; if (t.flying) World.fly(t, vx, vy); else World.move(t, vx, vy); if (Math.random() < dt * 6) G.dust(t.x, t.y + 6); }
+      const dx = this.x - t.x, dy = this.y - 4 - t.y, d = Math.hypot(dx, dy) || 1, edge = TRAP_R + (t.r || 8) * 0.6;
+      if (d < edge) { this.spring(t); return; } // 밟았다 (스스로 걸어 들어온 것)
+      if (lure && d < lure && t.type !== 'boss' && !t.superArmor && !(t.stun > 0)) {
+        if (this.lureAt === undefined) this.lureAt = this.t;
+        const m = Math.min(LURE_PULL * dt, d - edge - 2); // 가장자리에서 멈춘다 → 끌려와서는 안 터진다
+        if (m <= 0) continue;
+        const vx = dx / d * m, vy = dy / d * m;
+        if (t.flying) World.fly(t, vx, vy); else World.move(t, vx, vy);
+        if (Math.random() < dt * 6) G.dust(t.x, t.y + 6);
+      }
     }
   }
   // 마물이 밟으면 바로 폭발 (반경 ${TRAP_BOOM_R}). 묶지는 않는다 (2026-10-20: 묶기 → 즉시 폭발)
