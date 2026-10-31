@@ -675,7 +675,7 @@ class QuakeWave {
   // 그림: 선 대신 에셋 팩 도트 흙먼지(FX/Smoke)가 충격파 앞머리를 따라 퍼진다 (2026-10-18, 막기 이펙트처럼 도트 그림으로)
   draw(g) {
     const q = clamp((this.r - QUAKE_NEAR) / (this.maxR - QUAKE_NEAR), 0, 1), f = this.dir, cs = ElFx.slot('charge');
-    const img = this.after ? tintedBy(ART.img.smoke, '#9fdcff') : tintedBy(ART.img.smoke, cs ? EL_STYLE[cs.el].main : FX_WHITE);
+    const img = tintedBy(ART.img.smoke, cs ? EL_STYLE[cs.el].main : FX_WHITE); // 여진도 차지 칸 속성 색 (2026-10-31: 예전엔 여진만 하늘색 고정)
     const fr = Math.min(5, Math.floor(q * 6)) * 32, sz = 20 - q * 4;
     g.save(); g.globalAlpha = 0.9 - q * 0.4;
     for (const o of [-0.6, 0, 0.6]) {

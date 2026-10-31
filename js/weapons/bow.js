@@ -330,10 +330,10 @@ class PierceArrow {
   }
   draw(g) {
     if (this.delay > 0 || !this.started) return;
-    const c = Math.cos(this.dir), s = Math.sin(this.dir), col = this.ghost ? ECHO_COLOR : slotCol('charge', FX_WHITE);
+    const c = Math.cos(this.dir), s = Math.sin(this.dir), col = slotCol('charge', FX_WHITE); // 연환 관통(정령의 화살)도 차지 칸 속성 색 (2026-10-31: 예전엔 하늘색 고정)
     const a0 = g.globalAlpha; g.globalAlpha = a0 * (this.ghost ? 0.7 : 1);
     cutFx(g, this.x - c * 46, this.y - s * 46, this.dir, 50, 0, 0.6, col, 0.7); // 뒤로 끄는 도트 빛줄기
-    arrowSprite(g, this.x, this.y, this.dir, 1.5, this.ghost ? ECHO_COLOR : null);
+    arrowSprite(g, this.x, this.y, this.dir, 1.5, this.ghost ? col : null); // 정령의 화살: 화살 그림도 그 색으로 물들인다
     g.globalAlpha = a0;
   }
 }

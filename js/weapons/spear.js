@@ -312,7 +312,7 @@ extendPlayer({
       if (Math.random() < 0.8 * e) G.particles.push({ x: x + c * rand(30, L), y: cy + s * rand(30, L), vx: rand(-20, 20), vy: rand(-30, -5), life: 0.3, max: 0.3, color: Math.random() < 0.5 ? (cs ? EL_STYLE[cs.el].light : '#e8e8e8') : '#fff', size: 2, grav: 0 });
       if (a.phantomAt !== undefined && a.t - a.phantomAt < 0.1) { // 연환: 같은 줄을 한 번 더 (도트)
         g.save(); g.globalAlpha *= 1 - (a.t - a.phantomAt) / 0.1;
-        beamFx(g, x, cy, f, a.len, 0.6, '#bff4ff');
+        beamFx(g, x, cy, f, a.len, 0.6, cs ? EL_STYLE[cs.el].main : FX_WHITE); // 차지 칸 속성 색 (2026-10-31: 예전엔 하늘색 고정)
         g.restore();
       }
     } else if (a && a.kind === 'lunge') {
@@ -322,7 +322,8 @@ extendPlayer({
         const q = (a.t - a.phantomAt) / 0.1, ga = g.globalAlpha;
         g.globalAlpha = ga * 0.65 * (1 - q);
         spearSprite(g, x, cy, f, -12 + 46 * (1 - q * 0.4));
-        cutFx(g, x + c * 20, cy + s * 20, f, a.len - 20, 14, 0.6, '#bff4ff');
+        const pcs = ElFx.slot('charge');
+        cutFx(g, x + c * 20, cy + s * 20, f, a.len - 20, 14, 0.6, pcs ? EL_STYLE[pcs.el].main : FX_WHITE); // 차지 칸 속성 색 (2026-10-31: 예전엔 하늘색 고정)
         g.globalAlpha = ga;
       }
       if (p > 0.1) { // 관통 궤적: 도트 베기 그림, 기본 찌르기보다 굵고 길게 (2026-10-18, 선 → 도트)
@@ -513,7 +514,7 @@ class SpearShot {
       nx = dx / d; ny = dy / d;
       const step = Math.min(d, this.backSpeed * dt);
       this.x += nx * step; this.y += ny * step;
-      if (d < 16 || this.t > 3) { this.done = true; if (!this.phantom) Sfx.pickup(); else G.burst(this.x, this.y, 5, ['#7fe0ff', '#fff'], 60); return; }
+      if (d < 16 || this.t > 3) { this.done = true; if (!this.phantom) Sfx.pickup(); else G.burst(this.x, this.y, 5, slotBurst('special', ['#ffffff', '#e8e8e8']), 60); return; }
     }
     clearShotsNear(this.x, this.y, 14);
     for (const t of G.targets()) {
@@ -528,7 +529,7 @@ class SpearShot {
     if (this.phantom) g.globalAlpha = a * 0.6;
     // 꼬리: 날아가는 쪽 반대로 도트 베기 그림 한 줄 (특수 칸 속성 색, 정령 창은 푸른빛). 선 → 도트 (2026-10-18)
     const ss = ElFx.slot('special');
-    cutFx(g, this.x - c * 34, this.y - s * 34, this.dir, 40, 12, 0.6, ss ? EL_STYLE[ss.el].main : this.phantom ? '#7fe0ff' : null);
+    cutFx(g, this.x - c * 34, this.y - s * 34, this.dir, 40, 12, 0.6, ss ? EL_STYLE[ss.el].main : null); // 속성이 없으면 정령 창도 흰색 (2026-10-31: 예전엔 정령 창만 하늘색)
     if (ss && Math.random() < 0.6) ElFx.spark(ss, this.x - c * 12, this.y - s * 12);
     spearSprite(g, this.x, this.y, this.dir, -14);
     g.globalAlpha = a;
