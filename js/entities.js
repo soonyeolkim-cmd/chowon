@@ -144,6 +144,7 @@ class Player {
         const before = this.charge;
         this.charge = Math.min(1, this.charge + dt / this.chargeTime);
         if (before < 1 && this.charge >= 1) { Sfx.charged(); G.ring(this.x, this.y, slotCol('charge', FX_WHITE), 30); Input.pulse(1, 0.35); } // 진동 1번
+        if (this.weapon.chargeGuard) { this.guardT = Math.max(this.guardT, 0.1); this.guardSrc = 'charge'; } // 방패: 모으는 동안 정면을 막는다 (저스트 가드 없음, 막아도 차지가 안 끊긴다)
         // 차지 2단 (2026-10-18): 1단을 다 모은 뒤 계속 누르고 있으면 더 모인다
         const c2 = this.weapon.charge2Time;
         if (c2 && this.charge >= 1) {

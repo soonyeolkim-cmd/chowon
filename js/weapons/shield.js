@@ -38,6 +38,9 @@ const SHIELD_CHARGE_SPEED = 340;  // 달리는 속도 (약 115 거리)
 const SHIELD_CHARGE_GRAB = 22;    // 방패 앞 이 거리 안의 적을 붙잡아 민다
 const SHIELD_CHARGE_SHOCK_R = 48; // 방패 돌진에 맞은 적 자리에서 퍼지는 충격파 반경 (2026-10-18)
 const SHIELD_CHARGE_HALF = 0.95;  // 붙잡는 앞쪽 각도 (약 ±54°)       // 방패 그림 크기 (16픽셀 × PIX × 이 값)
+// 돌진 마무리 충격파 (2026-10-31 사용자): 돌진이 끝나는 순간 둘레의 적을 조금 밀어내 숨 돌릴 틈을 만든다. 넉백은 벽꿍(300 이상)이 안 나는 선
+const SHIELD_CHARGE_END_R = 40;
+const SHIELD_CHARGE_END_STUN = 0.3;
 // 반동 (2026-10-31 사용자): 막으면 쌓이고(일반 1칸 · 저스트 2칸), 다음 3타째 밀치기나 방패 강타에 실려 터진다. 제대로 맞으면 흩어진다
 const SHIELD_RECOIL_MAX = 3;
 const SHIELD_RECOIL_MULT = 0.4;   // 칸당 피해 +40%
@@ -46,7 +49,7 @@ const SHIELD_SWAY_MAX = 100;
 const SHIELD_SWAY_STUN = 2.2;     // 쓰러져 있는 시간 (그동안 받는 피해 ×1.5 = 보스 기절과 같다)
 const SHIELD_SWAY_LOCK = 5;       // 일어난 뒤 이 시간 동안은 안 쌓인다 (계속 눕히지 못하게)
 const SHIELD_SWAY_IDLE = 4, SHIELD_SWAY_DECAY = 8; // 이 시간 동안 안 쌓으면 초당 이만큼 줄어든다
-const SHIELD_SWAY_HIT = { bash: 2, bashFin: 10, quake: 14, shieldSpin: 6, shieldSlam: 8, shieldCharge: 12 };
+const SHIELD_SWAY_HIT = { bash: 2, bashFin: 10, quake: 14, shieldSpin: 6, shieldSlam: 8, shieldCharge: 12, chargeEnd: 4 };
 const SHIELD_SWAY_JUST = 30, SHIELD_SWAY_BLOCK = 8, SHIELD_SWAY_RECOIL = 8; // 저스트 가드 · 일반 막기 · 반동 실은 공격(칸당 더)
 
 Object.assign(MOVES, {
@@ -59,6 +62,7 @@ shieldSlam: { mult: 1.6, kb: 200, guardBreak: true, role: 'dash' },     // 방�
 shieldCharge: { mult: 1.4, kb: 520, guardBreak: true, role: 'special', shove: true }, // 방패 돌진 (대시 중 특수)
 shoveChain: { mult: 0.7, kb: 0, guardBreak: true, role: 'special', passive: true }, // 방패 돌진 연쇄: 날아간 적에 부딪힌 적 (2026-10-23)
 chargeShock: { mult: 0.9, kb: 320, guardBreak: false, role: 'special' }, // 방패 돌진 충격파 (맞은 적 둘레)
+chargeEnd:  { mult: 0.5, kb: 280, guardBreak: false, role: 'special' }, // 돌진 마무리 충격파 (내 둘레, 벽꿍 없음)
 shieldBump: { mult: 0.4, kb: 260, guardBreak: false, role: 'dash', light: true }, // 돌진하다 부딪힘
 });
 
@@ -76,6 +80,7 @@ addWeapon('shield', {
   dashSpeed: 280,
   dashCdMult: 0.9 / DASH_CD, // 대시 1회 · 0.9초 충전
   dashGuard: SHIELD_GUARD_AFTER, // 대시 = 방패 대시 (무적 · 저스트 회피 대신 정면 막기, entities.js · game.js hurtPlayer)
+  chargeGuard: true,         // 방패 강타를 모으는 동안 정면 막기 (일반 막기만 · 피해 30%, 차지는 안 끊긴다, 2026-10-31)
   wallSlam: true,            // 3타째 밀치기 · 돌려치기로 벽에 밀면 벽꿍
   slamBoon: 'ambush',        // 기습 축복이 방패에선 '벽치기'(벽꿍 강화)가 된다 (2026-10-18)
   skillCd: 0,
@@ -88,9 +93,9 @@ addWeapon('shield', {
   skill: null,
   rows: (A, P, D) => [
     ['기본 · 3연 밀치기', `${A} ${A} ${A}`, '밀치기를 이어 가는 동안 정면을 막는다 · 1 · 2타는 가볍게 툭, 3타째는 몸으로 뛰어들어 넓게 밀어치기 (크게 날리고 가드 브레이크) · 벽에 밀면 벽꿍'],
-    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 95까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
+    ['차지 · 방패 강타', `${A} 길게 눌렀다 떼기`, '모으는 동안 정면을 막는다 (저스트 가드 없음 · 막아도 안 끊김) · 땅을 내려찍어 앞쪽으로 부채꼴 충격파를 퍼뜨린다 (약 95까지) · 가드 브레이크 + 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음'],
     ['특수 · 돌려치기', `${P} (쿨타임 2.8초)`, '방패를 크게 한 바퀴 휘둘러 둘레의 적을 사방으로 멀리 날린다 · 벽에 부딪히면 벽꿍 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
-    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
+    ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐내고, 내 둘레에 작은 충격파로 주변 적을 밀어낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (막으면 피해 0 · 다음 밀치기는 반격 밀치기) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
     ['벽꿍', '3타째 밀치기 · 돌려치기 · 방패 돌진으로 벽에 밀기', '추가 피해 + 기절 · 특수 · 대시 쿨타임 초기화'],
@@ -99,7 +104,7 @@ addWeapon('shield', {
   notesTitle: '방패 특성 · 막기',
   notes: [
     '방패는 저스트 회피가 없어요. 대시가 방패 대시예요.',
-    '방패 대시 중 · 끝난 직후 잠깐 · 밀치는 동안 · 방패 돌진 중, 정면에서 오는 공격과 탄을 막아요. 방패 대시 · 돌진으로 막으면 피해 0, 밀치는 동안 막으면 피해를 30%만 받아요. 막으면 다음 밀치기는 반격 밀치기(피해 ×1.6)예요.',
+    '방패 대시 중 · 끝난 직후 잠깐 · 밀치는 동안 · 방패 강타를 모으는 동안 · 방패 돌진 중, 정면에서 오는 공격과 탄을 막아요. 방패 대시 · 돌진으로 막으면 피해 0, 밀치거나 모으는 동안 막으면 피해를 30%만 받아요(모으던 힘은 안 끊겨요). 막으면 다음 밀치기는 반격 밀치기(피해 ×1.6)예요.',
     '저스트 가드: 막기를 새로 시작하고 0.25초 안에 맞으면(공격이 닿는 순간 밀치기 · 대시 · 돌진을 누르면) 피해 0, 특수 · 대시 쿨타임 초기화, 때린 적은 튕겨 나가 1.2초 기절, 다음 밀치기는 반격 밀치기(피해 ×1.6, 확정 치명타)가 돼요. 밀치기를 계속 이어 누르는 중에는 저스트가 안 돼요.',
     '못 막는 것: 바닥에서 터지는 범위 공격(빨간 원 · 뿌리 · 폭발)과 뒤에서 오는 공격. 이건 위치로 피해야 해요.',
     '벽꿍: 3타째 밀치기 · 돌려치기 · 방패 돌진으로 적을 벽에 밀면 추가 피해 + 기절, 그리고 특수 · 대시 쿨타임이 바로 돌아와요.',
@@ -233,7 +238,7 @@ extendPlayer({
     this.guardWave(); // 각성: 막을 때 충격파
     const f = this.dashT > 0 ? this.dashDir : this.facing, c = Math.cos(f), s = Math.sin(f);
     const bx = this.x + c * 14, by = this.y - 8 + s * 14, isFoe = src && src.type && !src.dead && src.kvx !== undefined;
-    const just = G.time - (this.guardOnset ?? -99) <= SHIELD_JUST_T;
+    const just = this.guardSrc !== 'charge' && G.time - (this.guardOnset ?? -99) <= SHIELD_JUST_T; // 차지 모으는 중 막기는 저스트가 없다 (2026-10-31 사용자)
     this.guardFxT = 0.3;
     if (!just) { // 일반 막기: 방패 대시 · 돌진이면 피해 0, 밀치는 중이면 피해 일부. 어느 쪽이든 다음 밀치기는 반격 밀치기 (2026-10-18)
       this.kvx -= c * 90; this.kvy -= s * 90;
@@ -535,6 +540,15 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       } else if (!a.ended) { // 끝: 붙잡은 적을 크게 밀쳐낸다
         a.ended = true;
         for (const t of a.carry) if (!t.dead) { t.kvx = c * 520; t.kvy = s * 520; shoveChain(a).add(t, 1); }
+        // 마무리 충격파: 붙잡아 민 적 말고 둘레의 적을 조금 밀어내고 잠깐 기절
+        for (const t of G.targets()) {
+          if (a.carry.has(t)) continue;
+          const dx = t.x - this.x, dy = t.y - this.y, d = Math.hypot(dx, dy) || 1;
+          if (d > SHIELD_CHARGE_END_R + (t.r || 8)) continue;
+          this.deal(t, 'chargeEnd', dx / d, dy / d);
+          if (!t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, SHIELD_CHARGE_END_STUN);
+        }
+        G.projectiles.push(new DustRing(this.x, this.y - 2, SHIELD_CHARGE_END_R, 8, slotCol('special', null)));
         G.projectiles.push(new DustRing(this.x + c * 16, this.y + s * 10, 20, 4, slotCol('special', null))); G.shake = Math.max(G.shake, 5); Sfx.slam();
         FX.onShieldSpinEnd(this); // 특수 속성 축복의 마무리 효과(폭발 · 얼음 장판 · 벼락)가 방패 돌진 끝에도 (2026-10-23 사용자: 벼락 돌려치기가 돌진에 안 붙음)
       }
