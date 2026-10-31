@@ -460,6 +460,7 @@ Object.assign(FX, {
     G.burst(e.x, e.y, 10, ['#d8c8a8', '#fff'], 150);
     G.shake = Math.max(G.shake, 4); Sfx.guardBreak();
     this.damage(e, G.player.atk * WALL_SLAM_MULT * (1 + 0.6 * sb), '#ffb84a', sb ? 15 : 13);
+    G.player.weapon.onWallSlam?.(G.player, e); // 무기별 벽꿍 보상 (방패: 쿨타임 초기화)
   },
 });
 

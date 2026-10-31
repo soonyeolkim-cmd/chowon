@@ -634,6 +634,7 @@ const G = {
     if (this.practice && p.hp < 1) p.hp = 1; // 연습실: 쓰러지지 않는다 (체력은 천천히 찬다)
     this.hintHurt(src);
     if (p.momentum > 0) { p.momentum = 0; this.text(p.x, p.y - 30, '기세 끊김', '#c8b8a8', 10, 0.5); } // 쌍검: 맞으면 기세가 사라진다
+    if (p.recoil > 0 && !chip) { p.recoil = 0; this.text(p.x, p.y - 30, '반동 흩어짐', '#c8b8a8', 10, 0.5); } // 방패: 막지 못하고 제대로 맞으면 반동이 사라진다
     const dx = p.x - src.x, dy = p.y - src.y, d = Math.hypot(dx, dy) || 1;
     p.kvx = dx / d * (chip ? 90 : 220); p.kvy = dy / d * (chip ? 90 : 220);
     if (!chip) { p.act = null; p.charge = 0; this.chain = 0; } // 방패로 막고 받은 피해는 하던 동작을 끊지 않는다
@@ -1197,6 +1198,7 @@ function drawHud() {
     const hudRight = bx + bw + 16;
     const bw2 = Math.max(140, Math.min(420, W - 2 * hudRight));
     bar(cxm - bw2 / 2, inset.t + 32, bw2, 9, boss.hp / boss.maxHp, boss.enraged ? '#ff5a3c' : '#e04848');
+    p.weapon.bossHud?.(boss, cxm - bw2 / 2, inset.t + 43, bw2); // 무기별 보스 막대 (방패: 휘청)
   }
 
   // 모험 진행 시간 (타임어택)

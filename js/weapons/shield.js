@@ -1,7 +1,7 @@
 'use strict';
 // ── 수호의 방패: 수호형 · 방패 대시로 막고 밀어내기. 묵직하고 느리다 (2026-10-17) ──
 // 저스트 회피가 없다. 대신 대시(방패 대시)가 정면 공격을 막고, 막으면 쿨타임이 풀리고 다음 밀치기가 강해진다.
-// 약점: 바닥 · 범위 공격과 옆 · 뒤는 못 막는다, 돌진은 적을 통과하지 못하고 부딪혀 멈춘다, 대시 1회.
+// 약점: 바닥 · 범위 공격과 뒤는 못 막는다, 돌진은 적을 통과하지 못하고 부딪혀 멈춘다, 대시 1회.
 // 그림: Things by SnoopethDuckDuck (CC0) 의 청동 원형 방패, 막기 보호막은 에셋 팩 FX/Magic/Shield
 
 // 방패 수치
@@ -13,7 +13,7 @@ const SHIELD_FIN_HALF = 1.55;
 const SHIELD_FIN_CD = 0.45;     // 3타 뒤 다음 공격까지
 const SHIELD_BODY_LUNGE = 190;  // 몸으로 밀어치기: 앞으로 뛰어드는 속도 (동작 앞쪽 45% 동안)
 const SHIELD_GUARD_AFTER = 0.15; // 돌진이 끝난 뒤에도 이만큼 정면을 막는다
-const SHIELD_FRONT = 1.6;       // 막을 수 있는 각도 (정면에서 좌우 약 90°)
+const SHIELD_FRONT = 2.0;       // 막을 수 있는 각도 (정면에서 좌우 약 115°, 1.6 → 2.0 2026-10-31 사용자: 가드 범위 넓게)
 const SHIELD_BLOCK_INV = 0.3;   // 저스트 가드 뒤 잠깐 무적 (같은 공격에 두 번 맞지 않게)
 // 저스트 가드 (2026-10-18): 막기를 새로 시작한 뒤 이 시간 안에 맞으면 저스트. 아니면 일반 막기 = 피해 일부만 받는다
 const SHIELD_JUST_T = 0.25;
@@ -38,6 +38,16 @@ const SHIELD_CHARGE_SPEED = 340;  // 달리는 속도 (약 115 거리)
 const SHIELD_CHARGE_GRAB = 22;    // 방패 앞 이 거리 안의 적을 붙잡아 민다
 const SHIELD_CHARGE_SHOCK_R = 48; // 방패 돌진에 맞은 적 자리에서 퍼지는 충격파 반경 (2026-10-18)
 const SHIELD_CHARGE_HALF = 0.95;  // 붙잡는 앞쪽 각도 (약 ±54°)       // 방패 그림 크기 (16픽셀 × PIX × 이 값)
+// 반동 (2026-10-31 사용자): 막으면 쌓이고(일반 1칸 · 저스트 2칸), 다음 3타째 밀치기나 방패 강타에 실려 터진다. 제대로 맞으면 흩어진다
+const SHIELD_RECOIL_MAX = 3;
+const SHIELD_RECOIL_MULT = 0.4;   // 칸당 피해 +40%
+// 휘청 (2026-10-31 사용자): 방패는 보스를 밀 수 없어서 보스전이 약하다 → 막기 · 방패 기술이 보스(삼룡은 용 하나하나)에 휘청을 쌓고, 가득 차면 쓰러진다
+const SHIELD_SWAY_MAX = 100;
+const SHIELD_SWAY_STUN = 2.2;     // 쓰러져 있는 시간 (그동안 받는 피해 ×1.5 = 보스 기절과 같다)
+const SHIELD_SWAY_LOCK = 5;       // 일어난 뒤 이 시간 동안은 안 쌓인다 (계속 눕히지 못하게)
+const SHIELD_SWAY_IDLE = 4, SHIELD_SWAY_DECAY = 8; // 이 시간 동안 안 쌓으면 초당 이만큼 줄어든다
+const SHIELD_SWAY_HIT = { bash: 2, bashFin: 10, quake: 14, shieldSpin: 6, shieldSlam: 8, shieldCharge: 12 };
+const SHIELD_SWAY_JUST = 30, SHIELD_SWAY_BLOCK = 8, SHIELD_SWAY_RECOIL = 8; // 저스트 가드 · 일반 막기 · 반동 실은 공격(칸당 더)
 
 Object.assign(MOVES, {
 // 방패: 한 방이 무겁고 크게 밀어낸다
@@ -83,6 +93,7 @@ addWeapon('shield', {
     ['방패 돌진', `${D} 중 ${P} (돌려치기와 쿨타임 같이 씀)`, '앞의 적을 방패에 붙인 채 밀고 달린다 · 부딪힌 자리에서 충격파가 퍼져 주변 적도 때리고 밀어낸다 · 정면 막기 · 벽에 몰아붙이면 벽꿍 · 끝에서 크게 밀쳐낸다 · 날아간 적이 다른 적에게 부딪히면 연쇄 (최대 4번)'],
     ['저스트 가드', `막기를 시작하고 ${SHIELD_JUST_T}초 안에 맞기`, '피해 0 · 특수 · 대시 쿨타임 초기화 · 때린 적이 튕겨 나가 기절 · 다음 밀치기 확정 치명타'],
     ['대시 · 방패 대시', `${D} (쿨타임 ${+(DASH_CD * WEAPONS.shield.dashCdMult).toFixed(2)}초 · 1회)`, '무적이 아니라 정면을 막는다 (막으면 피해 0 · 다음 밀치기는 반격 밀치기) · 누르는 순간이 저스트 가드 · 적에 부딪히면 멈춘다'],
+    ['벽꿍', '3타째 밀치기 · 돌려치기 · 방패 돌진으로 벽에 밀기', '추가 피해 + 기절 · 특수 · 대시 쿨타임 초기화'],
     ['방패 후리기', `${D} → ${A}`, '대시 뒤 방패로 내려찍기 · 기절 · 땅속에 숨은 적도 끌어내 때린다 · 찍는 동안은 못 막음', 'thrust'],
   ],
   notesTitle: '방패 특성 · 막기',
@@ -90,7 +101,10 @@ addWeapon('shield', {
     '방패는 저스트 회피가 없어요. 대시가 방패 대시예요.',
     '방패 대시 중 · 끝난 직후 잠깐 · 밀치는 동안 · 방패 돌진 중, 정면에서 오는 공격과 탄을 막아요. 방패 대시 · 돌진으로 막으면 피해 0, 밀치는 동안 막으면 피해를 30%만 받아요. 막으면 다음 밀치기는 반격 밀치기(피해 ×1.6)예요.',
     '저스트 가드: 막기를 새로 시작하고 0.25초 안에 맞으면(공격이 닿는 순간 밀치기 · 대시 · 돌진을 누르면) 피해 0, 특수 · 대시 쿨타임 초기화, 때린 적은 튕겨 나가 1.2초 기절, 다음 밀치기는 반격 밀치기(피해 ×1.6, 확정 치명타)가 돼요. 밀치기를 계속 이어 누르는 중에는 저스트가 안 돼요.',
-    '못 막는 것: 바닥에서 터지는 범위 공격(빨간 원 · 뿌리 · 폭발)과 옆 · 뒤에서 오는 공격. 이건 위치로 피해야 해요.',
+    '못 막는 것: 바닥에서 터지는 범위 공격(빨간 원 · 뿌리 · 폭발)과 뒤에서 오는 공격. 이건 위치로 피해야 해요.',
+    '벽꿍: 3타째 밀치기 · 돌려치기 · 방패 돌진으로 적을 벽에 밀면 추가 피해 + 기절, 그리고 특수 · 대시 쿨타임이 바로 돌아와요.',
+    `반동: 막으면 1칸, 저스트 가드면 2칸 쌓여요(최대 ${SHIELD_RECOIL_MAX}칸, 머리 위 금빛 점). 다음 3타째 밀치기나 방패 강타에 전부 실려 칸당 피해 +${Math.round(SHIELD_RECOIL_MULT * 100)}%. 막지 못하고 맞으면 흩어져요.`,
+    '휘청: 보스는 밀리지 않는 대신, 막기 · 저스트 가드 · 방패 기술에 맞을 때마다 휘청이 쌓여요(보스 체력 아래 금빛 막대). 가득 차면 보스가 쓰러져 잠깐 받는 피해가 1.5배가 돼요. 쓰러뜨린 뒤 한동안은 다시 안 쌓여요.',
     '돌진은 적을 통과하지 못하고 부딪혀 멈춰요. 포위당하면 돌려치기로 밀어내세요.',
   ],
   comboLen: 3,
@@ -128,6 +142,28 @@ Object.assign(WEAPONS.shield, {
       return true;
     }
     return false;
+  },
+  // 벽꿍 (2026-10-31 사용자): 특수 · 대시 쿨타임 초기화 → 돌진 · 돌려치기를 바로 이어 쓴다
+  onWallSlam(p) {
+    p.specialCd = 0; p.dashStock = p.dashMax; p.dashRecharge = p.dashCdBase;
+    if (G.time - (p.slamResetAt ?? -9) > 0.5) { p.slamResetAt = G.time; G.text(p.x, p.y - 30, '쿨타임 초기화', '#9fdcff', 11, 0.6); }
+  },
+  // 아무 방패 기술이 맞았을 때 (boons.js FX.onHit): 보스에 휘청
+  onAnyHit(fx, t, info) {
+    const n = SHIELD_SWAY_HIT[info.kind], p = G.player;
+    if (!n) return;
+    const rc = G.time < (p.recoilHitT || 0) && (info.kind === 'bashFin' || info.kind === 'quake') ? p.recoilUsed : 0;
+    p.addSway(t, n + rc * SHIELD_SWAY_RECOIL);
+  },
+  // 보스전 상태줄: 보스 체력 막대 아래 휘청 막대 (삼룡은 가장 많이 쌓인 용)
+  bossHud(boss, x, y, w) {
+    const list = boss.dragons ? boss.dragons.filter(d => !d.dead && d.active) : [boss];
+    if (!list.length) return;
+    const v = Math.max(...list.map(shieldSwayNow)) / SHIELD_SWAY_MAX, rest = Math.max(...list.map(d => (d.swayLock || 0) - G.time)), lock = rest > 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, w, 4);
+    ctx.fillStyle = lock ? 'rgba(200,200,200,0.35)' : v > 0.8 ? `rgba(255,210,138,${0.75 + Math.sin(G.time * 14) * 0.25})` : '#e8c070';
+    ctx.fillRect(x, y, w * (lock ? rest / (SHIELD_SWAY_LOCK + SHIELD_SWAY_STUN) : v), 4); // 쓰러뜨린 뒤엔 회색 막대가 줄어든다 (다 줄면 다시 쌓인다)
+    label('휘청', x - 4, y + 3, 9, lock ? '#999' : '#ffd28a', 'right', '700');
   },
   // 돌려치기에 맞았을 때: 속성 특수 축복 · 치유
   onSpecialHit(fx, t, info, atk) {
@@ -202,6 +238,7 @@ extendPlayer({
     if (!just) { // 일반 막기: 방패 대시 · 돌진이면 피해 0, 밀치는 중이면 피해 일부. 어느 쪽이든 다음 밀치기는 반격 밀치기 (2026-10-18)
       this.kvx -= c * 90; this.kvy -= s * 90;
       this.bashReady = true;
+      this.gainRecoil(1); this.addSway(this.swayFoe(src), SHIELD_SWAY_BLOCK);
       if (isFoe && src.type !== 'boss') { src.kvx += c * 140; src.kvy += s * 140; }
       G.text(this.x, this.y - 30, '막기', '#c8d8e8', 12, 0.6);
       G.burst(bx, by, 6, ['#ffffff', '#9fdcff'], 120);
@@ -213,6 +250,7 @@ extendPlayer({
     this.invuln = Math.max(this.invuln, SHIELD_BLOCK_INV);
     this.specialCd = 0; this.dashStock = this.dashMax; this.dashRecharge = this.dashCdBase;
     this.bashReady = true; this.justReady = true;
+    this.gainRecoil(2); this.addSway(this.swayFoe(src), SHIELD_SWAY_JUST);
     this.kvx -= c * 60; this.kvy -= s * 60;
     if (isFoe) {
       if (src.type !== 'boss' && !src.superArmor) { src.kvx += c * 420; src.kvy += s * 420; src.stun = Math.max(src.stun || 0, SHIELD_JUST_STUN); }
@@ -225,14 +263,57 @@ extendPlayer({
     Sfx.guardBreak(); Sfx.block(); Input.rumble(0.9, 180);
     return 0;
   },
+  // 반동: 막을 때 쌓는다
+  gainRecoil(n) {
+    const was = this.recoil || 0;
+    this.recoil = Math.min(SHIELD_RECOIL_MAX, was + n);
+    if (this.recoil > was) G.text(this.x + 16, this.y - 22, this.recoil >= SHIELD_RECOIL_MAX ? '반동 가득!' : '반동 +' + (this.recoil - was), '#ffd28a', 10, 0.6);
+  },
+  // 반동: 3타째 밀치기 · 방패 강타가 전부 싣고 간다 → 피해 배율. 맞은 보스 휘청도 더 (onAnyHit)
+  useRecoil() {
+    const n = this.recoil || 0;
+    if (!n) return 1;
+    this.recoil = 0; this.recoilUsed = n; this.recoilHitT = G.time + 0.6; // 충격파는 날아가는 동안 맞으니 조금 넉넉하게
+    G.text(this.x, this.y - 34, '반동!', '#ffd28a', 12 + n, 0.6);
+    G.shake = Math.max(G.shake, 3 + n); Input.rumble(0.4 + 0.15 * n, 120);
+    return 1 + SHIELD_RECOIL_MULT * n;
+  },
+  // 막은 공격을 낸 보스: 직접 때렸으면 그 보스 · 용, 탄이면 보스 (삼룡은 탄에 가장 가까운 용)
+  swayFoe(src) {
+    if (!src) return null;
+    if (src.type) return src;
+    const b = G.boss;
+    if (!b || b.dead) return null;
+    if (!b.dragons) return b;
+    let best = null, bd = 1e9;
+    for (const d of b.dragons) { if (d.dead || !d.active) continue; const dd = Math.hypot(d.x - src.x, d.y - src.y); if (dd < bd) { bd = dd; best = d; } }
+    return best;
+  },
+  // 휘청 쌓기: 보스 · 용 · 연습실 보스 더미만. 가득 차면 쓰러진다 (보스 기절 상태 = 받는 피해 ×1.5)
+  addSway(t, n) {
+    if (!t || t.dead || !n || !(t.type === 'boss' || t.type === 'dragon' || t.bossLike) || t.untargetable) return;
+    if (G.time < (t.swayLock || 0)) return;
+    t.sway = shieldSwayNow(t) + n; t.swayAt = G.time;
+    if (t.sway < SHIELD_SWAY_MAX) return;
+    if (t.type === 'boss' && (t.state === 'intro' || t.state === 'hidden' || t.state === 'stun')) { t.sway = SHIELD_SWAY_MAX - 1; return; } // 숨었거나 이미 기절: 다음 한 방에
+    t.sway = 0; t.swayLock = G.time + SHIELD_SWAY_STUN + SHIELD_SWAY_LOCK;
+    if (t.type === 'boss') { t.state = 'stun'; t.st = SHIELD_SWAY_STUN; t.attacking = false; t.air = 0; t.tongueLen = 0; t.hops = 0; t.recharged = false; }
+    else if (t.type === 'dragon') { t.state = 'rest'; t.st = SHIELD_SWAY_STUN; }
+    else t.stun = Math.max(t.stun || 0, SHIELD_SWAY_STUN); // 연습실 보스 더미
+    G.text(t.x, t.y - 44, '휘청!', '#ffd24a', 18, 1.2);
+    G.burst(t.x, t.y, 18, ['#ffd28a', '#ffffff', '#c8a878'], 200); pixRing(t.x, t.y, '#ffd28a', 48);
+    G.shake = Math.max(G.shake, 9); G.hitstop = Math.max(G.hitstop, 0.1); Sfx.guardBreak(); Input.rumble(0.8, 220);
+    if (G.lumi && t.type !== 'dummy') G.lumi.say('휘청거려요! 지금이에요!', 1.4);
+  },
   // 3연 밀치기: 짧은 앞쪽 부채꼴. 막은 뒤 첫 밀치기는 반격 밀치기
   startBash(mag) {
     this.combo = this.comboT > 0 ? (this.combo + 1) % 3 : 0;
     this.aim(mag);
-    const fin = this.combo === 2, counter = !!this.bashReady;
+    const fin = this.combo === 2, counter = !!this.bashReady, rk = fin ? this.useRecoil() : 1;
     this.bashReady = false;
+    const mult = (counter ? SHIELD_COUNTER_MULT : 1) * rk;
     this.act = { kind: fin ? 'bashFin' : 'bash', t: 0, dur: fin ? 0.24 : 0.15, hit: new Set(), range: fin ? SHIELD_FIN_REACH : SHIELD_REACH, half: fin ? SHIELD_FIN_HALF : SHIELD_HALF,
-      opts: counter ? { mult: SHIELD_COUNTER_MULT } : undefined, counter };
+      opts: mult !== 1 ? { mult } : undefined, counter };
     this.act.noStep = mag < STEP_MIN || this.enemyInReach(this.act.range, this.act.half);
     this.atkCd = (fin ? SHIELD_FIN_CD : 0.28) * (1 - COMBO_SPEED * FX.lv('atk_combo'));
     this.guardSrc = 'bash'; // 밀치는 중 막기는 피해 일부
@@ -252,7 +333,8 @@ extendPlayer({
     this.aim(mag);
     const ms = FX.lv('atk_multispin');
     this.guardT = 0; // 방패를 내려 땅을 찍는다: 막기 없음
-    this.act = { kind: 'quake', t: 0, dur: 0.34 + 0.12 * ms, dur0: 0.34, hit: new Set(), r: this.quakeR, extra: ms, shocks: 0 };
+    const rk = this.useRecoil(), opts = ms || rk !== 1 ? { ...(ms ? { kb: 60 } : {}), ...(rk !== 1 ? { mult: rk } : {}) } : undefined; // 반동은 첫 충격파에만 (여진은 그대로)
+    this.act = { kind: 'quake', t: 0, dur: 0.34 + 0.12 * ms, dur0: 0.34, hit: new Set(), r: this.quakeR, extra: ms, shocks: 0, opts };
     this.atkCd = 0.55 + 0.12 * ms; this.charge = 0; this.comboT = 0;
     G.text(this.x, this.y - 24, '방패 강타', '#ffd24a', 12, 0.6);
     Sfx.swing(true);
@@ -338,7 +420,7 @@ extendPlayer({
       shieldSprite(g, x + c * 13, cy + s * 9, 1.15, glow);
       const k = 0.4 + 0.2 * Math.sin(G.time * 40);
       g.strokeStyle = `rgba(159,220,255,${k})`; g.lineWidth = 2;
-      g.beginPath(); g.arc(x, cy, 20, f - 0.9, f + 0.9); g.stroke();
+      g.beginPath(); g.arc(x, cy, 20, f - 1.15, f + 1.15); g.stroke(); // 막는 각도가 넓어진 만큼 호도 조금 넓게 (2026-10-31)
     } else if (a && a.kind === 'bashFin') { // 몸으로 밀어치기: 방패를 몸에 붙이고 어깨로 들이받는다
       const p = a.t / a.dur, e = p < 0.45 ? p / 0.45 : 1 - (p - 0.45) / 0.55;
       shieldSprite(g, x + c * (11 + e * 4), cy + s * (8 + e * 3), 1.15, glow || a.counter);
@@ -386,6 +468,16 @@ extendPlayer({
       g.drawImage(im, fr * 24, 0, 24, 26, -24, -30, 48, 52); g.restore();
       this.guardFxT -= 1 / 60;
     }
+    // 반동 칸: 머리 위 작은 점 세 개 (쌍검 기세 칸과 같은 모양, 금빛)
+    if (this.recoil > 0) {
+      const n = SHIELD_RECOIL_MAX, full = this.recoil >= n, by = y - 30;
+      for (let i = 0; i < n; i++) {
+        const bx = x + (i - (n - 1) / 2) * 6, on = i < this.recoil;
+        if (on && full) { g.fillStyle = `rgba(255,210,138,${0.35 + Math.sin(G.time * 12) * 0.15})`; g.beginPath(); g.arc(bx, by, 3.6, 0, Math.PI * 2); g.fill(); }
+        g.fillStyle = on ? '#ffd28a' : 'rgba(255,255,255,0.25)';
+        g.beginPath(); g.arc(bx, by, 2, 0, Math.PI * 2); g.fill();
+      }
+    }
   },
 });
 
@@ -400,8 +492,8 @@ ACT_HANDLERS.push(function (a, dt, fx, fy) {
       if (!a.hitDone && a.t >= a.dur0 * 0.3) { // 내려친 순간
         a.hitDone = true;
         this.unearth(a.r * QUAKE_WAVE_REACH, SHIELD_QUAKE_HALF); // 충격파가 닿는 곳의 땅속 적을 끌어낸다
-        this.hitFan(a, this.x, this.y, QUAKE_NEAR, SHIELD_QUAKE_HALF, 'quake', SHIELD_QUAKE_STUN, a.extra ? { kb: 60 } : undefined);
-        G.projectiles.push(new QuakeWave(this, a.r * QUAKE_WAVE_REACH, a.hit, SHIELD_QUAKE_STUN, a.extra ? { kb: 60 } : undefined)); // 부채꼴 충격파
+        this.hitFan(a, this.x, this.y, QUAKE_NEAR, SHIELD_QUAKE_HALF, 'quake', SHIELD_QUAKE_STUN, a.opts);
+        G.projectiles.push(new QuakeWave(this, a.r * QUAKE_WAVE_REACH, a.hit, SHIELD_QUAKE_STUN, a.opts)); // 부채꼴 충격파
         G.shake = Math.max(G.shake, 6); Sfx.slam();
         G.burst(this.x + fx * 16, this.y + fy * 10, 12, ['#d8c8a8', slotCol('charge', '#ffffff'), '#fff'], 160);
         FX.onQuake(this, this.x + fx * a.r * 0.6, this.y + fy * a.r * 0.6);
@@ -557,6 +649,12 @@ class QuakeWave {
     }
     g.restore();
   }
+}
+
+// 지금 휘청 값: 한동안(SHIELD_SWAY_IDLE) 안 쌓으면 서서히 줄어든다 (매 프레임 줄이지 않고 읽을 때 계산)
+function shieldSwayNow(t) {
+  const idle = G.time - (t.swayAt ?? -99) - SHIELD_SWAY_IDLE;
+  return Math.max(0, (t.sway || 0) - Math.max(0, idle) * SHIELD_SWAY_DECAY);
 }
 
 // 방패 그림: 16픽셀 원형 방패 (glow 면 금빛 테두리)

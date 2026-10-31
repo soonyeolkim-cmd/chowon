@@ -636,6 +636,7 @@ const FX = {
     const atk = this.atk(), kind = info.kind;
     const basic = isBasicKind(kind), W = curWeaponDef();
     const burning = t.burn && t.burn.stacks > 0;
+    W.onAnyHit?.(this, t, info); // 무기별: 맞힌 기술 종류와 상관없이 (방패: 보스 휘청)
     if (this.lv('shatter') && t.frozenT > 0) {
       t.frozenT = 0;
       G.burst(t.x, t.y, 16, ['#bfefff', '#fff'], 200);
