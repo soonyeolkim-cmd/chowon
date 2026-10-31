@@ -646,6 +646,7 @@ class QuakeWave {
   constructor(p, maxR, hit, stun, opts, after) {
     this.x = p.x; this.y = p.y; this.dir = p.facing; this.r = QUAKE_NEAR - 6; this.maxR = maxR;
     this.hit = hit; this.stun = stun; this.opts = opts; this.after = !!after; this.done = false; this.t = 0;
+    this.stopped = hit.size > 0; // 내려친 바로 앞에서 이미 맞혔으면 그때 멈췄으니 충격파는 안 멈춘다
   }
   update(dt) {
     const p = G.player;
@@ -657,7 +658,11 @@ class QuakeWave {
       if (Math.abs(angDiff(Math.atan2(dy, dx), this.dir)) > SHIELD_QUAKE_HALF + 0.1) continue;
       if (World.shotLineBlock(this.x, this.y, t.x, t.y) >= 0) continue; // 나무 · 바위 뒤는 안 닿는다 (2026-10-18)
       this.hit.add(t);
+      // 히트스톱(화면 멈춤)은 충격파 하나에 첫 적중 한 번만, 여진은 없음 (2026-10-31 사용자: 강타가 버벅인다 —
+      // 퍼지며 시간차로 맞을 때마다 멈춰서 6마리면 5번 · 333ms, 여진 3이면 16번 · 1초 넘게 끊겼다)
+      const hs = G.hitstop;
       p.deal(t, 'quake', dx / d, dy / d, this.opts);
+      if (this.after || this.stopped) G.hitstop = hs; else this.stopped = true;
       if (this.stun && !t.dead && t.type !== 'boss' && !t.superArmor) t.stun = Math.max(t.stun || 0, this.stun);
       G.burst(t.x, t.y + 2, 6, ['#d8c8a8', slotCol('charge', '#ffffff')], 120);
     }
